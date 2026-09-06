@@ -1,0 +1,32 @@
+{
+  "name": "@crm/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Schemas, enums, permissions and pure helpers shared by api and web",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./permissions": "./src/permissions.ts",
+    "./enums": "./src/enums.ts",
+    "./phone": "./src/phone.ts",
+    "./visibility": "./src/visibility.ts",
+    "./socket-events": "./src/socket-events.ts",
+    "./schemas/*": "./src/schemas/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-auth": "1.7.2",
+    "libphonenumber-js": "1.13.12",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "vitest": "4.1.11"
+  }
+}

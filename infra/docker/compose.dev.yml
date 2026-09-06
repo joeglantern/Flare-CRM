@@ -1,0 +1,77 @@
+# Local development dependencies only. The api/worker run on the host with `pnpm dev`.
+# Ports are bound to 127.0.0.1 so nothing is exposed on the LAN.
+name: crm-dev
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_DB: crm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    command: ['postgres', '-c', 'log_min_duration_statement=250', '-c', 'shared_buffers=256MB']
+    ports:
+      - '127.0.0.1:5434:5432' # 5432/5433 are used by other local projects
+    volumes:
+      - pg_data_dev:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d crm']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  valkey:
+    image: valkey/valkey:8.1-alpine
+    command:
+      - valkey-server
+      - --appendonly
+      - 'yes'
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - noeviction
+      - --requirepass
+      - devpassword
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - valkey_data_dev:/data
+    healthcheck:
+      test: ['CMD', 'valkey-cli', '-a', 'devpassword', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.99
+    command: >-
+      server -s3 -s3.port=8333 -dir=/data -ip=seaweedfs -ip.bind=0.0.0.0
+      -master.volumeSizeLimitMB=1024 -volume.max=0 -s3.config=/etc/seaweedfs/s3.json
+    ports:
+      - '127.0.0.1:8333:8333'
+    volumes:
+      - seaweed_data_dev:/data
+      - ./seaweedfs/s3.dev.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports:
+      - '127.0.0.1:8025:8025' # web UI
+      - '127.0.0.1:1025:1025' # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  pg_data_dev:
+  valkey_data_dev:
+  seaweed_data_dev:

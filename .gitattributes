@@ -1,0 +1,8 @@
+# Keep LF everywhere (Docker, shell scripts and Linux VPS deploys break on CRLF).
+* text=auto eol=lf
+*.sh text eol=lf
+*.sql text eol=lf
+Dockerfile text eol=lf
+*.png binary
+*.jpg binary
+*.wav binary

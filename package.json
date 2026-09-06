@@ -1,0 +1,45 @@
+{
+  "name": "crm",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CRM with Yeastar P-Series PABX (CTI) integration and unified communication history",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @crm/api dev",
+    "dev:worker": "pnpm --filter @crm/api dev:worker",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r test",
+    "test:unit": "pnpm -r test:unit",
+    "db:migrate": "pnpm --filter @crm/api db:migrate",
+    "db:seed": "pnpm --filter @crm/api db:seed",
+    "docker:dev": "docker compose -f infra/docker/compose.dev.yml up -d",
+    "docker:dev:down": "docker compose -f infra/docker/compose.dev.yml down",
+    "prepare": "lefthook install",
+    "dev:web": "pnpm --filter @crm/web dev",
+    "openapi:export": "pnpm --filter @crm/api openapi:export",
+    "openapi:types": "pnpm --filter @crm/web openapi:types"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.3",
+    "eslint": "10.9.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.6",
+    "globals": "17.12.0",
+    "lefthook": "2.1.12",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.69.0"
+  }
+}

@@ -1,0 +1,18 @@
+# Checks run against the whole workspace rather than the staged file list.
+# Passing hundreds of paths on the command line overflows the Windows limit, which is how a large
+# commit ends up silently skipping its own checks. Both tools are fast enough on this repo, and
+# this matches what CI runs.
+pre-commit:
+  parallel: true
+  commands:
+    prettier:
+      run: pnpm prettier --check .
+    eslint:
+      run: pnpm eslint .
+
+pre-push:
+  commands:
+    typecheck:
+      run: pnpm typecheck
+    unit:
+      run: pnpm test:unit

@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+build/
+*.tsbuildinfo
+apps/api/src/generated/
+
+# env & secrets — never commit real values
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# logs / coverage / tmp
+logs/
+*.log
+coverage/
+.vitest/
+tmp/
+
+# editors / os
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# docker volumes (dev bind mounts if any)
+infra/docker/.data/
+
+# web build output
+apps/web/dist
+
+# design working files, not part of the product
+docs/design/
+docs/design-handoff/
+
+# local screenshots and scratch images
+/image*.png
+/screenshot*.png

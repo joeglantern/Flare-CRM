@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "crm-dev",
+      "credentials": [{ "accessKey": "crmdevaccesskey", "secretKey": "crmdevsecretkey" }],
+      "actions": ["Read", "Write", "List", "Tagging", "Admin"]
+    }
+  ]
+}

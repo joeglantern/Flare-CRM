@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+
+minimumReleaseAge: 4320 # minutes (3 days) — supply-chain guard, see docs/08 L2
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - prisma
+  - esbuild
+  - lefthook
+  - msgpackr-extract
+  - sharp

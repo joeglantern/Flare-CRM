@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+pnpm-lock.yaml
+apps/api/src/generated
+apps/api/prisma/migrations
+docs/00-source-requirements.md
+apps/web/src/routeTree.gen.ts
+apps/web/src/lib/api/schema.d.ts
+docs/openapi.json

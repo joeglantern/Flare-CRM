@@ -1,0 +1,217 @@
+# Production topology for a single Linux VPS (docs/12 §1). Deploy with infra/deploy.sh.
+# Never run `docker compose down -v` here — volumes hold the database and recordings (docs/13).
+name: crm
+
+x-app-common: &app-common
+  image: ${IMAGE:-ghcr.io/OWNER/crm-api}:${IMAGE_TAG:-latest}
+  restart: unless-stopped
+  env_file: [.env]
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  logging: &logging
+    driver: json-file
+    options: { max-size: '50m', max-file: '10' }
+  depends_on:
+    postgres: { condition: service_healthy }
+    valkey: { condition: service_healthy }
+    seaweedfs: { condition: service_healthy }
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ['80:80', '443:443', '443:443/udp']
+    environment:
+      CRM_DOMAIN: ${CRM_DOMAIN:?set CRM_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - web_dist:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    logging: *logging
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_completed_successfully }
+
+  # publishes the built SPA into web_dist and exits; Caddy serves it (docs/12 §2)
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/OWNER/crm-web:latest}
+    restart: 'no'
+    volumes:
+      - web_dist:/out
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    logging: *logging
+
+  api:
+    <<: *app-common
+    environment: { APP_MODE: api }
+    networks: [edge, internal]
+    stop_grace_period: 30s
+    deploy:
+      resources: { limits: { memory: 1g } }
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:4000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    <<: *app-common
+    environment: { APP_MODE: worker }
+    networks: [edge, internal] # egress to the PBX (WireGuard) / Meta / SMTP
+    stop_grace_period: 30s
+    deploy:
+      resources: { limits: { memory: 1g } }
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:4000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  migrate:
+    <<: *app-common
+    profiles: [ops]
+    restart: 'no'
+    command: ['node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy']
+    networks: [internal]
+    healthcheck: { disable: true }
+
+  postgres:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: crm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      CRM_APP_PASSWORD: ${CRM_APP_PASSWORD:?set CRM_APP_PASSWORD in .env}
+      CRM_MIGRATE_PASSWORD: ${CRM_MIGRATE_PASSWORD:?set CRM_MIGRATE_PASSWORD in .env}
+      CRM_BACKUP_PASSWORD: ${CRM_BACKUP_PASSWORD:?set CRM_BACKUP_PASSWORD in .env}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - wal_level=replica
+      - -c
+      - log_min_duration_statement=500
+      - -c
+      - max_connections=100
+    shm_size: 256m
+    secrets: [postgres_password]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+    deploy:
+      resources: { limits: { memory: 2g } }
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d crm']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    labels: { com.crm.persistent: 'true' }
+
+  valkey:
+    image: valkey/valkey:8.1-alpine
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - exec valkey-server --appendonly yes --appendfsync everysec --maxmemory 400mb --maxmemory-policy noeviction --requirepass "$$(cat /run/secrets/valkey_password)" --protected-mode yes
+    secrets: [valkey_password]
+    volumes: [valkey_data:/data]
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+    deploy:
+      resources: { limits: { memory: 512m } }
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'valkey-cli -a "$$(cat /run/secrets/valkey_password)" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    labels: { com.crm.persistent: 'true' }
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:3.99
+    restart: unless-stopped
+    command: >-
+      server -s3 -s3.port=8333 -dir=/data -ip=seaweedfs -ip.bind=0.0.0.0
+      -master.volumeSizeLimitMB=1024 -volume.max=0 -s3.config=/etc/seaweedfs/s3.json -filer.maxMB=64
+    volumes:
+      - seaweed_data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+    deploy:
+      resources: { limits: { memory: 1g } }
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/ || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    labels: { com.crm.persistent: 'true' }
+
+  backup:
+    build: ./backup
+    image: crm-backup:local
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      PGHOST: postgres
+      PGUSER: crm_backup
+      PGPASSWORD: ${CRM_BACKUP_PASSWORD}
+      PGDATABASE: crm
+      BACKUP_CRON: ${BACKUP_CRON:-30 2 * * *}
+    volumes:
+      - seaweed_data:/backup/seaweed:ro
+      - caddy_data:/backup/caddy:ro
+      - ./.env:/backup/config/.env:ro
+      - restic_cache:/root/.cache/restic
+      - backup_state:/backup/state
+    networks: [internal, edge] # edge for the off-site bucket
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+    depends_on:
+      postgres: { condition: service_healthy }
+
+secrets:
+  postgres_password: { file: ./secrets/postgres_password }
+  valkey_password: { file: ./secrets/valkey_password }
+
+networks:
+  edge: {}
+  internal: { internal: true }
+
+volumes:
+  pg_data: { labels: { com.crm.persistent: 'true' } }
+  valkey_data: { labels: { com.crm.persistent: 'true' } }
+  seaweed_data: { labels: { com.crm.persistent: 'true' } }
+  caddy_data: { labels: { com.crm.persistent: 'true' } }
+  caddy_config: {}
+  web_dist: {}
+  restic_cache: {}
+  backup_state: {}

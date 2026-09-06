@@ -1,0 +1,114 @@
+/*
+ * Flare CRM theme tokens. Faithful port of the design project's flare-theme.css
+ * (docs/18 §3-5, docs/design/Design System). Dark is default; [data-theme="light"] swaps.
+ * Only these variables may be used for colour anywhere in the app.
+ */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #000000;
+  --bg-raised: #0b0b0c;
+  --surface: #121213;
+  --surface-hover: #1a1a1c;
+  --border: #232325;
+  --border-strong: #2f2f32;
+  --text: #f2f1ef;
+  --text-muted: #a3a19c;
+  --text-faint: #6b6965;
+
+  --flare: #ff6a3d;
+  --flare-hover: #ff8a5b;
+  --flare-pressed: #e4532a;
+  --flare-link: #ffb08a;
+  --flare-subtle: #2a120a;
+  --flare-on-subtle: #ffb08a;
+
+  --success: #3dd68c;
+  --warning: #f5b940;
+  --danger: #f0564d;
+  --info: #5ca8ff;
+  --success-subtle: rgba(61, 214, 140, 0.12);
+  --warning-subtle: rgba(245, 185, 64, 0.12);
+  --danger-subtle: rgba(240, 86, 77, 0.12);
+  --info-subtle: rgba(92, 168, 255, 0.12);
+
+  --shadow: none;
+  --on-flare: #17171a;
+  --wordmark-filter: none;
+  /* objects are rendered against dark; screen drops their baked black backdrop */
+  --object-blend: screen;
+
+  /* raw ramp, for places that need a specific step rather than a role */
+  --flare-100: #ffe9df;
+  --flare-300: #ffb08a;
+  --flare-400: #ff8a5b;
+  --flare-500: #ff6a3d;
+  --flare-600: #e4532a;
+  --flare-700: #b83f1e;
+  --flare-950: #2a120a;
+
+  /* charts: series order is fixed, never more than five (docs/18 §3) */
+  --chart-1: #ff6a3d;
+  --chart-2: #8a8985;
+  --chart-3: #3dd68c;
+  --chart-4: #f5b940;
+  --chart-5: #5ca8ff;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #fafaf8;
+  --bg-raised: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f3f2ef;
+  --border: #e6e4df;
+  --border-strong: #cfccc5;
+  --text: #17171a;
+  --text-muted: #5f5e5a;
+  --text-faint: #9a9893;
+
+  --flare: #ff6a3d;
+  --flare-hover: #e4532a;
+  --flare-pressed: #b83f1e;
+  --flare-link: #b83f1e;
+  --flare-subtle: #ffe9df;
+  --flare-on-subtle: #b83f1e;
+
+  --success: #1e9e5e;
+  --warning: #b7791f;
+  --danger: #c8322b;
+  --info: #2f6fd6;
+  --success-subtle: rgba(30, 158, 94, 0.1);
+  --warning-subtle: rgba(183, 121, 31, 0.12);
+  --danger-subtle: rgba(200, 50, 43, 0.1);
+  --info-subtle: rgba(47, 111, 214, 0.1);
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06);
+  --on-flare: #ffffff;
+  --wordmark-filter: brightness(0) saturate(100%) invert(6%) sepia(3%) saturate(400%)
+    hue-rotate(200deg);
+  --object-blend: multiply;
+
+  --chart-3: #1e9e5e;
+  --chart-4: #b7791f;
+  --chart-5: #2f6fd6;
+}
+
+:root {
+  /* shape (docs/18 §5): 6 inputs and buttons, 8 cards, 10 dialogs, full for pills */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+
+  /* motion */
+  --dur-hover: 120ms;
+  --dur-open: 180ms;
+  --dur-panel: 240ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --font-sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:
+    'Geist Mono Variable', 'Geist Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+}
