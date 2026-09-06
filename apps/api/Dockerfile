@@ -18,6 +18,10 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 FROM deps AS build
 COPY packages ./packages
 COPY apps/api ./apps/api
+# prisma.config.ts resolves the datasource URL eagerly, but `generate` never opens a connection.
+# A placeholder lets the client be generated without a database at build time; the real URL is
+# supplied by the environment at runtime, where migrations actually need it.
+ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build
 RUN pnpm --filter @crm/api prisma:generate \
  && pnpm --filter @crm/api exec tsc --noEmit \
  && pnpm --filter @crm/api exec tsup \

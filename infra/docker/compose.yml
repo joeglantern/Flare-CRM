@@ -169,7 +169,14 @@ services:
     deploy:
       resources: { limits: { memory: 1g } }
     healthcheck:
-      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/ || exit 1']
+      # An unauthenticated GET of the S3 root answers 403, which is the gateway working correctly.
+      # Plain `wget -q` treats that as failure, so the container never became healthy and the api
+      # and worker, which wait on it, never started. Any HTTP status line proves the port is served.
+      test:
+        [
+          'CMD-SHELL',
+          'wget -S -q -O /dev/null http://127.0.0.1:8333/ 2>&1 | grep -qE "HTTP/1\\.[01] (200|403)"',
+        ]
       interval: 15s
       timeout: 5s
       retries: 10
