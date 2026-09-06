@@ -23,7 +23,7 @@
     "db:seed": "pnpm --filter @crm/api db:seed",
     "docker:dev": "docker compose -f infra/docker/compose.dev.yml up -d",
     "docker:dev:down": "docker compose -f infra/docker/compose.dev.yml down",
-    "prepare": "lefthook install",
+    "prepare": "lefthook install || true",
     "dev:web": "pnpm --filter @crm/web dev",
     "openapi:export": "pnpm --filter @crm/api openapi:export",
     "openapi:types": "pnpm --filter @crm/web openapi:types"
