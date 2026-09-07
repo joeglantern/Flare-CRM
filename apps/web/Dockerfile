@@ -26,6 +26,10 @@ RUN pnpm --filter @crm/web openapi:types \
 FROM alpine:3.22 AS runtime
 RUN addgroup -S app && adduser -S -G app app
 COPY --from=build --chown=app:app /repo/apps/web/dist /srv/web
+# Docker seeds an empty named volume from whatever the image holds at the mount path, ownership
+# included. /out does not exist here otherwise, so the daemon creates it root owned and the
+# unprivileged publisher below cannot write into it.
+RUN install -d -o app -g app /out
 USER app
 # atomic-ish swap: stage then move, so Caddy never serves a half-copied tree
 CMD ["sh", "-c", "rm -rf /out/.next && mkdir -p /out/.next && cp -R /srv/web/. /out/.next/ && find /out -mindepth 1 -maxdepth 1 ! -name .next -exec rm -rf {} + && cp -R /out/.next/. /out/ && rm -rf /out/.next && echo 'web assets published'"]
