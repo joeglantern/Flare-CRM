@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { TwoFactorEnrolScreen, TwoFactorVerifyScreen } from '@/features/auth/TwoFactorScreen';
 import { authClient } from '@/lib/auth/client';
@@ -12,6 +12,15 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute('/two-factor')({
   validateSearch: searchSchema,
+  // Enrolling needs a session: the server re-checks the password against the signed-in account.
+  // Without this a signed-out visitor gets the form, and the server's "Unauthorized" is shown in
+  // the password field as though the password were wrong. The verify step is deliberately not
+  // guarded, because during sign-in the second factor is supplied before a session exists.
+  beforeLoad: async ({ search, location }) => {
+    if (search.setup !== true) return;
+    const { data } = await authClient.getSession();
+    if (!data) throw redirect({ to: '/sign-in', search: { redirect: location.href } });
+  },
   component: TwoFactorRoute,
 });
 
