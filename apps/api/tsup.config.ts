@@ -8,6 +8,7 @@ export default defineConfig({
     'entry/api': 'src/entry/api.ts',
     'entry/worker': 'src/entry/worker.ts',
     seed: 'prisma/seed.ts',
+    'provision-user': 'src/scripts/provision-user.ts',
   },
   format: ['esm'],
   target: 'node22',

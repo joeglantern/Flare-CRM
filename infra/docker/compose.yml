@@ -97,6 +97,17 @@ services:
     networks: [internal]
     healthcheck: { disable: true }
 
+  # creates or updates one user and sets its password, for bootstrapping a server before anyone
+  # can sign in; the password comes from PROVISION_PASSWORD in the environment
+  provision-user:
+    <<: *app-common
+    profiles: [ops]
+    restart: 'no'
+    entrypoint: ['node', 'dist/provision-user.js']
+    command: []
+    networks: [internal]
+    healthcheck: { disable: true }
+
   postgres:
     image: postgres:17.11-alpine
     restart: unless-stopped
