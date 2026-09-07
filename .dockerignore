@@ -1,0 +1,27 @@
+# The images install their own dependencies, so a host node_modules copied in over the top
+# replaces the workspace links pnpm created inside the container and breaks the build. It also
+# makes the context enormous. Everything here is either rebuilt in the image or must never
+# reach it.
+
+**/node_modules
+**/dist
+**/coverage
+**/.vite
+**/*.tsbuildinfo
+**/.DS_Store
+
+.git
+.gitignore
+.github
+
+# secrets and local state
+**/.env
+**/.env.*
+!**/.env.example
+*.local.md
+infra/docker/secrets
+infra/docker/seaweedfs/s3.json
+
+# not needed to build or run
+test-results
+playwright-report
