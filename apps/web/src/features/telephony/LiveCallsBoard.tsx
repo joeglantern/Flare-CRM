@@ -61,6 +61,7 @@ export function LiveCallsBoard() {
   const calls = [...(live.data ?? [])].sort(
     (a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9) || a.since.localeCompare(b.since),
   );
+  const pbxEnabled = status.data?.enabled ?? false;
   const connected = status.data?.connected ?? false;
   const ringing = calls.filter((c) => c.status === 'ringing').length;
   const talking = calls.filter((c) => c.status === 'answered').length;
@@ -77,7 +78,13 @@ export function LiveCallsBoard() {
         }
       />
 
-      {status.data !== undefined && !connected && (
+      {status.data !== undefined && !pbxEnabled && (
+        <Banner tone="info" icon={Unplug} className="rounded-md">
+          The PBX is not connected yet, so there is nothing for this board to show. An admin turns
+          the integration on under Settings, Telephony.
+        </Banner>
+      )}
+      {status.data !== undefined && pbxEnabled && !connected && (
         <Banner tone="danger" icon={Unplug} className="rounded-md">
           The PBX event stream is disconnected, so this board is not live. Calls may be in progress
           that are not shown here.
@@ -89,8 +96,8 @@ export function LiveCallsBoard() {
         <StatCard label="Ringing" value={String(ringing)} icon={PhoneIncoming} />
         <StatCard
           label="PBX"
-          value={connected ? 'Connected' : 'Disconnected'}
-          tone={connected ? 'success' : 'danger'}
+          value={connected ? 'Connected' : pbxEnabled ? 'Disconnected' : 'Not enabled'}
+          tone={connected ? 'success' : pbxEnabled ? 'danger' : 'neutral'}
           sub={
             status.data?.since === null ? undefined : (
               <DateTime value={status.data?.since ?? null} mode="relative" />
@@ -119,7 +126,9 @@ export function LiveCallsBoard() {
           description={
             connected
               ? 'Calls appear here the moment the PBX reports them.'
-              : 'The board is empty because the PBX event stream is down, not necessarily because the lines are quiet.'
+              : pbxEnabled
+                ? 'The board is empty because the PBX event stream is down, not necessarily because the lines are quiet.'
+                : 'Calls appear here once the PBX integration is connected.'
           }
         />
       ) : (

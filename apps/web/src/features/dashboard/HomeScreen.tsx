@@ -134,7 +134,13 @@ function PbxBanners() {
 
   return (
     <>
-      {cti.data !== undefined && !cti.data.connected && (
+      {cti.data !== undefined && !cti.data.enabled && perms.has('settings:manage') && (
+        <Banner tone="info" icon={Unplug} className="rounded-md">
+          The PBX is not connected yet. Click to dial, screen pops and the live board start working
+          once the integration is turned on under Settings, Telephony.
+        </Banner>
+      )}
+      {cti.data !== undefined && cti.data.enabled && !cti.data.connected && (
         <Banner tone="danger" icon={Unplug} className="rounded-md">
           The PBX event stream is down. Click to dial and screen pops are unavailable, and the live
           board is stale. Calls still reach the desk phones.
@@ -656,6 +662,7 @@ function TeamBoard() {
   const withExtension = (users.data?.data ?? []).filter((u) => u.extension !== null).length;
   const totalUsers = users.data?.page.total ?? 0;
   const calls = [...(live.data ?? [])].sort((a, b) => a.since.localeCompare(b.since));
+  const pbxEnabled = cti.data?.enabled ?? false;
   const connected = cti.data?.connected ?? false;
   const unassignedConvs = unassigned.data?.pages.flatMap((p) => p.data) ?? [];
   const stages = pipeline.data?.stages ?? [];
@@ -731,14 +738,21 @@ function TeamBoard() {
               <span
                 className={cn(
                   'h-2 w-2 rounded-full',
-                  connected ? 'live-pulse bg-success' : 'bg-danger',
+                  connected ? 'live-pulse bg-success' : pbxEnabled ? 'bg-danger' : 'bg-faint',
                 )}
                 aria-hidden
               />
-              <span className={cn('text-sm font-normal', connected ? 'text-muted' : 'text-danger')}>
+              <span
+                className={cn(
+                  'text-sm font-normal',
+                  connected || !pbxEnabled ? 'text-muted' : 'text-danger',
+                )}
+              >
                 {connected
                   ? `${String(calls.length)} in progress`
-                  : 'stale, the PBX event stream is down'}
+                  : pbxEnabled
+                    ? 'stale, the PBX event stream is down'
+                    : 'PBX not connected'}
               </span>
             </span>
           }
@@ -757,7 +771,9 @@ function TeamBoard() {
             <p className="text-base text-muted">
               {connected
                 ? 'Nothing on the line right now.'
-                : 'Nothing to show while the event stream is down.'}
+                : pbxEnabled
+                  ? 'Nothing to show while the event stream is down.'
+                  : 'Live calls appear here once the PBX is connected.'}
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -983,12 +999,12 @@ function TeamBoard() {
           <dl className="grid grid-cols-[minmax(0,150px)_minmax(0,1fr)] gap-x-3 gap-y-2 text-base">
             <dt className="text-sm text-muted">Status</dt>
             <dd>
-              <Badge tone={connected ? 'success' : 'danger'}>
-                {connected ? 'Connected' : 'Disconnected'}
+              <Badge tone={connected ? 'success' : pbxEnabled ? 'danger' : 'neutral'}>
+                {connected ? 'Connected' : pbxEnabled ? 'Disconnected' : 'Not enabled'}
               </Badge>
             </dd>
             <dt className="text-sm text-muted">
-              {connected ? 'Connected since' : 'Disconnected since'}
+              {connected ? 'Connected since' : pbxEnabled ? 'Disconnected since' : 'Since'}
             </dt>
             <dd>
               <DateTime value={cti.data.since} />
