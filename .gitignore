@@ -42,3 +42,6 @@ docs/design-handoff/
 # local screenshots and scratch images
 /image*.png
 /screenshot*.png
+
+# local server access notes, never shared
+*.local.md

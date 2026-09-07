@@ -55,12 +55,17 @@ export function AuthLayout({
           loading="lazy"
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <div className="absolute bottom-8 left-8 right-8">
-          <p className="text-lg font-medium">Every call, every deal, one screen.</p>
-          <p className="mt-1 text-base text-muted">
-            Flare connects your Yeastar PBX to the people behind the numbers.
-          </p>
-        </div>
+        {/*
+         * The mark sits centre right in both the dark and light crops, leaving the upper left flat
+         * and quiet. Putting the line there means it is read first, never crosses the subject, and
+         * sets up a diagonal against it. That region is near black in one theme and near white in
+         * the other, and the text colour flips with the theme, so it stays legible without a scrim
+         * dimming the artwork. The narrow measure wraps it to two lines and keeps it clear of the
+         * mark at every width the panel is shown at.
+         */}
+        <p className="absolute top-10 left-10 max-w-[16ch] text-2xl leading-snug font-medium tracking-tight text-balance">
+          Every call, every deal, one screen.
+        </p>
       </aside>
     </main>
   );
