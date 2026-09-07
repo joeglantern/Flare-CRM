@@ -4,6 +4,11 @@
  *
  * The hero image is decorative, so it carries no alt text and never blocks the form: it is loaded
  * lazily and the layout does not move when it arrives.
+ *
+ * It is also positioned absolutely rather than laid out in the grid. The source is portrait, so in
+ * flow its aspect ratio drove the row height and made the page taller than the viewport. The form
+ * column then centred itself against that taller row and sat well below the middle of the screen,
+ * which read as a large gap above the wordmark.
  */
 import type { ReactNode } from 'react';
 import { FlareWordmark } from '@/components/brand/Logo';
@@ -48,7 +53,7 @@ export function AuthLayout({
           alt=""
           aria-hidden
           loading="lazy"
-          className="h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute bottom-8 left-8 right-8">
           <p className="text-lg font-medium">Every call, every deal, one screen.</p>
