@@ -1,7 +1,14 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: { 'entry/api': 'src/entry/api.ts', 'entry/worker': 'src/entry/worker.ts' },
+  // The seed ships compiled too. The runtime image carries production dependencies only, so
+  // there is no TypeScript runner in it and prisma/seed.ts could not be executed on a server.
+  // Its entry guard matches seed.js, so the built file runs the same way the source does.
+  entry: {
+    'entry/api': 'src/entry/api.ts',
+    'entry/worker': 'src/entry/worker.ts',
+    seed: 'prisma/seed.ts',
+  },
   format: ['esm'],
   target: 'node22',
   platform: 'node',

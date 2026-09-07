@@ -88,6 +88,15 @@ services:
     networks: [internal]
     healthcheck: { disable: true }
 
+  # reference data and the first admin; idempotent, safe to re-run after every deploy
+  seed:
+    <<: *app-common
+    profiles: [ops]
+    restart: 'no'
+    command: ['node', 'dist/seed.js']
+    networks: [internal]
+    healthcheck: { disable: true }
+
   postgres:
     image: postgres:17.11-alpine
     restart: unless-stopped
