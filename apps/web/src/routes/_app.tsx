@@ -16,6 +16,12 @@ export const Route = createFileRoute('/_app')({
   beforeLoad: async ({ context, location }) => {
     try {
       const me = await context.queryClient.query({ ...meQuery, staleTime: 'static' });
+      // Reading your own profile is allowed without two-factor, so this never throws for an
+      // account that still has to enrol. Without this check the shell would mount and every
+      // other request would come back refused.
+      if (me.twoFactorRequired && !me.twoFactorEnabled) {
+        throw redirect({ to: '/two-factor', search: { redirect: location.href, setup: true } });
+      }
       return { me };
     } catch (error) {
       if (isApiError(error) && error.isUnauthenticated) {

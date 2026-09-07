@@ -8498,6 +8498,7 @@ export interface paths {
                                 teamId: string | null;
                                 timezone: string;
                                 twoFactorEnabled: boolean;
+                                twoFactorRequired: boolean;
                                 /** Format: date-time */
                                 updatedAt: string;
                             };
@@ -8562,6 +8563,7 @@ export interface paths {
                                 teamId: string | null;
                                 timezone: string;
                                 twoFactorEnabled: boolean;
+                                twoFactorRequired: boolean;
                                 /** Format: date-time */
                                 updatedAt: string;
                             };
@@ -8623,6 +8625,7 @@ export interface paths {
                                 teamId: string | null;
                                 timezone: string;
                                 twoFactorEnabled: boolean;
+                                twoFactorRequired: boolean;
                                 /** Format: date-time */
                                 updatedAt: string;
                             };
@@ -8673,6 +8676,7 @@ export interface paths {
                                 teamId: string | null;
                                 timezone: string;
                                 twoFactorEnabled: boolean;
+                                twoFactorRequired: boolean;
                                 /** Format: date-time */
                                 updatedAt: string;
                             };

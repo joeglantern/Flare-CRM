@@ -38,6 +38,20 @@ export function hasRole(role: string | null | undefined, wanted: string): boolea
   return (role ?? '').split(',').some((r) => r.trim() === wanted);
 }
 
+/**
+ * Whether this role must have two-factor enabled before it may use anything. Exported because
+ * GET /users/me reports it: that route is deliberately reachable without 2FA, so a client cannot
+ * discover the requirement by being refused, and would otherwise load the app and have every
+ * other request rejected.
+ */
+export function twoFactorRequiredFor(
+  role: string | null | undefined,
+  security: { require2FAForAll: boolean; require2FAForPrivileged: boolean },
+): boolean {
+  const privileged = [...PRIVILEGED_ROLES].some((r) => hasRole(role, r));
+  return security.require2FAForAll || (security.require2FAForPrivileged && privileged);
+}
+
 export default fp(
   function authorize(app: FastifyInstance, opts: { settings: SettingsService }) {
     const undeclared: string[] = [];
@@ -92,10 +106,9 @@ export default fp(
       const declared = auth;
       if (!declared.allowWithout2FA) {
         const security = await opts.settings.get('security');
-        const privileged = [...PRIVILEGED_ROLES].some((r) => hasRole(role, r));
-        const must2FA =
-          security.require2FAForAll || (security.require2FAForPrivileged && privileged);
-        if (must2FA && user.twoFactorEnabled !== true) throw new TwoFactorRequiredError();
+        if (twoFactorRequiredFor(role, security) && user.twoFactorEnabled !== true) {
+          throw new TwoFactorRequiredError();
+        }
       }
 
       if (declared.permission !== undefined) {

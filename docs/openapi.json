@@ -151,6 +151,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "twoFactorRequired": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -172,7 +175,8 @@
                         "lastSeenAt",
                         "createdAt",
                         "updatedAt",
-                        "permissions"
+                        "permissions",
+                        "twoFactorRequired"
                       ],
                       "additionalProperties": false
                     }
@@ -359,6 +363,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "twoFactorRequired": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -380,7 +387,8 @@
                         "lastSeenAt",
                         "createdAt",
                         "updatedAt",
-                        "permissions"
+                        "permissions",
+                        "twoFactorRequired"
                       ],
                       "additionalProperties": false
                     }
@@ -531,6 +539,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "twoFactorRequired": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -552,7 +563,8 @@
                         "lastSeenAt",
                         "createdAt",
                         "updatedAt",
-                        "permissions"
+                        "permissions",
+                        "twoFactorRequired"
                       ],
                       "additionalProperties": false
                     }
@@ -701,6 +713,9 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "twoFactorRequired": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -722,7 +737,8 @@
                         "lastSeenAt",
                         "createdAt",
                         "updatedAt",
-                        "permissions"
+                        "permissions",
+                        "twoFactorRequired"
                       ],
                       "additionalProperties": false
                     }

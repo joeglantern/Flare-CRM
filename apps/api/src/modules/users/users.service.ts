@@ -23,6 +23,7 @@ import { randomBytes } from 'node:crypto';
 import { WELCOME_FLAG_PREFIX, type Auth } from '../../auth/auth.js';
 import { ExtensionMap } from '../../integrations/yeastar/extension-map.js';
 import { ConflictError, NotFoundError, ValidationError } from '../../lib/errors.js';
+import { twoFactorRequiredFor } from '../../plugins/authorize.js';
 import type { Db } from '../../plugins/prisma.js';
 import type { AuditContext, AuditService } from '../audit/audit.service.js';
 import type { SettingsService } from '../settings/settings.service.js';
@@ -123,7 +124,12 @@ export class UsersService {
     const row = await this.deps.db.user.findUnique({ where: { id: userId }, select: userSelect });
     if (!row) throw new NotFoundError('User');
     const dto = this.toDto(row);
-    return { ...dto, permissions: this.permissionsOf(dto.role) };
+    const security = await this.deps.settings.get('security');
+    return {
+      ...dto,
+      permissions: this.permissionsOf(dto.role),
+      twoFactorRequired: twoFactorRequiredFor(dto.role, security),
+    };
   }
 
   async get(id: string): Promise<UserDto> {

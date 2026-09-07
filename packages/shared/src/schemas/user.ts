@@ -29,6 +29,11 @@ export type UserDto = z.infer<typeof userDto>;
 /** What every authenticated user gets about themselves, including effective permissions. */
 export const meDto = userDto.extend({
   permissions: z.array(z.string()),
+  /**
+   * Whether this account must turn on two-factor before it can use anything else. Reading your
+   * own profile is allowed without it, so the client cannot infer this from being refused.
+   */
+  twoFactorRequired: z.boolean(),
 });
 export type MeDto = z.infer<typeof meDto>;
 
