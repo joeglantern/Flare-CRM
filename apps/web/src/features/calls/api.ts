@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { http, type OffsetList, type Query } from '@/lib/api/client';
 import { qk } from '@/lib/query';
+import { MAX_PAGE_SIZE } from '@crm/shared';
 
 export interface CallFilters extends Query {
   direction?: string;
@@ -73,7 +74,11 @@ export function useMissedCalls(filters: Query = {}, enabled = true) {
     queryKey: qk.list('missed-callbacks', { from: oldest }),
     enabled: enabled && oldest !== undefined,
     queryFn: (): Promise<OffsetList<CallDto>> =>
-      http.list<CallDto>('/api/v1/calls', { direction: 'outbound', from: oldest, pageSize: 200 }),
+      http.list<CallDto>('/api/v1/calls', {
+        direction: 'outbound',
+        from: oldest,
+        pageSize: MAX_PAGE_SIZE,
+      }),
   });
 
   const rows: MissedCall[] = useMemo(() => {

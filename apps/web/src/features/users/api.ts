@@ -5,6 +5,7 @@ import type { CreateUserBody, MeDto, TeamDto, UpdateUserBody, UserDto } from '@c
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, type OffsetList, type Query } from '@/lib/api/client';
 import { qk } from '@/lib/query';
+import { MAX_PAGE_SIZE } from '@crm/shared';
 
 export interface UserFilters extends Query {
   q?: string;
@@ -28,7 +29,8 @@ export function useUsers(filters: UserFilters = {}) {
 export function useAssignableUsers() {
   return useQuery({
     queryKey: qk.list('users', { assignable: true }),
-    queryFn: () => http.list<UserDto>('/api/v1/users', { pageSize: 200, isActive: 'true' }),
+    queryFn: () =>
+      http.list<UserDto>('/api/v1/users', { pageSize: MAX_PAGE_SIZE, isActive: 'true' }),
     staleTime: 5 * 60_000,
     select: (r) => r.data,
   });

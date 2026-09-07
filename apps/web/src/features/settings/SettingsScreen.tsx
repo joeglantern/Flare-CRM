@@ -47,6 +47,7 @@ import { useListState, useSearchParam } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
 import { useDispositions } from '@/features/telephony/api';
 import { useCtiStatus } from '@/features/telephony/api';
+import { MAX_PAGE_SIZE } from '@crm/shared';
 import { usePipelines } from '@/features/deals/api';
 import { useChannels } from '@/features/inbox/api';
 import { useCreateUser, useUpdateUser, useUserAction, useUsers } from '@/features/users/api';
@@ -1860,7 +1861,7 @@ interface UserDraft {
 
 function UsersSection() {
   const perms = usePermissions();
-  const query = useUsers({ pageSize: 100 });
+  const query = useUsers({ pageSize: MAX_PAGE_SIZE });
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const action = useUserAction();

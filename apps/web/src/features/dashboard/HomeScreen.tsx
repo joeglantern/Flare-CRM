@@ -63,6 +63,7 @@ import { useSocketEvent } from '@/lib/socket/client';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/providers/permissions';
 import { useSocketState } from '@/providers/socket';
+import { MAX_PAGE_SIZE } from '@crm/shared';
 
 /** Midnight to now, which is what "today" means on every card here. */
 function today(): { from: string; to: string } {
@@ -627,7 +628,7 @@ function TeamBoard() {
   );
   const live = useLiveCalls(canPbx);
   const cti = useCtiStatus(canPbx);
-  const users = useUsers({ isActive: 'true', pageSize: 200 });
+  const users = useUsers({ isActive: 'true', pageSize: MAX_PAGE_SIZE });
 
   const refreshLive = () => {
     void live.refetch();

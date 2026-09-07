@@ -15,6 +15,7 @@ import { useUsers } from '@/features/users/api';
 import { useSocketEvent } from '@/lib/socket/client';
 import { cn } from '@/lib/utils';
 import { useCallControl } from './api';
+import { MAX_PAGE_SIZE } from '@crm/shared';
 
 export function TransferPicker({
   callId,
@@ -25,7 +26,7 @@ export function TransferPicker({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const users = useUsers({ pageSize: 100 });
+  const users = useUsers({ pageSize: MAX_PAGE_SIZE });
   const control = useCallControl(callId);
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<'blind' | 'attended'>('blind');

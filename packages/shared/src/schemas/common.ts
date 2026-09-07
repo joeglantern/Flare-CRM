@@ -12,9 +12,16 @@ export const emailSchema = z
 /** Any user-typed phone; normalized server-side with the tenant default country. */
 export const phoneInput = z.string().trim().min(3).max(32);
 
+/**
+ * The largest page any list endpoint will serve. Exported so callers ask for a size the server
+ * will actually accept: asking for more is rejected as a validation error, which the client has
+ * no handler for, so the screen simply comes up empty with nothing to explain it.
+ */
+export const MAX_PAGE_SIZE = 100;
+
 export const paginationOffset = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(25),
 });
 
 export const paginationCursor = z.object({

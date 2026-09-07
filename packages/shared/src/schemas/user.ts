@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Role, valuesOf } from '../enums.js';
-import { emailSchema, isoDateTime, phoneInput, uuid } from './common.js';
+import { emailSchema, isoDateTime, MAX_PAGE_SIZE, phoneInput, uuid } from './common.js';
 
 export const roleSchema = z.enum(valuesOf(Role));
 
@@ -85,7 +85,7 @@ export const listUsersQuery = z.object({
   teamId: uuid.optional(),
   isActive: z.enum(['true', 'false']).optional(),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(25),
 });
 
 export const teamDto = z.object({

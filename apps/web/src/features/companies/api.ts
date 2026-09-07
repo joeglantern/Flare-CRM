@@ -16,6 +16,7 @@ import type {
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, type OffsetList, type Query } from '@/lib/api/client';
 import { qk } from '@/lib/query';
+import { MAX_PAGE_SIZE } from '@crm/shared';
 
 export interface CompanyFilters extends Query {
   q?: string;
@@ -48,7 +49,7 @@ export function useCompanyContacts(id: string | null, enabled = true) {
     queryKey: qk.list('company-contacts', { id }),
     enabled: enabled && id !== null,
     queryFn: () =>
-      http.list<ContactDto>(`/api/v1/companies/${id ?? ''}/contacts`, { pageSize: 100 }),
+      http.list<ContactDto>(`/api/v1/companies/${id ?? ''}/contacts`, { pageSize: MAX_PAGE_SIZE }),
   });
 }
 
@@ -70,7 +71,11 @@ export function useCompanyDealTotals(companyIds: string[], enabled: boolean) {
       enabled,
       staleTime: 60_000,
       queryFn: () =>
-        http.list<DealDto>('/api/v1/deals', { companyId: id, status: 'open', pageSize: 100 }),
+        http.list<DealDto>('/api/v1/deals', {
+          companyId: id,
+          status: 'open',
+          pageSize: MAX_PAGE_SIZE,
+        }),
       select: (r: OffsetList<DealDto>) => ({
         count: r.page.total,
         value: r.data.reduce((a, d) => a + d.value, 0),
