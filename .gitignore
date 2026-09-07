@@ -12,6 +12,11 @@ apps/api/src/generated/
 .env
 .env.*
 !.env.example
+# generated per host at deploy time: database, cache and object store credentials
+infra/docker/secrets/
+infra/docker/seaweedfs/s3.json
+# per host compose adjustments, which differ by server and are not part of the product
+infra/docker/compose.override.yml
 *.pem
 *.key
 
