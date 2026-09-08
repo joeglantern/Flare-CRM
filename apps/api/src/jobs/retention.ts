@@ -20,6 +20,8 @@ const ATTACHMENT_PASSES = 10;
  * minutes. Past a day it means the note was never saved and nothing will ever reference it.
  */
 const ORPHAN_UPLOAD_HOURS = 24;
+/** Snapshots kept in the object store. The backup service adds one a night. */
+const KEEP_BACKUPS = 14;
 
 export interface RetentionSummary {
   purged: Record<string, number>;
@@ -29,6 +31,7 @@ export interface RetentionSummary {
   recordingErrors: number;
   attachments: number;
   attachmentErrors: number;
+  backups: number;
 }
 
 function daysAgo(days: number): Date {
@@ -183,6 +186,19 @@ export async function runRetention(app: FastifyInstance): Promise<RetentionSumma
     if (r.drained) break;
   }
 
+  // 6. trim the snapshot series. The backup service writes one a night and cannot list the store
+  //    to prune itself, so the trimming lives here where listing and deleting already exist.
+  let backups = 0;
+  try {
+    const snapshots = await app.storage.list('backups/', 200);
+    for (const old of snapshots.slice(KEEP_BACKUPS)) {
+      await app.storage.delete(old.key);
+      backups++;
+    }
+  } catch (err) {
+    app.log.error({ err }, 'trimming old backups failed');
+  }
+
   const summary: RetentionSummary = {
     purged,
     pbxEvents,
@@ -191,6 +207,7 @@ export async function runRetention(app: FastifyInstance): Promise<RetentionSumma
     recordingErrors,
     attachments,
     attachmentErrors,
+    backups,
   };
   await app.audit.write(
     { actorId: null, actorType: 'system' },

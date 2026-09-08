@@ -35,23 +35,23 @@ echo "[$START] backup starting"
 pg_dump -Fc --no-owner --no-privileges -f "$DUMP" || fail "pg_dump failed"
 DUMP_BYTES=$(stat -c %s "$DUMP")
 
-# Hand it to the object store, which is where the application looks. mc is configured from the
-# same S3 settings the application uses, so there is one set of credentials, not two.
+# Hand it to the object store, which is where the application looks. curl signs the request
+# itself, so this needs no S3 client and no second set of credentials.
 : "${S3_ENDPOINT:?S3_ENDPOINT is required}"
 : "${S3_BUCKET:?S3_BUCKET is required}"
-mc alias set crmstore "$S3_ENDPOINT" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" >/dev/null 2>&1 \
-  || fail "could not reach the object store"
-mc cp --quiet "$DUMP" "crmstore/$S3_BUCKET/backups/crm-$STAMP.dump" >/dev/null \
-  || fail "uploading the dump failed"
+: "${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}"
+: "${S3_SECRET_KEY:?S3_SECRET_KEY is required}"
+curl -sS --fail-with-body -X PUT \
+  --aws-sigv4 "aws:amz:${S3_REGION:-us-east-1}:s3" \
+  --user "$S3_ACCESS_KEY:$S3_SECRET_KEY" \
+  -H 'Content-Type: application/octet-stream' \
+  --upload-file "$DUMP" \
+  "${S3_ENDPOINT%/}/$S3_BUCKET/backups/crm-$STAMP.dump" \
+  || fail "uploading the dump to the object store failed"
 
-# Keep a couple of copies on disk purely as a local fallback; the object store holds the series.
+# Keep a couple of copies on disk purely as a local fallback; the object store holds the series,
+# and the application's nightly retention job trims it (it can already list and delete objects).
 ls -1t "$DUMP_DIR"/crm-*.dump 2>/dev/null | tail -n +3 | xargs -r rm -f
-
-# Trim the series in the object store so snapshots cannot grow without bound.
-KEEP=${BACKUP_KEEP:-14}
-mc ls "crmstore/$S3_BUCKET/backups/" 2>/dev/null \
-  | awk '{print $NF}' | grep '^crm-.*\.dump$' | sort -r | tail -n +$((KEEP + 1)) \
-  | while read -r old; do mc rm --quiet "crmstore/$S3_BUCKET/backups/$old" >/dev/null || true; done
 
 # ── 2. off-site, when configured ───────────────────────────────────────────────────────────
 OFFSITE="skipped"
