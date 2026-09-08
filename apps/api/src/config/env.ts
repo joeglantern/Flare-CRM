@@ -49,6 +49,17 @@ const envSchema = z
     S3_SECRET_KEY: z.string().min(1),
     S3_FORCE_PATH_STYLE: boolFlag('true'),
     STORAGE_PUBLIC_URL: z.url().optional(),
+    /**
+     * Where large objects live. `s3` is the bundled store on the server. `gdrive` sends the
+     * object classes named in GDRIVE_PREFIXES to Google Drive through a service account and keeps
+     * the rest local, so recordings, attachments and backups stop consuming the server disk.
+     */
+    STORAGE_BACKEND: z.enum(['s3', 'gdrive']).default('s3'),
+    GDRIVE_SERVICE_ACCOUNT_FILE: z.string().optional(),
+    GDRIVE_FOLDER_ID: z.string().optional(),
+    /** Workspace only: act as this user through domain-wide delegation. */
+    GDRIVE_IMPERSONATE: z.email().optional(),
+    GDRIVE_PREFIXES: z.string().default('recordings,attachments,backups'),
 
     SMTP_URL: z.string().min(1),
     MAIL_FROM: z.string().min(3),
@@ -93,6 +104,16 @@ const envSchema = z
     FIRST_ADMIN_NAME: z.string().optional(),
   })
   .superRefine((env, ctx) => {
+    if (env.STORAGE_BACKEND === 'gdrive') {
+      for (const key of ['GDRIVE_SERVICE_ACCOUNT_FILE', 'GDRIVE_FOLDER_ID'] as const) {
+        if (!env[key])
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `${key} is required when STORAGE_BACKEND=gdrive`,
+          });
+      }
+    }
     if (env.YEASTAR_ENABLED) {
       for (const key of [
         'YEASTAR_BASE_URL',

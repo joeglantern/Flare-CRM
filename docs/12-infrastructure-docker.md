@@ -105,6 +105,7 @@ DATABASE_URL=postgresql://crm_app:***@postgres:5432/crm?schema=public
 DATABASE_URL_MIGRATE=postgresql://crm_migrate:***@postgres:5432/crm
 VALKEY_URL=redis://:***@valkey:6379/0
 S3_ENDPOINT=http://seaweedfs:8333   S3_REGION=us-east-1   S3_BUCKET=crm   S3_ACCESS_KEY=   S3_SECRET_KEY=   S3_FORCE_PATH_STYLE=true
+STORAGE_BACKEND=s3|gdrive   GDRIVE_SERVICE_ACCOUNT_FILE=/run/secrets/gdrive_service_account   GDRIVE_FOLDER_ID=   GDRIVE_IMPERSONATE=   GDRIVE_PREFIXES=recordings,attachments,backups
 STORAGE_PUBLIC_URL=               # empty → stream through API
 SMTP_URL=smtps://user:pass@smtp.example.com:465   MAIL_FROM="CRM <no-reply@example.com>"
 YEASTAR_BASE_URL=https://10.8.0.2:8088            # over WireGuard, or https://tenant.yeastarcloud.com
@@ -120,6 +121,28 @@ WEB_IMAGE=ghcr.io/OWNER/crm-web:latest   # static SPA publisher image; copies di
 METRICS_ENABLED=true
 FIRST_ADMIN_EMAIL=   FIRST_ADMIN_NAME=          # seed creates the first admin and emails a set-password link
 ```
+
+## 6a. Google Drive for bulky objects
+
+`STORAGE_BACKEND=gdrive` routes the key prefixes in `GDRIVE_PREFIXES` to a Drive folder through a service account; every other prefix (avatars, import scratch) stays on the local store. Objects remain private in Drive and are streamed through the API's authorised routes with byte ranges, so nothing is ever shared publicly and recordings still seek in the browser. The key to Drive id map is the `storage_objects` table.
+
+Set-up, once per deployment:
+
+1. Google Cloud console: a project (no billing needed), enable **Google Drive API**, create a **service account**, download a JSON key.
+2. Share the target folder (a Shared Drive folder on Workspace; a normal folder on a personal account) with the service account's email as **Content manager**. The folder id is the last path segment of its URL.
+3. Put the key at `infra/docker/secrets/gdrive-service-account.json` (that directory is gitignored) and mount it in a host-local `compose.override.yml`:
+
+```yaml
+services:
+  api: { secrets: [gdrive_service_account] }
+  worker: { secrets: [gdrive_service_account] }
+secrets:
+  gdrive_service_account: { file: ./secrets/gdrive-service-account.json }
+```
+
+4. In `.env`: `STORAGE_BACKEND=gdrive`, `GDRIVE_FOLDER_ID=<id>`, and on Workspace optionally `GDRIVE_IMPERSONATE=<user@domain>` with domain-wide delegation granted for the Drive scope. Recreate `api` and `worker`.
+
+`/ready` reports the Drive folder check under `storage`. Objects written before the switch stay where they are and keep serving; nothing is moved implicitly.
 
 ## 7. Observability
 
