@@ -127,11 +127,14 @@ export default tseslint.config(
     },
   },
   {
-    // plain Node scripts (asset pipeline): no type information available
+    // plain Node scripts (asset pipeline): no type information available.
+    // typescript-eslint types this preset as CompatibleConfig, which does not declare
+    // languageOptions, so the property is narrowed here rather than read off the loose type.
     files: ['apps/web/scripts/**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {
-      ...tseslint.configs.disableTypeChecked.languageOptions,
+      .../** @type {import('eslint').Linter.Config} */ (tseslint.configs.disableTypeChecked)
+        .languageOptions,
       globals: { ...globals.node },
     },
     rules: { ...tseslint.configs.disableTypeChecked.rules, 'no-console': 'off' },
