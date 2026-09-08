@@ -55,6 +55,28 @@ describe('loadEnv', () => {
     expect(ok.YEASTAR_EVENT_SOURCE).toBe('websocket');
   });
 
+  it('accepts a publicly trusted PBX certificate without a pin, and refuses both together', () => {
+    const cloud = {
+      ...base,
+      YEASTAR_ENABLED: 'true',
+      YEASTAR_BASE_URL: 'https://tenant.ras.yeastar.com',
+      YEASTAR_CLIENT_ID: 'id',
+      YEASTAR_CLIENT_SECRET: 'secret',
+    };
+    expect(() => loadEnv(cloud)).toThrow(/YEASTAR_TLS_PUBLIC_CA/);
+    expect(loadEnv({ ...cloud, YEASTAR_TLS_PUBLIC_CA: 'true' }).YEASTAR_TLS_PUBLIC_CA).toBe(true);
+    expect(loadEnv({ ...cloud, YEASTAR_TLS_CA_FILE: '/etc/pbx.pem' }).YEASTAR_TLS_CA_FILE).toBe(
+      '/etc/pbx.pem',
+    );
+    expect(() =>
+      loadEnv({
+        ...cloud,
+        YEASTAR_TLS_PUBLIC_CA: 'true',
+        YEASTAR_TLS_FINGERPRINT_SHA256: Array.from({ length: 32 }, () => 'AB').join(':'),
+      }),
+    ).toThrow(/must not also be pinned/);
+  });
+
   it('requires a webhook secret when webhook events are enabled', () => {
     expect(() =>
       loadEnv({

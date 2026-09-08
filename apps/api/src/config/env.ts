@@ -62,6 +62,13 @@ const envSchema = z
       .regex(/^([0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}$/)
       .optional(),
     YEASTAR_TLS_CA_FILE: z.string().optional(),
+    /**
+     * The PBX presents a certificate from a public CA, so verify it against the system trust
+     * store like any other HTTPS host. Yeastar's hosted Remote Access and Cloud editions use
+     * Let's Encrypt, which rotates roughly every ninety days; pinning that fingerprint would
+     * silently sever telephony at the next renewal. Self-signed appliances keep pinning.
+     */
+    YEASTAR_TLS_PUBLIC_CA: bool,
     /** IANA time zone of the PBX; CDR timestamps are PBX-local wall-clock. */
     YEASTAR_TIMEZONE: z.string().default('Africa/Nairobi'),
     YEASTAR_EVENT_SOURCE: z.enum(['websocket', 'webhook', 'both']).default('websocket'),
@@ -109,14 +116,26 @@ const envSchema = z
       if (
         env.NODE_ENV === 'production' &&
         env.YEASTAR_BASE_URL?.startsWith('https://') &&
-        !env.YEASTAR_TLS_FINGERPRINT_SHA256
+        !env.YEASTAR_TLS_FINGERPRINT_SHA256 &&
+        !env.YEASTAR_TLS_CA_FILE &&
+        !env.YEASTAR_TLS_PUBLIC_CA
       ) {
-        // self-signed PBX certificates must be pinned rather than trusted blindly (docs/06 §2)
+        // Verification is never disabled, so production must say how the PBX is trusted: pin
+        // its fingerprint, supply its certificate as the CA, or declare it publicly trusted.
+        // Pinning a public CA certificate breaks at its next rotation (docs/06 §2).
         ctx.addIssue({
           code: 'custom',
           path: ['YEASTAR_TLS_FINGERPRINT_SHA256'],
           message:
-            'set the PBX certificate fingerprint in production (or use a publicly trusted certificate and set it anyway)',
+            'say how the PBX certificate is trusted in production: YEASTAR_TLS_FINGERPRINT_SHA256 or YEASTAR_TLS_CA_FILE for a self-signed PBX, or YEASTAR_TLS_PUBLIC_CA=true for a publicly trusted one',
+        });
+      }
+      if (env.YEASTAR_TLS_PUBLIC_CA && env.YEASTAR_TLS_FINGERPRINT_SHA256) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['YEASTAR_TLS_PUBLIC_CA'],
+          message:
+            'a publicly trusted certificate must not also be pinned; the pin would fail at its next rotation',
         });
       }
     }

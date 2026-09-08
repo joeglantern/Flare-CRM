@@ -37,7 +37,14 @@ The CRM **initiates** the WebSocket to the PBX and calls the REST API — the PB
 | Cloud Edition                          | Public `https://<tenant>.<region>.yeastarcloud.com` — reachable directly; set PBX IP allowlist to the VPS IP.                                                                   |
 | Appliance / Software Edition (on-prem) | **WireGuard** site-to-VPS tunnel. Worker connects to `https://<pbx-lan-ip>:8088` (or the PBX HTTPS port) over the tunnel. Never expose the PBX web port to the public internet. |
 
-TLS: PBX certificates are often self-signed. The worker pins the PBX certificate fingerprint (`YEASTAR_TLS_FINGERPRINT_SHA256`) instead of disabling verification. `NODE_TLS_REJECT_UNAUTHORIZED=0` is **forbidden**.
+TLS: verification is never disabled; `NODE_TLS_REJECT_UNAUTHORIZED=0` is **forbidden**. Production must declare how the PBX is trusted:
+
+| PBX certificate                                                             | Setting                                                                       |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Self-signed (typical appliance)                                             | pin it: `YEASTAR_TLS_FINGERPRINT_SHA256`, or supply it: `YEASTAR_TLS_CA_FILE` |
+| Public CA (Yeastar Cloud, Remote Access `*.ras.yeastar.com`, Let's Encrypt) | `YEASTAR_TLS_PUBLIC_CA=true`, no pin                                          |
+
+Never pin a public CA certificate: Let's Encrypt rotates roughly every ninety days and a pinned fingerprint severs telephony silently at the next renewal.
 
 ## 3. API contract (what the client wrapper implements)
 

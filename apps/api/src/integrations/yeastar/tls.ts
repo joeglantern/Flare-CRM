@@ -11,6 +11,12 @@ export interface PbxTlsOptions {
   checkServerIdentity?: (hostname: string, cert: PeerCertificate) => Error | undefined;
 }
 
+/**
+ * With neither a CA file nor a fingerprint, the result is empty on purpose: the connection then
+ * uses the platform trust store with ordinary hostname checking, which is the correct mode for a
+ * PBX behind a public CA certificate (YEASTAR_TLS_PUBLIC_CA). The environment contract refuses
+ * to let production reach that state by accident.
+ */
 export function buildPbxTlsOptions(opts: {
   caFile?: string | undefined;
   fingerprintSha256?: string | undefined;
