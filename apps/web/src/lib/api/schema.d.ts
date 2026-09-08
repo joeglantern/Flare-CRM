@@ -5552,6 +5552,14 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                attachments: {
+                                    fileName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    mimeType: string;
+                                    sizeBytes: number;
+                                    url: string;
+                                }[];
                                 author: {
                                     /** Format: uuid */
                                     id: string;
@@ -5592,6 +5600,7 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
+                        attachmentIds?: string[];
                         body: string;
                         /** Format: uuid */
                         callId?: string;
@@ -5615,6 +5624,14 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                attachments: {
+                                    fileName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    mimeType: string;
+                                    sizeBytes: number;
+                                    url: string;
+                                }[];
                                 author: {
                                     /** Format: uuid */
                                     id: string;
@@ -5704,6 +5721,14 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                attachments: {
+                                    fileName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    mimeType: string;
+                                    sizeBytes: number;
+                                    url: string;
+                                }[];
                                 author: {
                                     /** Format: uuid */
                                     id: string;

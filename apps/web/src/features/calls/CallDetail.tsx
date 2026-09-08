@@ -20,6 +20,7 @@ import { PhoneNumber } from '@/components/data/PhoneNumber';
 import { CallDirection, CallStatusBadge, RecordingBadge } from '@/components/data/status';
 import { ErrorState, ForbiddenState, NotFoundState } from '@/components/data/states';
 import { DetailList, EntityHeader, Panel } from '@/components/entity/EntityHeader';
+import { NotesPanel } from '@/components/entity/Notes';
 import { ContactPicker } from '@/components/entity/pickers';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { DispositionForm } from '@/features/telephony/DispositionForm';
@@ -225,6 +226,10 @@ export function CallDetailScreen({ callId }: { callId: string }) {
                 ]}
               />
             )}
+          </Panel>
+
+          <Panel title="Notes on this call" note="POST /notes {callId}">
+            <NotesPanel parent="call" id={call.id} canCreate={perms.has('note:create')} />
           </Panel>
 
           <Panel

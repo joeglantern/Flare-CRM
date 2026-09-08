@@ -45,6 +45,7 @@ export const attachmentDto = z.object({
   sizeBytes: z.number().int(),
   url: z.string(),
 });
+export type AttachmentDto = z.infer<typeof attachmentDto>;
 
 export const messageDto = z.object({
   id: uuid,

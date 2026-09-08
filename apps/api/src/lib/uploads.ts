@@ -9,20 +9,47 @@ import { BadRequestError, ValidationError } from './errors.js';
 
 export const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 export const ATTACHMENT_TYPES = new Set([
+  // images
   'image/png',
   'image/jpeg',
   'image/webp',
   'image/gif',
-  'application/pdf',
+  'image/bmp',
+  'image/tiff',
+  'image/heic',
+  'image/avif',
+  // deliberately not image/svg+xml: an SVG is a script container
+  // audio
   'audio/mpeg',
   'audio/ogg',
   'audio/wav',
   'audio/x-wav',
+  'audio/aac',
+  'audio/mp4',
+  'audio/webm',
+  'audio/flac',
+  'audio/amr',
+  // video
   'video/mp4',
-  'text/plain',
-  'text/csv',
+  'video/webm',
+  'video/quicktime',
+  'video/x-matroska',
+  'video/3gpp',
+  // documents
+  'application/pdf',
+  'application/msword',
+  'application/vnd.ms-excel',
+  'application/vnd.ms-powerpoint',
+  'application/rtf',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.oasis.opendocument.spreadsheet',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+  'text/csv',
+  // bundles of the above; served as a download, never executed
+  'application/zip',
 ]);
 const TEXT_TYPES = new Set(['text/plain', 'text/csv']);
 

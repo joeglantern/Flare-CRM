@@ -30,10 +30,25 @@ const noteSelect = {
   pinned: true,
   createdAt: true,
   updatedAt: true,
+  attachments: {
+    select: { id: true, key: true, fileName: true, mimeType: true, sizeBytes: true },
+    orderBy: { createdAt: 'asc' },
+  },
 } satisfies Prisma.NoteSelect;
 
 function toDto(r: Prisma.NoteGetPayload<{ select: typeof noteSelect }>): NoteDto {
-  return { ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() };
+  return {
+    ...r,
+    attachments: r.attachments.map((a) => ({
+      id: a.id,
+      fileName: a.fileName,
+      mimeType: a.mimeType,
+      sizeBytes: Number(a.sizeBytes),
+      url: `/api/v1/files/${encodeURIComponent(a.key)}`,
+    })),
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
 }
 
 const notesRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -164,6 +179,19 @@ const notesRoutes: FastifyPluginAsyncZod = async (app) => {
             pinned: b.pinned,
           },
         });
+        if (b.attachmentIds && b.attachmentIds.length > 0) {
+          // Only the caller's own unbound uploads: an id from someone else, or one already
+          // attached elsewhere, is silently skipped rather than moved.
+          await tx.attachment.updateMany({
+            where: {
+              id: { in: b.attachmentIds },
+              noteId: null,
+              messageId: null,
+              uploadedById: actor.id,
+            },
+            data: { noteId: id },
+          });
+        }
         await app.activity.record(tx, {
           type: 'note',
           contactId: b.contactId ?? null,

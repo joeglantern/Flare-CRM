@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isoDateTime, paginationCursor, uuid } from './common.js';
 import { userRef } from './company.js';
+import { attachmentDto } from './messaging.js';
 
 export const noteDto = z.object({
   id: uuid,
@@ -12,6 +13,7 @@ export const noteDto = z.object({
   companyId: uuid.nullable(),
   callId: uuid.nullable(),
   pinned: z.boolean(),
+  attachments: z.array(attachmentDto),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
 });
@@ -25,6 +27,8 @@ export const createNoteBody = z
     companyId: uuid.optional(),
     callId: uuid.optional(),
     pinned: z.boolean().default(false),
+    /** Ids from POST /attachments, bound to this note as it is created. */
+    attachmentIds: z.array(uuid).max(10).optional(),
   })
   .strict()
   .refine(

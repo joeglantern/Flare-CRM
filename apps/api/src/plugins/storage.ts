@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { MemoryStorage, S3Storage, type Storage } from '../integrations/storage/storage.js';
 
-export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // docs/08 A4
+export const MAX_UPLOAD_BYTES = 32 * 1024 * 1024; // docs/08 A4; a short clip has to fit
 
 export default fp(
   async function storagePlugin(app: FastifyInstance) {

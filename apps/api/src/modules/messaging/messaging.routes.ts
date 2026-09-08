@@ -19,10 +19,11 @@ import {
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { encryptJson } from '../../lib/crypto.js';
-import { ConflictError, NotFoundError } from '../../lib/errors.js';
+import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import { newId } from '../../lib/ids.js';
 import { auditContext, requireUser } from '../../lib/request.js';
 import { scopeOf } from '../../lib/scope.js';
+import { MAX_UPLOAD_BYTES } from '../../plugins/storage.js';
 import { ATTACHMENT_TYPES, storeUpload } from '../../lib/uploads.js';
 
 function channelToDto(r: {
@@ -276,16 +277,21 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   }
 
   // ── attachments (upload before send) ─────────────────────────────────────────────────
+  // Shared by chat and by notes, so it asks for either right rather than one. An upload is inert
+  // until something binds it: it belongs to nothing and is readable only by those two rights.
   app.post('/attachments', {
-    config: { auth: { permission: 'chat:send' }, rateLimit: { max: 30, timeWindow: '1 minute' } },
+    config: { auth: { authenticated: true }, rateLimit: { max: 30, timeWindow: '1 minute' } },
     schema: { tags: ['messaging'], response: { 201: dataResponse(attachmentDto) } },
     handler: async (request, reply) => {
       const user = requireUser(request);
+      const role = user.role ?? 'agent';
+      if (!roleHasPermission(role, 'chat:send') && !roleHasPermission(role, 'note:create'))
+        throw new ForbiddenError('Insufficient permissions');
       const file = await request.file();
       const stored = await storeUpload(app.storage, file, {
         prefix: 'attachments',
         allowed: ATTACHMENT_TYPES,
-        maxBytes: 16 * 1024 * 1024,
+        maxBytes: MAX_UPLOAD_BYTES,
       });
       const row = await app.db.attachment.create({
         data: {
