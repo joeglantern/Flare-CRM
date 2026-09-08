@@ -4,12 +4,22 @@
  *  2. trim `pbx_events` older than `retention.pbxEventsDays`
  *  3. drop raw provider payloads on messages older than `retention.rawMessagePayloadDays`
  *  4. delete call recordings older than `recording.retentionDays` (object + DB pointer, audited)
+ *  5. delete attachment objects for notes about to be purged, and uploads never attached to
+ *     anything, neither of which any cascade can reach
  * Every step is idempotent and bounded per run so a huge backlog cannot stall the worker.
  */
 import type { FastifyInstance } from 'fastify';
 import { Prisma } from '../generated/prisma/client.js';
 
 const RECORDING_BATCH = 500;
+const ATTACHMENT_BATCH = 500;
+/** Passes over doomed attachments in one run; the next run continues where this one stopped. */
+const ATTACHMENT_PASSES = 10;
+/**
+ * A file is uploaded before the note that claims it, so an unattached upload is normal for a few
+ * minutes. Past a day it means the note was never saved and nothing will ever reference it.
+ */
+const ORPHAN_UPLOAD_HOURS = 24;
 
 export interface RetentionSummary {
   purged: Record<string, number>;
@@ -17,10 +27,43 @@ export interface RetentionSummary {
   rawPayloads: number;
   recordings: number;
   recordingErrors: number;
+  attachments: number;
+  attachmentErrors: number;
 }
 
 function daysAgo(days: number): Date {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * Removes the stored files, then the rows. Deleting the rows first would strand the objects with
+ * nothing left pointing at them, which is exactly the leak this exists to close.
+ */
+async function purgeAttachments(
+  app: FastifyInstance,
+  where: Prisma.AttachmentWhereInput,
+): Promise<{ deleted: number; errors: number; drained: boolean }> {
+  const rows = await app.db.attachment.findMany({
+    where,
+    select: { id: true, key: true },
+    take: ATTACHMENT_BATCH,
+  });
+  let deleted = 0;
+  let errors = 0;
+  const done: string[] = [];
+  for (const a of rows) {
+    try {
+      await app.storage.delete(a.key);
+      done.push(a.id);
+      deleted++;
+    } catch (err) {
+      // Leave the row alone so the next run tries this object again.
+      errors++;
+      app.log.error({ err, attachmentId: a.id }, 'attachment object delete failed');
+    }
+  }
+  if (done.length > 0) await app.db.attachment.deleteMany({ where: { id: { in: done } } });
+  return { deleted, errors, drained: rows.length < ATTACHMENT_BATCH };
 }
 
 export async function runRetention(app: FastifyInstance): Promise<RetentionSummary> {
@@ -32,7 +75,27 @@ export async function runRetention(app: FastifyInstance): Promise<RetentionSumma
   //    order parents last so cascades do the heavy lifting.
   const purgeBefore = daysAgo(retention.softDeletePurgeDays);
   const purged: Record<string, number> = {};
-  purged.notes = (await db.note.deleteMany({ where: { deletedAt: { lt: purgeBefore } } })).count;
+
+  // Clear the files off the notes that are about to go. Their rows would cascade away with the
+  // note, taking the only reference to the object with them, so this has to happen first. If a
+  // backlog is not drained within the pass budget the notes are left for the next run rather than
+  // deleted over objects that are still there.
+  let attachments = 0;
+  let attachmentErrors = 0;
+  let notesReadyToPurge = false;
+  for (let pass = 0; pass < ATTACHMENT_PASSES; pass++) {
+    const r = await purgeAttachments(app, { note: { deletedAt: { lt: purgeBefore } } });
+    attachments += r.deleted;
+    attachmentErrors += r.errors;
+    if (r.drained) {
+      notesReadyToPurge = r.errors === 0;
+      break;
+    }
+  }
+
+  purged.notes = notesReadyToPurge
+    ? (await db.note.deleteMany({ where: { deletedAt: { lt: purgeBefore } } })).count
+    : 0;
   purged.tasks = (await db.task.deleteMany({ where: { deletedAt: { lt: purgeBefore } } })).count;
   purged.deals = (await db.deal.deleteMany({ where: { deletedAt: { lt: purgeBefore } } })).count;
   purged.leads = (await db.lead.deleteMany({ where: { deletedAt: { lt: purgeBefore } } })).count;
@@ -108,7 +171,27 @@ export async function runRetention(app: FastifyInstance): Promise<RetentionSumma
     }
   }
 
-  const summary: RetentionSummary = { purged, pbxEvents, rawPayloads, recordings, recordingErrors };
+  // 5b. uploads that were never attached to anything
+  for (let pass = 0; pass < ATTACHMENT_PASSES; pass++) {
+    const r = await purgeAttachments(app, {
+      noteId: null,
+      messageId: null,
+      createdAt: { lt: new Date(Date.now() - ORPHAN_UPLOAD_HOURS * 60 * 60 * 1000) },
+    });
+    attachments += r.deleted;
+    attachmentErrors += r.errors;
+    if (r.drained) break;
+  }
+
+  const summary: RetentionSummary = {
+    purged,
+    pbxEvents,
+    rawPayloads,
+    recordings,
+    recordingErrors,
+    attachments,
+    attachmentErrors,
+  };
   await app.audit.write(
     { actorId: null, actorType: 'system' },
     { action: 'retention.run', entity: 'system', after: summary },
