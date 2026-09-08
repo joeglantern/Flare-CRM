@@ -20,3 +20,4 @@ export * from './schemas/report.js';
 export * from './schemas/import-export.js';
 export * from './schemas/web-form.js';
 export * from './schemas/messaging.js';
+export * from './schemas/backup.js';

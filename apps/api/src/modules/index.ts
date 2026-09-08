@@ -13,6 +13,7 @@ import filesRoutes from './files/files.routes.js';
 import importExportRoutes from './import-export/import-export.routes.js';
 import leadsRoutes from './leads/leads.routes.js';
 import messagingRoutes from './messaging/messaging.routes.js';
+import backupsRoutes from './backups/backups.routes.js';
 import notesRoutes from './notes/notes.routes.js';
 import notificationsRoutes from './notifications/notifications.routes.js';
 import pipelinesRoutes from './pipelines/pipelines.routes.js';
@@ -40,6 +41,7 @@ const modules: FastifyPluginAsync = async (app) => {
   await app.register(leadsRoutes);
   await app.register(tasksRoutes);
   await app.register(notesRoutes);
+  await app.register(backupsRoutes);
   await app.register(activityRoutes);
   await app.register(notificationsRoutes);
   await app.register(callsRoutes);

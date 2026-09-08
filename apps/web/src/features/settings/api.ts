@@ -1,7 +1,7 @@
 /**
  * Admin data: custom fields, pipelines, dispositions, web forms, audit log and system status.
  */
-import type { CustomFieldDefinitionDto, PipelineDto, WebFormDto } from '@crm/shared';
+import type { BackupDto, CustomFieldDefinitionDto, PipelineDto, WebFormDto } from '@crm/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, type OffsetList, type Query } from '@/lib/api/client';
 import { qk } from '@/lib/query';
@@ -213,4 +213,46 @@ export function useUpdateSettings() {
       void qc.invalidateQueries({ queryKey: qk.settingsPublic() });
     },
   });
+}
+
+/* -- backups ----------------------------------------------------------------------------- */
+
+export function useBackups(enabled = true) {
+  return useQuery({
+    queryKey: ['backups'],
+    enabled,
+    queryFn: () => http.list<BackupDto>('/api/v1/backups'),
+  });
+}
+
+export function useBackupMutations() {
+  const qc = useQueryClient();
+  const done = () => {
+    void qc.invalidateQueries({ queryKey: ['backups'] });
+  };
+  return {
+    upload: useMutation({
+      mutationFn: async (file: File) => {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch('/api/v1/backups/upload', {
+          method: 'POST',
+          body: form,
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as {
+            error?: { message?: string };
+          } | null;
+          throw new Error(body?.error?.message ?? 'Upload failed');
+        }
+        return ((await res.json()) as { data: BackupDto }).data;
+      },
+      onSuccess: done,
+    }),
+    remove: useMutation({
+      mutationFn: (key: string) => http.del(`/api/v1/backups?key=${encodeURIComponent(key)}`),
+      onSuccess: done,
+    }),
+  };
 }

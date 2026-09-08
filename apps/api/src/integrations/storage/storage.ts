@@ -6,6 +6,7 @@ import {
   CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   HeadBucketCommand,
   HeadObjectCommand,
   PutObjectCommand,
@@ -21,6 +22,12 @@ export interface PutResult {
   sha256: string;
 }
 
+export interface StoredObject {
+  key: string;
+  size: number;
+  lastModified: string;
+}
+
 export interface ObjectStream {
   body: Readable;
   contentType: string;
@@ -34,6 +41,8 @@ export interface Storage {
   get(key: string, range?: string): Promise<ObjectStream | null>;
   head(key: string): Promise<{ size: number; contentType: string } | null>;
   delete(key: string): Promise<void>;
+  /** Newest first. Used where the store is its own catalogue, such as database snapshots. */
+  list(prefix: string, limit?: number): Promise<StoredObject[]>;
   /** Presigned GET when the bucket host is reachable by browsers; otherwise null (stream through the API). */
   presignGet(key: string, ttlSeconds: number, downloadName?: string): Promise<string | null>;
 }
@@ -139,6 +148,20 @@ export class S3Storage implements Storage {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 
+  async list(prefix: string, limit = 100): Promise<StoredObject[]> {
+    const res = await this.client.send(
+      new ListObjectsV2Command({ Bucket: this.bucket, Prefix: prefix, MaxKeys: limit }),
+    );
+    return (res.Contents ?? [])
+      .filter((o): o is { Key: string; Size?: number; LastModified?: Date } => Boolean(o.Key))
+      .map((o) => ({
+        key: o.Key,
+        size: o.Size ?? 0,
+        lastModified: (o.LastModified ?? new Date(0)).toISOString(),
+      }))
+      .sort((a, b) => b.lastModified.localeCompare(a.lastModified));
+  }
+
   async presignGet(key: string, ttlSeconds: number, downloadName?: string): Promise<string | null> {
     if (!this.publicUrl) return null;
     const cmd = new GetObjectCommand({
@@ -198,6 +221,14 @@ export class MemoryStorage implements Storage {
   async delete(key: string): Promise<void> {
     this.objects.delete(key);
     return Promise.resolve();
+  }
+  list(prefix: string, limit = 100): Promise<StoredObject[]> {
+    return Promise.resolve(
+      [...this.objects.entries()]
+        .filter(([k]) => k.startsWith(prefix))
+        .slice(0, limit)
+        .map(([key, v]) => ({ key, size: v.body.length, lastModified: new Date(0).toISOString() })),
+    );
   }
   async presignGet(): Promise<string | null> {
     return Promise.resolve(null);

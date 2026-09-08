@@ -6,7 +6,13 @@
  * affect rather than just writing the value. Sections the user cannot manage are hidden, not
  * disabled, except where seeing the value is itself useful (PBX status, system health).
  */
-import type { CustomFieldDefinitionDto, PipelineDto, UserDto, WebFormDto } from '@crm/shared';
+import type {
+  BackupDto,
+  CustomFieldDefinitionDto,
+  PipelineDto,
+  UserDto,
+  WebFormDto,
+} from '@crm/shared';
 import {
   Activity,
   Building2,
@@ -23,8 +29,10 @@ import {
   Trash2,
   Users,
   Workflow,
+  HardDriveDownload,
+  Upload,
 } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -51,10 +59,13 @@ import { MAX_PAGE_SIZE } from '@crm/shared';
 import { usePipelines } from '@/features/deals/api';
 import { useChannels } from '@/features/inbox/api';
 import { useCreateUser, useUpdateUser, useUserAction, useUsers } from '@/features/users/api';
+import { formatBytes } from '@/lib/api/attachments';
 import { usePermissions } from '@/providers/permissions';
 import { useFullSettings } from '@/providers/settings';
 import {
   useAuditLog,
+  useBackupMutations,
+  useBackups,
   useCustomFieldMutations,
   useCustomFields,
   useDispositionMutations,
@@ -90,6 +101,7 @@ const SECTIONS: Section[] = [
   { id: 'matching', label: 'Number matching', icon: SlidersHorizontal, requires: 'settings:read' },
   { id: 'security', label: 'Security', icon: ShieldCheck, requires: 'settings:read' },
   { id: 'retention', label: 'Data retention', icon: Database, requires: 'settings:read' },
+  { id: 'backups', label: 'Backups', icon: HardDriveDownload, requires: 'settings:manage' },
   { id: 'fields', label: 'Custom fields', icon: KeyRound, requires: 'custom_field:manage' },
   { id: 'pipelines', label: 'Pipelines', icon: Workflow, requires: 'pipeline:manage' },
   { id: 'dispositions', label: 'Call outcomes', icon: Check, requires: 'settings:manage' },
@@ -150,6 +162,7 @@ export function SettingsScreen() {
           {active === 'matching' && <MatchingSection />}
           {active === 'security' && <SecuritySection />}
           {active === 'retention' && <RetentionSection />}
+          {active === 'backups' && <BackupsSection />}
           {active === 'fields' && <CustomFieldsSection />}
           {active === 'pipelines' && <PipelinesSection />}
           {active === 'dispositions' && <DispositionsSection />}
@@ -2410,4 +2423,134 @@ function useResetOnOpen(open: boolean, user: UserDto | undefined, reset: () => v
     setSeen(key);
     if (key !== null) reset();
   }
+}
+
+/* -- backups ----------------------------------------------------------------------------- */
+
+/**
+ * The application does not take snapshots and does not restore them. Taking one is a command, and
+ * the backup container is where commands belong; restoring replaces the database under a running
+ * system, which is an operator job with the stack stopped. What belongs here is getting a snapshot
+ * out, and getting one in from another server.
+ */
+function BackupsSection() {
+  const list = useBackups();
+  const { upload, remove } = useBackupMutations();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [confirming, setConfirming] = useState<BackupDto | null>(null);
+  const rows = list.data?.data ?? [];
+
+  return (
+    <SectionShell
+      title="Backups"
+      description="Snapshots taken nightly by the backup service and kept on this server."
+      loading={list.isPending}
+      error={list.error}
+      onRetry={() => {
+        void list.refetch();
+      }}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".dump,application/octet-stream"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file) return;
+            upload.mutate(file, {
+              onSuccess: () => {
+                toast({ tone: 'success', title: 'Backup uploaded' });
+              },
+              onError: (err) => {
+                toast({
+                  tone: 'danger',
+                  title: 'Could not upload',
+                  description: errorMessage(err),
+                });
+              },
+            });
+          }}
+        />
+        <Button
+          variant="secondary"
+          icon={Upload}
+          loading={upload.isPending}
+          onClick={() => fileInput.current?.click()}
+        >
+          Upload a backup
+        </Button>
+      </div>
+
+      <p className="mt-3 text-sm text-muted">
+        Each file is a <span className="mono">pg_dump</span> archive. To put one back, an
+        administrator restores it with the stack stopped; the application will not overwrite a live
+        database from this page.
+      </p>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          compact
+          className="mt-4"
+          object="folder"
+          title="No backups yet"
+          description="The backup service writes one every night. The first appears after its next run."
+        />
+      ) : (
+        <ul className="mt-4 flex flex-col gap-2">
+          {rows.map((b) => (
+            <li
+              key={b.key}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-sm border border-border bg-surface p-3"
+            >
+              <span className="mono min-w-0 flex-1 truncate text-sm">{b.fileName}</span>
+              {b.origin === 'uploaded' && <Badge tone="neutral">Uploaded</Badge>}
+              <span className="text-sm text-muted">{formatBytes(b.sizeBytes)}</span>
+              <span className="text-sm text-muted">
+                <DateTime value={b.createdAt} />
+              </span>
+              <a
+                href={`/api/v1/backups/download?key=${encodeURIComponent(b.key)}`}
+                className="text-sm underline underline-offset-2"
+              >
+                Download
+              </a>
+              <IconButton
+                icon={Trash2}
+                size={26}
+                variant="ghost"
+                label={`Delete ${b.fileName}`}
+                onClick={() => {
+                  setConfirming(b);
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(v) => {
+          if (!v) setConfirming(null);
+        }}
+        title="Delete this backup?"
+        description="The archive is removed from the server. This cannot be undone."
+        confirmLabel="Delete backup"
+        tone="danger"
+        onConfirm={() => {
+          const target = confirming;
+          setConfirming(null);
+          if (target)
+            remove.mutate(target.key, {
+              onError: (e) => {
+                toast({ tone: 'danger', title: 'Could not delete', description: errorMessage(e) });
+              },
+            });
+        }}
+      />
+    </SectionShell>
+  );
 }

@@ -219,6 +219,8 @@ services:
       - ./.env:/backup/config/.env:ro
       - restic_cache:/root/.cache/restic
       - backup_state:/backup/state
+      # local fallback copies; the series itself lives in the object store
+      - backup_db:/backup/db
     networks: [internal, edge] # edge for the off-site bucket
     security_opt: [no-new-privileges:true]
     logging: *logging
@@ -242,3 +244,4 @@ volumes:
   web_dist: {}
   restic_cache: {}
   backup_state: {}
+  backup_db: {}
