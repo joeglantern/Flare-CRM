@@ -52,7 +52,6 @@
     "fastify-plugin": "6.0.0",
     "fastify-type-provider-zod": "7.0.0",
     "file-type": "22.0.2",
-    "googleapis": "178.0.0",
     "ioredis": "5.11.1",
     "libphonenumber-js": "1.13.12",
     "nodemailer": "9.1.1",

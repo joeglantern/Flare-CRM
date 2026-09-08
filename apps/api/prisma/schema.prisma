@@ -597,21 +597,6 @@ model Message {
   @@map("messages")
 }
 
-/// Where an object key lives when the backend cannot address it by key (Google Drive names
-/// files by id). One row per stored object; the local S3 store needs none.
-model StorageObject {
-  key         String   @id
-  provider    String
-  providerId  String   @map("provider_id")
-  sizeBytes   BigInt   @map("size_bytes")
-  contentType String   @map("content_type")
-  sha256      String?
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-
-  @@index([provider, providerId])
-  @@map("storage_objects")
-}
-
 model Attachment {
   id           String   @id @db.Uuid
   key          String   @unique

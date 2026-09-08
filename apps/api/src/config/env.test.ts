@@ -77,19 +77,6 @@ describe('loadEnv', () => {
     ).toThrow(/must not also be pinned/);
   });
 
-  it('requires the service account and folder when storage is Google Drive', () => {
-    expect(() => loadEnv({ ...base, STORAGE_BACKEND: 'gdrive' })).toThrow(
-      /GDRIVE_SERVICE_ACCOUNT_FILE/,
-    );
-    const ok = loadEnv({
-      ...base,
-      STORAGE_BACKEND: 'gdrive',
-      GDRIVE_SERVICE_ACCOUNT_FILE: '/run/secrets/gdrive_service_account',
-      GDRIVE_FOLDER_ID: '1abc',
-    });
-    expect(ok.GDRIVE_PREFIXES).toBe('recordings,attachments,backups');
-  });
-
   it('requires a webhook secret when webhook events are enabled', () => {
     expect(() =>
       loadEnv({
