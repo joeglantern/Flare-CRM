@@ -1,7 +1,9 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/geist-mono';
 @import 'tailwindcss';
-@import './tokens.css';
+@import '@crm/ui/styles.css';
+/* Tailwind only generates classes it can see, and half of them live in the package now. */
+@source '../../../../packages/ui/src';
 
 /*
  * Inter is font-display: swap, so text first paints in a local face and is re-laid-out when Inter

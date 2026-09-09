@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig/web.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["react", "react-dom"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

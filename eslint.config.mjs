@@ -112,7 +112,9 @@ export default tseslint.config(
   },
   {
     // web app: browser globals, React rules (docs/17)
-    files: ['apps/web/**/*.{ts,tsx}'],
+    // React UI, wherever it lives: the app and the design system package it shares with the
+    // owner console.
+    files: ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh, 'jsx-a11y': jsxA11y },
     languageOptions: { globals: { ...globals.browser } },
     rules: {
