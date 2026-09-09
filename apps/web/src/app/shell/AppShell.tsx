@@ -19,6 +19,7 @@ import { usePermissions } from '@/providers/permissions';
 import { GOTO_SEQUENCES, isTypingTarget } from './shortcuts';
 import { Banners } from './Banners';
 import { CommandPalette } from './CommandPalette';
+import { MobileNav } from './MobileNav';
 import { Sidebar } from './Sidebar';
 import { SessionExpiredDialog } from './SessionExpiredDialog';
 import { ShortcutsSheet } from './ShortcutsSheet';
@@ -39,6 +40,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const goPrefix = useRef<number>(0);
 
@@ -154,6 +156,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
             onOpenShortcuts={() => {
               setShortcutsOpen(true);
             }}
+            onOpenNav={() => {
+              setNavOpen(true);
+            }}
           />
           <Banners
             pbx={{
@@ -170,6 +175,21 @@ export function AppShell({ children }: { children?: ReactNode }) {
         </div>
       </div>
 
+      <MobileNav
+        open={navOpen}
+        onOpenChange={setNavOpen}
+        counts={{
+          leads: leads.data?.page.total,
+          tasks: tasks.data?.page.total,
+          calls: missed.data?.page.total,
+          inbox: inbox.data?.pages[0]?.data.filter((c) => c.unreadCount > 0).length,
+        }}
+        pbx={{ enabled: cti.data?.enabled ?? false, connected: cti.data?.connected ?? false }}
+        channel={{
+          enabled: activeChannel !== undefined,
+          connected: activeChannel !== undefined,
+        }}
+      />
       <CallPopupHost />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />

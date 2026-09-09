@@ -145,7 +145,9 @@ export function Dialog({
         aria-describedby={description !== undefined ? `${id}-d` : undefined}
         tabIndex={-1}
         onKeyDown={onKeyDown}
-        style={{ width }}
+        // The overlay pads itself p-4 on every side, so the panel's own cap has to leave that
+        // room; using only 100vw here left the same overflow this is fixing, just narrower.
+        style={{ width: `min(${String(width)}px, calc(100vw - 2rem))` }}
         className={cn(
           'slide-up flex max-h-[80vh] w-full flex-col rounded-lg border border-border bg-raised shadow-float outline-none',
           className,
@@ -198,14 +200,21 @@ export function Drawer({
   className,
   initialFocus = true,
   width = 520,
-}: ShellProps & { width?: number }) {
+  side = 'right',
+}: ShellProps & {
+  width?: number;
+  /** Which edge the panel slides in from. */ side?: 'left' | 'right';
+}) {
   const id = useId();
   const { panel, onKeyDown } = useOverlay(open, onOpenChange, dismissable, initialFocus);
   if (!open) return null;
   return createPortal(
     <div
       role="presentation"
-      className="fixed inset-0 z-[80] flex justify-end bg-black/60"
+      className={cn(
+        'fixed inset-0 z-[80] flex bg-black/60',
+        side === 'left' ? 'justify-start' : 'justify-end',
+      )}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && dismissable) onOpenChange(false);
       }}
@@ -219,7 +228,8 @@ export function Drawer({
         onKeyDown={onKeyDown}
         style={{ width: `min(${String(width)}px, 100vw)` }}
         className={cn(
-          'flex h-full flex-col border-l border-border bg-raised outline-none',
+          'flex h-full flex-col bg-raised outline-none',
+          side === 'left' ? 'border-r border-border' : 'border-l border-border',
           'motion-safe:animate-[flare-fade_var(--dur-panel)_var(--ease-out)]',
           className,
         )}

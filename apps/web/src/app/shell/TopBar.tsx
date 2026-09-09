@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Keyboard,
   LogOut,
+  Menu,
   Moon,
   Search,
   Settings,
@@ -36,10 +37,13 @@ export function TopBar({
   presence,
   onOpenSearch,
   onOpenShortcuts,
+  onOpenNav,
 }: {
   presence: PresenceState;
   onOpenSearch: () => void;
   onOpenShortcuts: () => void;
+  /** Opens the drawer that stands in for the sidebar below the tablet breakpoint. */
+  onOpenNav: () => void;
 }) {
   const me = useMe();
   const theme = useTheme();
@@ -57,6 +61,15 @@ export function TopBar({
 
   return (
     <header className="flex h-13 shrink-0 items-center gap-3 border-b border-border bg-raised px-4 py-2.5">
+      <IconButton
+        icon={Menu}
+        label="Open navigation"
+        variant="ghost"
+        size={32}
+        className="md:hidden"
+        onClick={onOpenNav}
+      />
+
       <nav
         aria-label="Breadcrumb"
         className="hidden min-w-0 items-center gap-1.5 text-base md:flex"

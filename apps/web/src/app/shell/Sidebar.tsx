@@ -135,7 +135,7 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
   );
 }
 
-function StatusDots({
+export function StatusDots({
   collapsed,
   pbx,
   channel,
