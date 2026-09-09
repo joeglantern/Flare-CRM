@@ -40,8 +40,9 @@ if (PASSWORD === '') {
 async function signIn(context) {
   const page = await context.newPage();
   await page.goto(`${BASE}/sign-in`);
-  await page.getByLabel('Email').fill(EMAIL);
-  await page.getByLabel('Password').fill(PASSWORD);
+  // by role, not by label: the reveal button carries the label "Password" too
+  await page.getByRole('textbox', { name: 'Email' }).fill(EMAIL);
+  await page.getByRole('textbox', { name: 'Password' }).fill(PASSWORD);
   await page.getByRole('button', { name: /sign in/i }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/sign-in'), { timeout: 20_000 });
   await page.close();
@@ -108,8 +109,20 @@ async function main() {
         const png = await capture(context, figure, theme);
         const base = resolve(dir, `${figure.name}-${theme}`);
         const meta = await sharp(png).metadata();
+        // AVIF and WebP stay at the captured 2x so they are sharp on a dense screen, and between
+        // them they cover every browser that can run this app. The PNG is only a last resort, so
+        // it is written at 1x: at 2x it was more bytes than both modern formats put together.
         await Promise.all([
-          writeFile(`${base}.png`, png),
+          // Only the light PNG is ever reached: it is the img fallback, and the dark themes are
+          // served as AVIF or WebP. Writing a dark PNG too would ship files nothing can request.
+          ...(theme === 'light'
+            ? [
+                sharp(png)
+                  .resize(Math.round((meta.width ?? 0) / 2))
+                  .png({ compressionLevel: 9 })
+                  .toFile(`${base}.png`),
+              ]
+            : []),
           sharp(png).webp({ quality: 85, effort: 6 }).toFile(`${base}.webp`),
           sharp(png).avif({ quality: 80, effort: 6 }).toFile(`${base}.avif`),
         ]);

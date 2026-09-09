@@ -1,1 +1,178 @@
-{}
+{
+  "audit-log/settings-audit": {
+    "width": 1280,
+    "height": 800
+  },
+  "backups-retention/settings-backups": {
+    "width": 1280,
+    "height": 800
+  },
+  "calls/call-detail": {
+    "width": 1280,
+    "height": 800
+  },
+  "calls/calls-list": {
+    "width": 1280,
+    "height": 800
+  },
+  "calls/dialpad": {
+    "width": 1280,
+    "height": 800
+  },
+  "calls/live-calls": {
+    "width": 1280,
+    "height": 800
+  },
+  "calls/missed-calls": {
+    "width": 1280,
+    "height": 800
+  },
+  "companies/company-detail": {
+    "width": 1280,
+    "height": 800
+  },
+  "contacts/contact-detail": {
+    "width": 1280,
+    "height": 800
+  },
+  "contacts/contacts-bulk": {
+    "width": 1280,
+    "height": 800
+  },
+  "contacts/contacts-list": {
+    "width": 1280,
+    "height": 800
+  },
+  "deals/deals-board": {
+    "width": 1280,
+    "height": 800
+  },
+  "getting-started/mobile-nav": {
+    "width": 390,
+    "height": 844
+  },
+  "getting-started/profile": {
+    "width": 1280,
+    "height": 800
+  },
+  "getting-started/sign-in": {
+    "width": 1280,
+    "height": 800
+  },
+  "home/home": {
+    "width": 1280,
+    "height": 800
+  },
+  "home/home-manager": {
+    "width": 1280,
+    "height": 800
+  },
+  "import-export/import-wizard-1": {
+    "width": 1280,
+    "height": 800
+  },
+  "inbox/inbox": {
+    "width": 1280,
+    "height": 800
+  },
+  "leads/convert-lead": {
+    "width": 1280,
+    "height": 800
+  },
+  "leads/leads-list": {
+    "width": 1280,
+    "height": 800
+  },
+  "notes-files/notes-panel": {
+    "width": 1280,
+    "height": 800
+  },
+  "notifications/notifications": {
+    "width": 1280,
+    "height": 800
+  },
+  "reports/report-agents": {
+    "width": 1280,
+    "height": 800
+  },
+  "reports/report-calls-summary": {
+    "width": 1280,
+    "height": 800
+  },
+  "reports/report-conversion": {
+    "width": 1280,
+    "height": 800
+  },
+  "reports/report-forecast": {
+    "width": 1280,
+    "height": 800
+  },
+  "reports/report-missed": {
+    "width": 1280,
+    "height": 800
+  },
+  "reports/report-pipeline-summary": {
+    "width": 1280,
+    "height": 800
+  },
+  "search-shortcuts/command-palette": {
+    "width": 1280,
+    "height": 800
+  },
+  "settings/settings-channels": {
+    "width": 1280,
+    "height": 800
+  },
+  "settings/settings-fields": {
+    "width": 1280,
+    "height": 800
+  },
+  "settings/settings-general": {
+    "width": 1280,
+    "height": 800
+  },
+  "settings/settings-recording": {
+    "width": 1280,
+    "height": 800
+  },
+  "settings/settings-security": {
+    "width": 1280,
+    "height": 800
+  },
+  "settings/settings-telephony": {
+    "width": 1280,
+    "height": 800
+  },
+  "tasks/tasks-calendar": {
+    "width": 1280,
+    "height": 800
+  },
+  "tasks/tasks-list": {
+    "width": 1280,
+    "height": 800
+  },
+  "troubleshooting/state-banners": {
+    "width": 1280,
+    "height": 800
+  },
+  "troubleshooting/state-error": {
+    "width": 1280,
+    "height": 800
+  },
+  "troubleshooting/state-forbidden": {
+    "width": 1280,
+    "height": 800
+  },
+  "users-roles/settings-users": {
+    "width": 1280,
+    "height": 800
+  },
+  "web-forms/settings-forms": {
+    "width": 1280,
+    "height": 800
+  },
+  "your-plan/settings-plan": {
+    "width": 1280,
+    "height": 800
+  }
+}

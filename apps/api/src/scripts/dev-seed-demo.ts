@@ -468,6 +468,21 @@ async function main(): Promise<void> {
       }
     }
 
+    // Local development only: the demo admin is meant to be signed into immediately, including by
+    // the manual's screenshot script, and enrolling an authenticator every time a dev database is
+    // rebuilt helps nobody. Production seeds do not touch this.
+    await db.setting.upsert({
+      where: { key: 'security' },
+      create: {
+        key: 'security',
+        value: { require2FAForPrivileged: false, require2FAForAll: false, sessionIdleMinutes: 60 },
+        updatedById: null,
+      },
+      update: {
+        value: { require2FAForPrivileged: false, require2FAForAll: false, sessionIdleMinutes: 60 },
+      },
+    });
+
     const counts = {
       companies: await db.company.count(),
       contacts: await db.contact.count(),
@@ -480,6 +495,8 @@ async function main(): Promise<void> {
     };
     // eslint-disable-next-line no-console
     console.log('demo data ready', counts);
+    // eslint-disable-next-line no-console
+    console.log('sign in as  samuel.kiptoo@flare.co.ke  /  Flare-dev-2026!  (admin)');
   } finally {
     await db.$disconnect();
   }

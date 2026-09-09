@@ -8,6 +8,7 @@ import { parseInline, stripInline } from './content/inline';
 import { chapterForPath } from './context';
 import { DIAGRAMS } from './diagrams';
 import { buildIndex, search } from './search';
+import figuresManifest from './content/figures.json';
 
 const PUBLIC = join(process.cwd(), 'public', 'help');
 const ROUTES = join(process.cwd(), 'src', 'routes', '_app');
@@ -74,29 +75,50 @@ describe('manual content', () => {
 });
 
 /**
- * Figures are captured by scripts/capture-help-figures.mjs. Until that has run there are no files
- * on disk, and a manual full of broken images would be worse than one with none, so this checks
- * that whatever is on disk matches what the chapters ask for, in both themes.
+ * Figures are captured from the running app by scripts/capture-help-figures.mjs. Some states
+ * cannot be reached on a dev machine at all: a call popup needs a live PBX, a template picker
+ * needs an expired WhatsApp window. Those figures are simply not captured, and the manual leaves
+ * them out rather than rendering a broken image, so the invariant that matters is not "everything
+ * has been photographed" but "nothing the manual will try to render is missing".
  */
 describe('manual figures on disk', () => {
-  const captured = existsSync(PUBLIC) && readdirSync(PUBLIC).length > 0;
-  const figures = CHAPTERS.flatMap((c) =>
-    c.sections.flatMap((s) =>
-      s.blocks.filter((b) => b.type === 'figure').map((b) => ({ chapter: c.id, name: b.name })),
+  const manifest = figuresManifest as Record<string, { width: number; height: number }>;
+  const referenced = new Set(
+    CHAPTERS.flatMap((c) =>
+      c.sections.flatMap((s) =>
+        s.blocks.filter((b) => b.type === 'figure').map((b) => `${c.id}/${b.name}`),
+      ),
     ),
   );
 
-  it.runIf(captured)('has both themes of every figure a chapter asks for', () => {
-    const missing = figures.filter(
-      (f) =>
-        !existsSync(join(PUBLIC, f.chapter, `${f.name}-light.png`)) ||
-        !existsSync(join(PUBLIC, f.chapter, `${f.name}-dark.png`)),
-    );
-    expect(missing.map((f) => `${f.chapter}/${f.name}`)).toEqual([]);
+  it('has every file a browser could ask for, for each figure it will render', () => {
+    const missing = Object.keys(manifest).filter((key) => {
+      const [chapter, name] = key.split('/');
+      return [
+        `${name}-light.png`,
+        `${name}-light.avif`,
+        `${name}-light.webp`,
+        `${name}-dark.avif`,
+        `${name}-dark.webp`,
+      ].some((file) => !existsSync(join(PUBLIC, chapter ?? '', file)));
+    });
+    expect(missing).toEqual([]);
+  });
+
+  it('ships no dark PNG, which nothing would ever load', () => {
+    const stray = Object.keys(manifest).filter((key) => {
+      const [chapter, name] = key.split('/');
+      return existsSync(join(PUBLIC, chapter ?? '', `${name}-dark.png`));
+    });
+    expect(stray).toEqual([]);
+  });
+
+  it('has no figure on disk that no chapter asks for', () => {
+    expect(Object.keys(manifest).filter((key) => !referenced.has(key))).toEqual([]);
   });
 
   it('asks for figures under a chapter id that exists', () => {
-    for (const f of figures) expect(chapterById.has(f.chapter)).toBe(true);
+    for (const key of referenced) expect(chapterById.has(key.split('/')[0] ?? '')).toBe(true);
   });
 });
 
