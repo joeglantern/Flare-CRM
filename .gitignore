@@ -7,6 +7,7 @@ dist/
 build/
 *.tsbuildinfo
 apps/api/src/generated/
+apps/console-api/src/generated/
 
 # env & secrets — never commit real values
 .env

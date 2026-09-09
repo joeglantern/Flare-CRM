@@ -1,0 +1,253 @@
+// Owner console data model — see docs/21. Column names are snake_case via @map.
+// This database belongs to the provider, not to any customer, and holds no customer CRM data:
+// only who the customers are, what they are entitled to, and how their stacks check in.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  runtime             = "nodejs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Auth (Better Auth core + admin + twoFactor) ─────────────────────────────
+// Owners only. There is no sign-up: the first owner comes from the seed, the rest are invited.
+
+model User {
+  id               String    @id @db.Uuid
+  name             String
+  email            String    @unique @db.Citext
+  emailVerified    Boolean   @default(false) @map("email_verified")
+  image            String?
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  role             String?   @default("owner")
+  banned           Boolean?  @default(false)
+  banReason        String?   @map("ban_reason")
+  banExpires       DateTime? @map("ban_expires") @db.Timestamptz(3)
+  twoFactorEnabled Boolean?  @default(false) @map("two_factor_enabled")
+  isActive         Boolean   @default(true) @map("is_active")
+  lastSeenAt       DateTime? @map("last_seen_at") @db.Timestamptz(3)
+
+  sessions   Session[]
+  accounts   Account[]
+  twofactors TwoFactor[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model Session {
+  id             String   @id @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  token          String   @unique
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(3)
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  impersonatedBy String?  @map("impersonated_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  issuer                String
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz(3)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issuer, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+model TwoFactor {
+  id                      String    @id @db.Uuid
+  userId                  String    @map("user_id") @db.Uuid
+  secret                  String
+  backupCodes             String    @map("backup_codes")
+  verified                Boolean?  @default(true)
+  failedVerificationCount Int?      @default(0) @map("failed_verification_count")
+  lockedUntil             DateTime? @map("locked_until") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("two_factors")
+}
+
+// ───────────────────────────── Customers and their plans ─────────────────────────────
+
+model Customer {
+  id           String    @id @db.Uuid
+  name         String
+  /// Lowercase, used as the subdomain: <slug>.<CONSOLE_BRAND_DOMAIN>
+  slug         String    @unique
+  status       String    @default("active")
+  contactName  String    @map("contact_name")
+  contactEmail String    @map("contact_email")
+  contactPhone String?   @map("contact_phone")
+  notes        String    @default("")
+  primaryDomain String   @unique @map("primary_domain")
+  /// A domain the customer owns, pointed here with a CNAME once verified.
+  customDomain           String?   @unique @map("custom_domain")
+  customDomainToken      String?   @map("custom_domain_token")
+  customDomainVerifiedAt DateTime? @map("custom_domain_verified_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  entitlement CustomerEntitlement?
+  stacks      Stack[]
+  issues      EntitlementIssue[]
+
+  @@index([status])
+  @@map("customers")
+}
+
+model Plan {
+  id          String   @id @db.Uuid
+  name        String   @unique
+  description String   @default("")
+  /// Feature map from packages/shared; overrides on a customer are layered on top.
+  features    Json
+  limits      Json
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  entitlements CustomerEntitlement[]
+
+  @@map("plans")
+}
+
+model CustomerEntitlement {
+  customerId       String    @id @map("customer_id") @db.Uuid
+  planId           String?   @map("plan_id") @db.Uuid
+  /// Only the keys that differ from the plan; absent means inherit.
+  featureOverrides Json      @default("{}") @map("feature_overrides")
+  limitOverrides   Json      @default("{}") @map("limit_overrides")
+  expiresAt        DateTime? @map("expires_at") @db.Timestamptz(3)
+  agreementNotes   String    @default("") @map("agreement_notes")
+  updatedById      String?   @map("updated_by_id") @db.Uuid
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  plan     Plan?    @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([planId])
+  @@map("customer_entitlements")
+}
+
+// ───────────────────────────── Stacks and what they have been issued ─────────────────────────────
+
+model Stack {
+  /// "stk_" plus twenty base32 characters; the customer stack carries it as CONSOLE_STACK_ID.
+  id             String    @id
+  customerId     String    @map("customer_id") @db.Uuid
+  /// Hash of the secret. The secret itself is shown once, at creation, and never stored.
+  secretHash     String    @map("secret_hash")
+  label          String    @default("primary")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  rotatedAt      DateTime? @map("rotated_at") @db.Timestamptz(3)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+  lastSeenAt     DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  connected      Boolean   @default(false)
+  version        String?
+  domain         String?
+  startedAt      DateTime? @map("started_at") @db.Timestamptz(3)
+  health         Json?
+  usage          Json?
+  lastBackupAt   DateTime? @map("last_backup_at") @db.Timestamptz(3)
+  currentIssueId String?   @map("current_issue_id")
+
+  customer Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  issues   EntitlementIssue[]
+
+  @@index([customerId])
+  @@index([connected])
+  @@map("stacks")
+}
+
+model EntitlementIssue {
+  /// "iss_" plus a uuid; the stack echoes it back when it acknowledges.
+  id            String    @id
+  customerId    String    @map("customer_id") @db.Uuid
+  stackId       String    @map("stack_id")
+  envelope      Json
+  payload       Json
+  issuedById    String    @map("issued_by_id") @db.Uuid
+  issuedAt      DateTime  @default(now()) @map("issued_at") @db.Timestamptz(3)
+  deliveredAt   DateTime? @map("delivered_at") @db.Timestamptz(3)
+  ackedAt       DateTime? @map("acked_at") @db.Timestamptz(3)
+  status        String    @default("pending")
+  rejectReason  String?   @map("reject_reason")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  stack    Stack    @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, issuedAt(sort: Desc)])
+  @@index([stackId, status])
+  @@map("entitlement_issues")
+}
+
+model ConsoleSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("console_settings")
+}
+
+// Append-only, same rule as the CRM's own log (docs/08 §K1).
+model AuditLog {
+  id        String   @id @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  actorType String   @default("user") @map("actor_type")
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  before    Json?
+  after     Json?
+  ip        String?
+  userAgent String?  @map("user_agent")
+  requestId String?  @map("request_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([entity, entityId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

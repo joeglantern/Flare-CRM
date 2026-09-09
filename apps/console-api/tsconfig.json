@@ -1,0 +1,18 @@
+{
+  "extends": "../../packages/tsconfig/base.json",
+  "compilerOptions": {
+    // No rootDir: the entitlements interop test verifies a document this service signed with the
+    // customer stack's own verifier, which lives in apps/api. That import is the point of the test.
+    "outDir": "dist",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "prisma/**/*.ts",
+    "prisma.config.ts",
+    "vitest.config.ts",
+    "tsup.config.ts"
+  ]
+}

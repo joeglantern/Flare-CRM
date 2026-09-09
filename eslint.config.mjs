@@ -14,6 +14,7 @@ export default tseslint.config(
       '**/dist/**',
       '**/coverage/**',
       'apps/api/src/generated/**',
+      'apps/console-api/src/generated/**',
       'apps/api/prisma/migrations/**',
       'apps/web/src/routeTree.gen.ts',
       'apps/web/src/lib/api/schema.d.ts',
@@ -100,7 +101,7 @@ export default tseslint.config(
   },
   {
     // Test harness code may spawn processes (migrations) and truncate tables; it never ships.
-    files: ['**/*.test.ts', 'apps/api/test/**/*.ts'],
+    files: ['**/*.test.ts', 'apps/*/test/**/*.ts'],
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
