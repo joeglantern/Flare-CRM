@@ -8,6 +8,7 @@
  */
 import type {
   BackupDto,
+  ChannelDto,
   CustomFieldDefinitionDto,
   PipelineDto,
   UserDto,
@@ -30,6 +31,7 @@ import {
   Users,
   Workflow,
   HardDriveDownload,
+  Pencil,
   Upload,
 } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
@@ -57,7 +59,13 @@ import { useDispositions } from '@/features/telephony/api';
 import { useCtiStatus } from '@/features/telephony/api';
 import { MAX_PAGE_SIZE } from '@crm/shared';
 import { usePipelines } from '@/features/deals/api';
-import { useChannels } from '@/features/inbox/api';
+import {
+  countPlaceholders,
+  templatesOf,
+  useChannelMutations,
+  useChannels,
+  type TemplateDef,
+} from '@/features/inbox/api';
 import { useCreateUser, useUpdateUser, useUserAction, useUsers } from '@/features/users/api';
 import { formatBytes } from '@/lib/api/attachments';
 import { usePermissions } from '@/providers/permissions';
@@ -1614,51 +1622,396 @@ function DispositionsSection() {
 
 /* ── channels ───────────────────────────────────────────────────────────────────────────── */
 
+const CHANNEL_TYPES: { value: ChannelDto['type']; label: string; hint: string }[] = [
+  {
+    value: 'whatsapp',
+    label: 'WhatsApp',
+    hint: 'The number and credentials are set on the server (docs/11); this names the channel and holds its reply templates.',
+  },
+  {
+    value: 'sms',
+    label: 'SMS',
+    hint: 'A provider account for sending and receiving text messages.',
+  },
+  { value: 'livechat', label: 'Live chat', hint: 'A website chat widget.' },
+  {
+    value: 'yeastar',
+    label: 'Yeastar omnichannel',
+    hint: "The PBX's own messaging, via the same Open API token as telephony.",
+  },
+];
+
+function channelTypeLabel(type: ChannelDto['type']): string {
+  return CHANNEL_TYPES.find((t) => t.value === type)?.label ?? type;
+}
+
 function ChannelsSection() {
   const channels = useChannels();
+  const { create, update } = useChannelMutations();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [type, setType] = useState<ChannelDto['type']>('whatsapp');
+  const [name, setName] = useState('');
+  const [externalId, setExternalId] = useState('');
+  const [editing, setEditing] = useState<ChannelDto | null>(null);
+
   const rows = channels.data ?? [];
 
   return (
-    <Panel
-      title="Messaging channels"
-      note="GET /channels · secrets are stored encrypted and never returned, so they can only be replaced, not read"
-      padded={false}
-    >
-      {channels.isPending ? (
-        <div className="p-3">
-          <Skeleton height={120} shape="block" />
-        </div>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          compact
-          object="chat-bubble"
-          title="No channels configured"
-          description="A WhatsApp or SMS channel connects the inbox to a provider."
-        />
-      ) : (
-        <ul className="divide-y divide-border">
-          {rows.map((c) => (
-            <li key={c.id} className="flex items-center gap-3 px-3.5 py-2.5">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{c.name}</span>
-                <span className="mono block truncate text-sm text-faint">
-                  {c.type}
-                  {c.externalId !== null && ` · ${c.externalId}`}
+    <>
+      <Panel
+        title="Messaging channels"
+        note="GET /channels · secrets are stored encrypted and never returned, so they can only be replaced, not read"
+        padded={false}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={Plus}
+            onClick={() => {
+              setCreateOpen(true);
+            }}
+          >
+            New channel
+          </Button>
+        }
+      >
+        {channels.isPending ? (
+          <div className="p-3">
+            <Skeleton height={120} shape="block" />
+          </div>
+        ) : rows.length === 0 ? (
+          <EmptyState
+            compact
+            object="chat-bubble"
+            title="No channels configured"
+            description="A WhatsApp or SMS channel connects the inbox to a provider."
+            primaryAction={{
+              label: 'New channel',
+              onClick: () => {
+                setCreateOpen(true);
+              },
+            }}
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {rows.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center gap-3 px-3.5 py-2.5">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{c.name}</span>
+                  <span className="mono block truncate text-sm text-faint">
+                    {channelTypeLabel(c.type)}
+                    {c.externalId !== null && ` · ${c.externalId}`}
+                  </span>
                 </span>
-              </span>
-              {c.hasSecrets ? (
-                <Badge tone="success">Credentials set</Badge>
-              ) : (
-                <Badge tone="warning">No credentials</Badge>
-              )}
-              <Badge tone={c.isActive ? 'success' : 'neutral'}>
-                {c.isActive ? 'Active' : 'Off'}
-              </Badge>
-            </li>
-          ))}
-        </ul>
+                {c.hasSecrets ? (
+                  <Badge tone="success">Credentials set</Badge>
+                ) : (
+                  <Badge tone="warning">No credentials</Badge>
+                )}
+                <Switch
+                  checked={c.isActive}
+                  ariaLabel={`${c.name} is active`}
+                  onChange={(v) => {
+                    update.mutate(
+                      { id: c.id, body: { isActive: v } },
+                      {
+                        onError: (e) => {
+                          toast({
+                            tone: 'danger',
+                            title: 'Could not update',
+                            description: errorMessage(e),
+                          });
+                        },
+                      },
+                    );
+                  }}
+                />
+                <IconButton
+                  icon={Pencil}
+                  label={`Edit ${c.name}`}
+                  size={26}
+                  variant="ghost"
+                  onClick={() => {
+                    setEditing(c);
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="New channel"
+        description="POST /channels"
+        width={440}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setCreateOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              loading={create.isPending}
+              disabled={name.trim() === ''}
+              onClick={() => {
+                create.mutate(
+                  {
+                    type,
+                    name: name.trim(),
+                    externalId: externalId.trim() === '' ? null : externalId.trim(),
+                  },
+                  {
+                    onSuccess: () => {
+                      toast({ tone: 'success', title: 'Channel created' });
+                      setCreateOpen(false);
+                      setName('');
+                      setExternalId('');
+                    },
+                    onError: (e) => {
+                      toast({
+                        tone: 'danger',
+                        title: 'Could not create the channel',
+                        description: errorMessage(e),
+                      });
+                    },
+                  },
+                );
+              }}
+            >
+              Create channel
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <Select
+            label="Type"
+            value={type}
+            onChange={(v) => {
+              setType(v as ChannelDto['type']);
+            }}
+            options={CHANNEL_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+          />
+          <p className="text-sm text-faint">{CHANNEL_TYPES.find((t) => t.value === type)?.hint}</p>
+          <Input
+            autoFocus
+            label="Name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+            }}
+            description="Shown to agents in the inbox as the source of a conversation."
+          />
+          <Input
+            label="External ID"
+            value={externalId}
+            onChange={(e) => {
+              setExternalId(e.target.value);
+            }}
+            description="Optional. A number or provider account id, for your own reference."
+          />
+        </div>
+      </Dialog>
+
+      {editing !== null && (
+        <ChannelEditDialog
+          channel={editing}
+          onClose={() => {
+            setEditing(null);
+          }}
+        />
       )}
-    </Panel>
+    </>
+  );
+}
+
+/**
+ * Name, external id and, for WhatsApp, the reply templates the composer offers outside the
+ * twenty-four hour window (`config.templates`; see `templatesOf` in inbox/api.ts, formerly
+ * GAP-05). Meta approves templates and exposes no list endpoint, so recording them here is the
+ * only way the composer learns about one at all.
+ */
+function ChannelEditDialog({ channel, onClose }: { channel: ChannelDto; onClose: () => void }) {
+  const { update } = useChannelMutations();
+  const [name, setName] = useState(channel.name);
+  const [externalId, setExternalId] = useState(channel.externalId ?? '');
+  const [templates, setTemplates] = useState<TemplateDef[]>(() => templatesOf(channel));
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+      title={`Edit ${channel.name}`}
+      description="PATCH /channels/:id"
+      width={520}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            loading={update.isPending}
+            disabled={name.trim() === ''}
+            onClick={() => {
+              const config: Record<string, unknown> = {
+                ...channel.config,
+                ...(channel.type === 'whatsapp'
+                  ? {
+                      templates: templates
+                        .filter((t) => t.name.trim() !== '')
+                        .map((t) => ({
+                          name: t.name.trim(),
+                          language: t.language.trim() === '' ? 'en' : t.language.trim(),
+                          ...(t.body !== undefined && t.body.trim() !== '' ? { body: t.body } : {}),
+                          params: t.params,
+                        })),
+                    }
+                  : {}),
+              };
+              update.mutate(
+                {
+                  id: channel.id,
+                  body: {
+                    name: name.trim(),
+                    externalId: externalId.trim() === '' ? null : externalId.trim(),
+                    config,
+                  },
+                },
+                {
+                  onSuccess: () => {
+                    toast({ tone: 'success', title: 'Channel updated' });
+                    onClose();
+                  },
+                  onError: (e) => {
+                    toast({
+                      tone: 'danger',
+                      title: 'Could not save',
+                      description: errorMessage(e),
+                    });
+                  },
+                },
+              );
+            }}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Input
+          autoFocus
+          label="Name"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+          }}
+        />
+        <Input
+          label="External ID"
+          value={externalId}
+          onChange={(e) => {
+            setExternalId(e.target.value);
+          }}
+        />
+
+        {channel.type === 'whatsapp' && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Reply templates</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={Plus}
+                onClick={() => {
+                  setTemplates((prev) => [...prev, { name: '', language: 'en', params: 0 }]);
+                }}
+              >
+                Add template
+              </Button>
+            </div>
+            <p className="text-sm text-faint">
+              Only templates Meta has approved will actually send. Match the name exactly.
+            </p>
+            {templates.length === 0 ? (
+              <p className="text-sm text-muted">
+                None recorded. Outside the twenty-four hour reply window the composer will say so
+                rather than offer one.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {templates.map((t, i) => (
+                  <li
+                    // rows have no stable id until saved, so the index is the key
+                    key={i}
+                    className="flex flex-col gap-2 rounded-sm border border-border p-2.5"
+                  >
+                    <div className="flex gap-2">
+                      <Input
+                        className="flex-1"
+                        label="Name"
+                        value={t.name}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setTemplates((prev) =>
+                            prev.map((x, j) => (j === i ? { ...x, name: v } : x)),
+                          );
+                        }}
+                      />
+                      <Input
+                        label="Language"
+                        value={t.language}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setTemplates((prev) =>
+                            prev.map((x, j) => (j === i ? { ...x, language: v } : x)),
+                          );
+                        }}
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        label="Remove template"
+                        size={26}
+                        variant="ghost"
+                        className="mt-6"
+                        onClick={() => {
+                          setTemplates((prev) => prev.filter((_, j) => j !== i));
+                        }}
+                      />
+                    </div>
+                    <Textarea
+                      label="Body"
+                      rows={2}
+                      value={t.body ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setTemplates((prev) =>
+                          prev.map((x, j) =>
+                            j === i ? { ...x, body: v, params: countPlaceholders(v) } : x,
+                          ),
+                        );
+                      }}
+                      description={`${String(countPlaceholders(t.body))} placeholder(s) detected, e.g. {{1}}`}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    </Dialog>
   );
 }
 

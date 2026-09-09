@@ -177,7 +177,7 @@ export function templatesOf(channel: ChannelDto | undefined): TemplateDef[] {
   });
 }
 
-function countPlaceholders(body: unknown): number {
+export function countPlaceholders(body: unknown): number {
   if (typeof body !== 'string') return 0;
   const found = new Set(body.match(/\{\{\s*(\d+)\s*\}\}/g) ?? []);
   return found.size;
