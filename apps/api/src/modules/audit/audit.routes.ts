@@ -1,4 +1,4 @@
-import { isoDateTime, offsetListResponse, uuid } from '@crm/shared';
+import { isoDateTime, offsetListResponse, userRef, uuid } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
@@ -17,6 +17,8 @@ const auditDto = z.object({
   id: uuid,
   actorId: uuid.nullable(),
   actorType: z.string(),
+  /** The user who did this, when the actor is a user and that account still exists. */
+  actor: userRef.nullable(),
   action: z.string(),
   entity: z.string(),
   entityId: uuid.nullable(),
@@ -60,11 +62,24 @@ const auditRoutes: FastifyPluginAsyncZod = async (app) => {
         }),
         app.db.auditLog.count({ where }),
       ]);
+      // No FK from audit_logs to users: an audit row must survive the actor being deleted, so the
+      // name is resolved for this page rather than joined. A missing user (the account was later
+      // removed) leaves actor null, same as a system or webhook actor.
+      const actorIds = [...new Set(rows.map((r) => r.actorId).filter((id) => id !== null))];
+      const actors =
+        actorIds.length > 0
+          ? await app.db.user.findMany({
+              where: { id: { in: actorIds } },
+              select: { id: true, name: true },
+            })
+          : [];
+      const actorById = new Map(actors.map((a) => [a.id, a]));
       return {
         data: rows.map((r) => ({
           id: r.id,
           actorId: r.actorId,
           actorType: r.actorType,
+          actor: r.actorId === null ? null : (actorById.get(r.actorId) ?? null),
           action: r.action,
           entity: r.entity,
           entityId: r.entityId,

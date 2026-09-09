@@ -157,6 +157,11 @@ export interface paths {
                         "application/json": {
                             data: {
                                 action: string;
+                                actor: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 actorId: string | null;
                                 actorType: string;
                                 after: unknown | null;
