@@ -3,6 +3,8 @@ export * from './permissions.js';
 export * from './phone.js';
 export * from './visibility.js';
 export * from './socket-events.js';
+export * from './entitlements.js';
+export * from './console-link.js';
 export * from './schemas/common.js';
 export * from './schemas/user.js';
 export * from './schemas/custom-field.js';

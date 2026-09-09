@@ -36,22 +36,25 @@ export default fp(
       staticCSP: true,
       uiHooks: {
         onRequest: (request, reply, done) => {
-          if (app.config.NODE_ENV !== 'production') {
-            done();
-            return;
-          }
-          app
-            .getSession(request.headers)
-            .then((session) => {
+          const notFound = () => {
+            void reply.status(404).send({
+              error: { code: 'NOT_FOUND', message: 'Resource not found', requestId: request.id },
+            });
+          };
+          app.entitlements
+            .has('api_docs')
+            .then(async (inPlan) => {
+              if (!inPlan) {
+                notFound();
+                return;
+              }
+              if (app.config.NODE_ENV !== 'production') {
+                done();
+                return;
+              }
+              const session = await app.getSession(request.headers);
               if (session && hasRole(session.user.role, 'admin')) done();
-              else
-                void reply.status(404).send({
-                  error: {
-                    code: 'NOT_FOUND',
-                    message: 'Resource not found',
-                    requestId: request.id,
-                  },
-                });
+              else notFound();
             })
             .catch(done);
         },

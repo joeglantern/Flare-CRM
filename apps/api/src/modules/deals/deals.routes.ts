@@ -29,7 +29,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/deals', {
-    config: { auth: { permission: 'deal:read' } },
+    config: { auth: { permission: 'deal:read', feature: 'deals' } },
     schema: {
       tags: ['deals'],
       querystring: listDealsQuery,
@@ -39,7 +39,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/deals/board', {
-    config: { auth: { permission: 'deal:read' } },
+    config: { auth: { permission: 'deal:read', feature: 'deals' } },
     schema: {
       tags: ['deals'],
       querystring: boardQuery,
@@ -53,7 +53,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/deals', {
-    config: { auth: { permission: 'deal:create' } },
+    config: { auth: { permission: 'deal:create', feature: 'deals' } },
     schema: { tags: ['deals'], body: createDealBody, response: { 201: dataResponse(dealDto) } },
     handler: async (request, reply) => {
       const { actor, scope } = await scopeOf(app, request);
@@ -69,7 +69,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/deals/bulk', {
-    config: { auth: { permission: 'deal:update' } },
+    config: { auth: { permission: 'deal:update', feature: 'deals' } },
     schema: { tags: ['deals'], body: bulkDealsBody, response: { 200: dataResponse(bulkResult) } },
     handler: async (request) => {
       const { actor, scope } = await scopeOf(app, request);
@@ -87,7 +87,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/deals/:id', {
-    config: { auth: { permission: 'deal:read' } },
+    config: { auth: { permission: 'deal:read', feature: 'deals' } },
     schema: { tags: ['deals'], params: idParams, response: { 200: dataResponse(dealDto) } },
     handler: async (request) => ({
       data: await service.get((await scopeOf(app, request)).scope, request.params.id),
@@ -95,7 +95,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.patch('/deals/:id', {
-    config: { auth: { permission: 'deal:update' } },
+    config: { auth: { permission: 'deal:update', feature: 'deals' } },
     schema: {
       tags: ['deals'],
       params: idParams,
@@ -117,7 +117,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/deals/:id/stage', {
-    config: { auth: { permission: 'deal:change_stage' } },
+    config: { auth: { permission: 'deal:change_stage', feature: 'deals' } },
     schema: {
       tags: ['deals'],
       params: idParams,
@@ -139,7 +139,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/deals/:id/history', {
-    config: { auth: { permission: 'deal:read' } },
+    config: { auth: { permission: 'deal:read', feature: 'deals' } },
     schema: {
       tags: ['deals'],
       params: idParams,
@@ -151,7 +151,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.delete('/deals/:id', {
-    config: { auth: { permission: 'deal:delete' } },
+    config: { auth: { permission: 'deal:delete', feature: 'deals' } },
     schema: { tags: ['deals'], params: idParams, response: { 204: z.null() } },
     handler: async (request, reply) => {
       const { actor, scope } = await scopeOf(app, request);
@@ -166,7 +166,7 @@ const dealsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/deals/:id/restore', {
-    config: { auth: { permission: 'deal:delete' } },
+    config: { auth: { permission: 'deal:delete', feature: 'deals' } },
     schema: { tags: ['deals'], params: idParams, response: { 200: dataResponse(dealDto) } },
     handler: async (request) => ({
       data: await service.restore(

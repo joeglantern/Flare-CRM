@@ -28,16 +28,18 @@ async function main(): Promise<void> {
     );
 
   let subscriber: YeastarSubscriber | null = null;
-  if (
+  const telephonyPossible =
     app.cti.enabled &&
-    app.cti.client &&
-    app.cti.tokens &&
-    env.YEASTAR_EVENT_SOURCE !== 'webhook'
-  ) {
+    app.cti.client !== null &&
+    app.cti.tokens !== null &&
+    env.YEASTAR_EVENT_SOURCE !== 'webhook';
+  const startSubscriber = () => {
     const client = app.cti.client;
+    const tokens = app.cti.tokens;
+    if (subscriber || !telephonyPossible || !client || !tokens) return;
     subscriber = new YeastarSubscriber({
       valkey: app.valkey,
-      tokens: app.cti.tokens,
+      tokens,
       machine: app.cti.machine,
       baseUrl: env.YEASTAR_BASE_URL ?? '',
       tls: {
@@ -66,6 +68,21 @@ async function main(): Promise<void> {
       },
     });
     subscriber.start();
+  };
+  const stopSubscriber = async () => {
+    if (!subscriber) return;
+    await subscriber.stop();
+    subscriber = null;
+  };
+
+  if (telephonyPossible) {
+    if (await app.entitlements.has('telephony')) startSubscriber();
+    else app.log.warn('telephony is not in the plan; PBX subscriber not started');
+    // Toggling telephony in the owner console takes effect without a restart.
+    app.events.on('entitlements.changed', async (e) => {
+      if (e.features.telephony === true) startSubscriber();
+      else await stopSubscriber();
+    });
 
     // periodic reconciliation + token keep-alive (docs/06 §4, §13)
     await app.queues

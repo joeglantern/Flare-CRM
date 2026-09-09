@@ -9,6 +9,8 @@ import type { ActivityService } from '../modules/activity/activity.service.js';
 import type { AuditService } from '../modules/audit/audit.service.js';
 import type { NotificationsService } from '../modules/notifications/notifications.service.js';
 import type { SettingsService } from '../modules/settings/settings.service.js';
+import type { EntitlementsService } from '../modules/entitlements/entitlements.service.js';
+import type { StorageUsage } from '../modules/entitlements/usage.js';
 import type { RouteAuth } from '../plugins/authorize.js';
 import type { EventBus } from '../plugins/event-bus.js';
 import type { ReadinessRegistry } from '../plugins/health.js';
@@ -35,6 +37,8 @@ declare module 'fastify' {
     auth: Auth;
     getSession: (headers: IncomingHttpHeaders) => Promise<AuthSession | null>;
     settings: SettingsService;
+    entitlements: EntitlementsService;
+    storageUsage: StorageUsage;
     audit: AuditService;
     activity: ActivityService;
     notifications: NotificationsService;

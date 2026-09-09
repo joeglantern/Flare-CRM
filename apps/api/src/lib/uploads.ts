@@ -64,7 +64,13 @@ export interface StoredUpload {
 export async function storeUpload(
   storage: Storage,
   file: MultipartFile | undefined,
-  opts: { prefix: string; allowed: Set<string>; maxBytes: number },
+  opts: {
+    prefix: string;
+    allowed: Set<string>;
+    maxBytes: number;
+    /** Runs once the bytes are known and before anything is written; throw to refuse. */
+    beforeStore?: (bytes: number) => Promise<void>;
+  },
 ): Promise<StoredUpload> {
   if (!file) throw new BadRequestError('A file is required');
   const buffer = await file.toBuffer();
@@ -88,6 +94,7 @@ export async function storeUpload(
     ]);
   }
   const ext = sniffed?.ext ?? (mimeType === 'text/csv' ? 'csv' : 'txt');
+  if (opts.beforeStore) await opts.beforeStore(buffer.length);
   const key = newObjectKey(opts.prefix, ext);
   const result = await storage.put(key, buffer, mimeType);
   return {

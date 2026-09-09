@@ -24,6 +24,8 @@ const auditDto = z.object({
   entityId: uuid.nullable(),
   before: z.unknown().nullable(),
   after: z.unknown().nullable(),
+  /** False when the plan does not include change details; before and after are then null. */
+  diffAvailable: z.boolean(),
   ip: z.string().nullable(),
   requestId: z.string().nullable(),
   createdAt: isoDateTime,
@@ -74,6 +76,7 @@ const auditRoutes: FastifyPluginAsyncZod = async (app) => {
             })
           : [];
       const actorById = new Map(actors.map((a) => [a.id, a]));
+      const diffAvailable = await app.entitlements.has('audit_diff');
       return {
         data: rows.map((r) => ({
           id: r.id,
@@ -83,8 +86,9 @@ const auditRoutes: FastifyPluginAsyncZod = async (app) => {
           action: r.action,
           entity: r.entity,
           entityId: r.entityId,
-          before: r.before ?? null,
-          after: r.after ?? null,
+          before: diffAvailable ? (r.before ?? null) : null,
+          after: diffAvailable ? (r.after ?? null) : null,
+          diffAvailable,
           ip: r.ip,
           requestId: r.requestId,
           createdAt: r.createdAt.toISOString(),

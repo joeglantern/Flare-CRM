@@ -23,6 +23,7 @@ const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     valkey: app.valkey,
     audit: app.audit,
     settings: app.settings,
+    entitlements: app.entitlements,
     storage: app.storage,
     appUrl: app.config.APP_URL,
     avatarUrl: (key) => (key ? `/api/v1/files/${encodeURIComponent(key)}` : null),
@@ -54,6 +55,7 @@ const usersRoutes: FastifyPluginAsyncZod = async (app) => {
         prefix: 'avatars',
         allowed: IMAGE_TYPES,
         maxBytes: 5 * 1024 * 1024,
+        beforeStore: (bytes) => app.entitlements.assertStorage(bytes, auditContext(request)),
       });
       return {
         data: await service.setAvatar(requireUser(request).id, stored.key, auditContext(request)),

@@ -6,10 +6,18 @@
  *   config: { auth: { authenticated: true } }
  *   config: { auth: { permission: 'contact:read' } }
  */
-import { roleHasPermission, type Permission } from '@crm/shared';
+import { FEATURES, roleHasPermission, type FeatureKey, type Permission } from '@crm/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
-import { ForbiddenError, TwoFactorRequiredError, UnauthenticatedError } from '../lib/errors.js';
+import {
+  FeatureNotInPlanError,
+  ForbiddenError,
+  PlanExpiredError,
+  TwoFactorRequiredError,
+  UnauthenticatedError,
+} from '../lib/errors.js';
+import { auditContext } from '../lib/request.js';
+import type { EntitlementsService } from '../modules/entitlements/entitlements.service.js';
 import type { SettingsService } from '../modules/settings/settings.service.js';
 
 export type RouteAuth =
@@ -19,7 +27,16 @@ export type RouteAuth =
       permission?: Permission | Permission[];
       /** Routes needed to *set up* 2FA or read own profile. */
       allowWithout2FA?: boolean;
+      /** Plan features that must all be on (docs/20 §4). */
+      feature?: FeatureKey | FeatureKey[];
+      /**
+       * Whether this route changes data. Defaults to "anything but GET, HEAD, OPTIONS", which
+       * is what an expired plan refuses. Set explicitly for a POST that only reads.
+       */
+      write?: boolean;
     };
+
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** URL prefixes that may be public without declaring config.auth (docs/08 D4). */
 const PUBLIC_PREFIXES = [
@@ -53,7 +70,10 @@ export function twoFactorRequiredFor(
 }
 
 export default fp(
-  function authorize(app: FastifyInstance, opts: { settings: SettingsService }) {
+  function authorize(
+    app: FastifyInstance,
+    opts: { settings: SettingsService; entitlements: EntitlementsService },
+  ) {
     const undeclared: string[] = [];
     app.addHook('onRoute', (route) => {
       const auth = (route.config as { auth?: RouteAuth } | undefined)?.auth;
@@ -118,10 +138,38 @@ export default fp(
         const missing = required.filter((p) => !roleHasPermission(role, p));
         if (missing.length > 0) {
           request.log.info({ userId: user.id, missing }, 'permission denied');
+          await denied(request, { reason: 'FORBIDDEN', required: missing });
           throw new ForbiddenError('Insufficient permissions', { required: missing });
         }
       }
+
+      // Plan gates come after permissions so a user who could never use a feature is told about
+      // their role, not about the plan. Both are audited (docs/08 K2).
+      if (declared.feature !== undefined) {
+        const required = Array.isArray(declared.feature) ? declared.feature : [declared.feature];
+        for (const feature of required) {
+          if (!(await opts.entitlements.has(feature))) {
+            await denied(request, { reason: 'FEATURE_NOT_IN_PLAN', feature });
+            throw new FeatureNotInPlanError(feature, FEATURES[feature].label);
+          }
+        }
+      }
+      const isWrite = declared.write ?? !READ_METHODS.has(request.method);
+      if (isWrite && !declared.allowWithout2FA && (await opts.entitlements.isExpired())) {
+        const state = await opts.entitlements.getState();
+        await denied(request, { reason: 'PLAN_EXPIRED', expiredAt: state.doc.expiresAt });
+        throw new PlanExpiredError(state.doc.expiresAt ?? '');
+      }
     });
+
+    /** Refusals are part of the record: the owner can see a plan being hit, not only bypassed. */
+    async function denied(request: FastifyRequest, detail: Record<string, unknown>): Promise<void> {
+      await app.audit.write(auditContext(request), {
+        action: 'access.denied',
+        entity: 'route',
+        after: { ...detail, method: request.method, url: request.routeOptions.url ?? request.url },
+      });
+    }
   },
   { name: 'authorize', dependencies: ['auth'] },
 );

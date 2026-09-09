@@ -23,6 +23,7 @@ const whatsappWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
       const expected = app.config.WHATSAPP_VERIFY_TOKEN;
       if (
         !app.config.WHATSAPP_ENABLED ||
+        !(await app.entitlements.has('messaging')) ||
         !expected ||
         q['hub.mode'] !== 'subscribe' ||
         q['hub.verify_token'] !== expected ||
@@ -41,6 +42,7 @@ const whatsappWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
       const raw = request.rawBody ?? Buffer.alloc(0);
       if (
         !app.config.WHATSAPP_ENABLED ||
+        !(await app.entitlements.has('messaging')) ||
         !app.whatsappAdapter.verifyWebhook(raw, request.headers)
       ) {
         request.log.warn({ ip: request.ip }, 'whatsapp webhook signature rejected');

@@ -91,8 +91,64 @@ const envSchema = z
 
     FIRST_ADMIN_EMAIL: z.email().optional(),
     FIRST_ADMIN_NAME: z.string().optional(),
+
+    /**
+     * Owner console link (docs/20, docs/21). All four are set together or not at all; with none
+     * of them the stack runs standalone with every feature on. CONSOLE_PUBLIC_KEY is a comma
+     * separated list of base64 SPKI keys so a new console key can be trusted before the old one
+     * is retired. ENTITLEMENTS_FILE loads a signed document from disk for installs that cannot
+     * reach a console; it still needs the public key to verify it.
+     */
+    CONSOLE_URL: z.url().optional(),
+    CONSOLE_STACK_ID: z
+      .string()
+      .regex(/^stk_[a-z2-7]{20}$/, 'CONSOLE_STACK_ID must be the id the console issued')
+      .optional(),
+    CONSOLE_STACK_SECRET: z.string().min(32).optional(),
+    CONSOLE_PUBLIC_KEY: csv,
+    ENTITLEMENTS_FILE: z.string().min(1).optional(),
+    /** Customer-owned domains besides APP_URL, joined into trusted origins and CORS. */
+    APP_EXTRA_ORIGINS: csv,
+    /** Reported to the console; the Dockerfile sets it from the git sha. */
+    APP_VERSION: z.string().min(1).max(64).default('dev'),
   })
   .superRefine((env, ctx) => {
+    const consoleKeys = ['CONSOLE_URL', 'CONSOLE_STACK_ID', 'CONSOLE_STACK_SECRET'] as const;
+    const consoleSet = consoleKeys.filter((k) => env[k] !== undefined);
+    // A public key on its own is file mode; any console credential means all of them.
+    const linkConfigured = consoleSet.length > 0;
+    if (linkConfigured) {
+      for (const key of consoleKeys) {
+        if (env[key] === undefined)
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `${key} is required when the owner console is configured`,
+          });
+      }
+      if (env.CONSOLE_PUBLIC_KEY.length === 0)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['CONSOLE_PUBLIC_KEY'],
+          message: 'CONSOLE_PUBLIC_KEY is required when the owner console is configured',
+        });
+      if (
+        env.NODE_ENV === 'production' &&
+        env.CONSOLE_URL &&
+        !env.CONSOLE_URL.startsWith('https://')
+      )
+        ctx.addIssue({
+          code: 'custom',
+          path: ['CONSOLE_URL'],
+          message: 'CONSOLE_URL must be https in production',
+        });
+    }
+    if (env.ENTITLEMENTS_FILE !== undefined && env.CONSOLE_PUBLIC_KEY.length === 0)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CONSOLE_PUBLIC_KEY'],
+        message: 'CONSOLE_PUBLIC_KEY is required to verify ENTITLEMENTS_FILE',
+      });
     if (env.YEASTAR_ENABLED) {
       for (const key of [
         'YEASTAR_BASE_URL',

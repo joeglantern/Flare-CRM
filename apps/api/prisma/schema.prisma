@@ -754,3 +754,37 @@ model Setting {
 
   @@map("settings")
 }
+
+// ───────────────────────────── Entitlements (docs/20) ─────────────────────────────
+// The single current document a customer stack is operating under, and an append-only history
+// of every document it has ever applied. Read-only inside the stack: only a signed document
+// from the owner console (or a signed file) can change it.
+
+model Entitlement {
+  id         String    @id
+  source     String
+  envelope   Json?
+  payload    Json
+  keyId      String?   @map("key_id")
+  issueId    String?   @map("issue_id")
+  issuedAt   DateTime? @map("issued_at") @db.Timestamptz(3)
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz(3)
+  receivedAt DateTime  @map("received_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("entitlements")
+}
+
+model EntitlementHistory {
+  id          String    @id @db.Uuid
+  source      String
+  keyId       String?   @map("key_id")
+  issueId     String?   @map("issue_id")
+  issuedAt    DateTime? @map("issued_at") @db.Timestamptz(3)
+  payload     Json
+  appliedById String?   @map("applied_by_id") @db.Uuid
+  receivedAt  DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  @@index([receivedAt])
+  @@map("entitlement_history")
+}

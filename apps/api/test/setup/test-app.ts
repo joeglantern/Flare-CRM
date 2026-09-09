@@ -64,6 +64,8 @@ export class TestContext {
     const list = tables.map((t) => `"${t.tablename}"`).join(', ');
     await this.app.db.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
     await this.app.valkey.flushdb();
+    // TRUNCATE bypasses the Valkey notice that normally clears this cache.
+    this.app.entitlements.invalidate();
     await seed(this.app.db as never, {});
     // tests create their own users; 2FA enforcement is exercised explicitly where needed
     await this.app.settings.set(

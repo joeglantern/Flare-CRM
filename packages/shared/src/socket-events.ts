@@ -163,6 +163,13 @@ export const serverEvents = {
     updatedAt: at,
     byUserId: uuid.nullable(),
   }),
+  'entitlements:changed': z.object({
+    at,
+    plan: z.string(),
+    features: z.record(z.string(), z.boolean()),
+    expiresAt: at.nullable(),
+    issueId: z.string().nullable(),
+  }),
   'system:announce': z.object({
     at,
     level: z.enum(['info', 'warning', 'error']),

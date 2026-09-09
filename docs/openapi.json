@@ -3621,6 +3621,1090 @@
         }
       }
     },
+    "/api/v1/entitlements": {
+      "get": {
+        "tags": [
+          "entitlements"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "customerName": {
+                          "type": "string"
+                        },
+                        "plan": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 80
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "features": {
+                          "type": "object",
+                          "properties": {
+                            "telephony": {
+                              "type": "boolean"
+                            },
+                            "recordings": {
+                              "type": "boolean"
+                            },
+                            "softphone": {
+                              "type": "boolean"
+                            },
+                            "messaging": {
+                              "type": "boolean"
+                            },
+                            "leads": {
+                              "type": "boolean"
+                            },
+                            "webforms": {
+                              "type": "boolean"
+                            },
+                            "deals": {
+                              "type": "boolean"
+                            },
+                            "reports": {
+                              "type": "boolean"
+                            },
+                            "reports_team": {
+                              "type": "boolean"
+                            },
+                            "exports": {
+                              "type": "boolean"
+                            },
+                            "imports": {
+                              "type": "boolean"
+                            },
+                            "custom_fields": {
+                              "type": "boolean"
+                            },
+                            "audit_diff": {
+                              "type": "boolean"
+                            },
+                            "backups": {
+                              "type": "boolean"
+                            },
+                            "api_docs": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "telephony",
+                            "recordings",
+                            "softphone",
+                            "messaging",
+                            "leads",
+                            "webforms",
+                            "deals",
+                            "reports",
+                            "reports_team",
+                            "exports",
+                            "imports",
+                            "custom_fields",
+                            "audit_diff",
+                            "backups",
+                            "api_docs"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "limits": {
+                          "type": "object",
+                          "properties": {
+                            "seats": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "storage_gb": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "recording_retention_days": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "channels": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "pipelines": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "seats",
+                            "storage_gb",
+                            "recording_retention_days",
+                            "channels",
+                            "pipelines"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "usage": {
+                          "type": "object",
+                          "properties": {
+                            "seats": {
+                              "type": "object",
+                              "properties": {
+                                "used": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "max": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "used",
+                                "max"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "storage": {
+                              "type": "object",
+                              "properties": {
+                                "usedBytes": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "maxBytes": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "breakdown": {
+                                  "type": "object",
+                                  "properties": {
+                                    "attachments": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "recordings": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "backups": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "attachments",
+                                    "recordings",
+                                    "backups"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "refreshedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "usedBytes",
+                                "maxBytes",
+                                "breakdown",
+                                "refreshedAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "channels": {
+                              "type": "object",
+                              "properties": {
+                                "used": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "max": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "used",
+                                "max"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "pipelines": {
+                              "type": "object",
+                              "properties": {
+                                "used": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "max": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "used",
+                                "max"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "recordingRetentionDays": {
+                              "type": "object",
+                              "properties": {
+                                "configured": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "max": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "effective": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "configured",
+                                "max",
+                                "effective"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "seats",
+                            "storage",
+                            "channels",
+                            "pipelines",
+                            "recordingRetentionDays"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "expiresAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "expired": {
+                          "type": "boolean"
+                        },
+                        "expiresInDays": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "ownerContact": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            "email": {
+                              "type": "string",
+                              "maxLength": 254,
+                              "format": "email",
+                              "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                            },
+                            "phone": {
+                              "type": "string",
+                              "minLength": 3,
+                              "maxLength": 32
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "email"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "console",
+                            "file",
+                            "default"
+                          ]
+                        },
+                        "receivedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "issuedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "issueId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "keyId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "link": {
+                          "type": "object",
+                          "properties": {
+                            "configured": {
+                              "type": "boolean"
+                            },
+                            "connected": {
+                              "type": "boolean"
+                            },
+                            "lastHeartbeatAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "configured",
+                            "connected",
+                            "lastHeartbeatAt"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "customerName",
+                        "plan",
+                        "features",
+                        "limits",
+                        "usage",
+                        "expiresAt",
+                        "expired",
+                        "expiresInDays",
+                        "ownerContact",
+                        "source",
+                        "receivedAt",
+                        "issuedAt",
+                        "issueId",
+                        "keyId",
+                        "link"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entitlements/reload": {
+      "post": {
+        "tags": [
+          "entitlements"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "string",
+                          "enum": [
+                            "applied",
+                            "rejected"
+                          ]
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "entitlements": {
+                          "type": "object",
+                          "properties": {
+                            "customerName": {
+                              "type": "string"
+                            },
+                            "plan": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 80
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 80
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "features": {
+                              "type": "object",
+                              "properties": {
+                                "telephony": {
+                                  "type": "boolean"
+                                },
+                                "recordings": {
+                                  "type": "boolean"
+                                },
+                                "softphone": {
+                                  "type": "boolean"
+                                },
+                                "messaging": {
+                                  "type": "boolean"
+                                },
+                                "leads": {
+                                  "type": "boolean"
+                                },
+                                "webforms": {
+                                  "type": "boolean"
+                                },
+                                "deals": {
+                                  "type": "boolean"
+                                },
+                                "reports": {
+                                  "type": "boolean"
+                                },
+                                "reports_team": {
+                                  "type": "boolean"
+                                },
+                                "exports": {
+                                  "type": "boolean"
+                                },
+                                "imports": {
+                                  "type": "boolean"
+                                },
+                                "custom_fields": {
+                                  "type": "boolean"
+                                },
+                                "audit_diff": {
+                                  "type": "boolean"
+                                },
+                                "backups": {
+                                  "type": "boolean"
+                                },
+                                "api_docs": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "telephony",
+                                "recordings",
+                                "softphone",
+                                "messaging",
+                                "leads",
+                                "webforms",
+                                "deals",
+                                "reports",
+                                "reports_team",
+                                "exports",
+                                "imports",
+                                "custom_fields",
+                                "audit_diff",
+                                "backups",
+                                "api_docs"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "limits": {
+                              "type": "object",
+                              "properties": {
+                                "seats": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "storage_gb": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "recording_retention_days": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "channels": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "pipelines": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "seats",
+                                "storage_gb",
+                                "recording_retention_days",
+                                "channels",
+                                "pipelines"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "usage": {
+                              "type": "object",
+                              "properties": {
+                                "seats": {
+                                  "type": "object",
+                                  "properties": {
+                                    "used": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "max": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "used",
+                                    "max"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "storage": {
+                                  "type": "object",
+                                  "properties": {
+                                    "usedBytes": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "maxBytes": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "breakdown": {
+                                      "type": "object",
+                                      "properties": {
+                                        "attachments": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "recordings": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "backups": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        }
+                                      },
+                                      "required": [
+                                        "attachments",
+                                        "recordings",
+                                        "backups"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "refreshedAt": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "date-time",
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "usedBytes",
+                                    "maxBytes",
+                                    "breakdown",
+                                    "refreshedAt"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "channels": {
+                                  "type": "object",
+                                  "properties": {
+                                    "used": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "max": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "used",
+                                    "max"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "pipelines": {
+                                  "type": "object",
+                                  "properties": {
+                                    "used": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "max": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "used",
+                                    "max"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "recordingRetentionDays": {
+                                  "type": "object",
+                                  "properties": {
+                                    "configured": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "max": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "effective": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "configured",
+                                    "max",
+                                    "effective"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "seats",
+                                "storage",
+                                "channels",
+                                "pipelines",
+                                "recordingRetentionDays"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "expiresAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "expired": {
+                              "type": "boolean"
+                            },
+                            "expiresInDays": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ownerContact": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                "email": {
+                                  "type": "string",
+                                  "maxLength": 254,
+                                  "format": "email",
+                                  "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                                },
+                                "phone": {
+                                  "type": "string",
+                                  "minLength": 3,
+                                  "maxLength": 32
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "email"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "source": {
+                              "type": "string",
+                              "enum": [
+                                "console",
+                                "file",
+                                "default"
+                              ]
+                            },
+                            "receivedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "issuedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "issueId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "keyId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "link": {
+                              "type": "object",
+                              "properties": {
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "connected": {
+                                  "type": "boolean"
+                                },
+                                "lastHeartbeatAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "configured",
+                                "connected",
+                                "lastHeartbeatAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "customerName",
+                            "plan",
+                            "features",
+                            "limits",
+                            "usage",
+                            "expiresAt",
+                            "expired",
+                            "expiresInDays",
+                            "ownerContact",
+                            "source",
+                            "receivedAt",
+                            "issuedAt",
+                            "issueId",
+                            "keyId",
+                            "link"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "result",
+                        "entitlements"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/audit": {
       "get": {
         "tags": [
@@ -3800,6 +4884,9 @@
                               }
                             ]
                           },
+                          "diffAvailable": {
+                            "type": "boolean"
+                          },
                           "ip": {
                             "type": [
                               "string",
@@ -3828,6 +4915,7 @@
                           "entityId",
                           "before",
                           "after",
+                          "diffAvailable",
                           "ip",
                           "requestId",
                           "createdAt"

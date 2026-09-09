@@ -38,7 +38,7 @@ function nameOf(key: string): string {
 
 const backupsRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get('/backups', {
-    config: { auth: { permission: 'settings:manage' } },
+    config: { auth: { permission: 'settings:manage', feature: 'backups' } },
     schema: { tags: ['backups'], response: { 200: offsetListResponse(backupDto) } },
     handler: async () => {
       const objects = await app.storage.list(PREFIX, 100);
@@ -57,7 +57,7 @@ const backupsRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post('/backups/upload', {
     config: {
-      auth: { permission: 'settings:manage' },
+      auth: { permission: 'settings:manage', feature: 'backups' },
       rateLimit: { max: 6, timeWindow: '1 hour' },
     },
     schema: { tags: ['backups'], response: { 201: dataResponse(backupDto) } },
@@ -78,7 +78,9 @@ const backupsRoutes: FastifyPluginAsyncZod = async (app) => {
 
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       const key = `${PREFIX}upload-${stamp}.dump`;
+      await app.entitlements.assertStorage(buffer.length, auditContext(request));
       const stored = await app.storage.put(key, buffer, 'application/octet-stream');
+      await app.storageUsage.add('backups', stored.size);
       await app.audit.write(auditContext(request), {
         action: 'backup.uploaded',
         entity: 'backup',
@@ -99,7 +101,7 @@ const backupsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/backups/download', {
-    config: { auth: { permission: 'settings:manage' } },
+    config: { auth: { permission: 'settings:manage', feature: 'backups' } },
     schema: { tags: ['backups'], querystring: keyQuery, hide: true },
     handler: async (request, reply) => {
       const { key } = request.query;
@@ -120,12 +122,14 @@ const backupsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.delete('/backups', {
-    config: { auth: { permission: 'settings:manage' } },
+    config: { auth: { permission: 'settings:manage', feature: 'backups' } },
     schema: { tags: ['backups'], querystring: keyQuery, response: { 204: z.null() } },
     handler: async (request, reply) => {
       const { key } = request.query;
-      if (!(await app.storage.head(key))) throw new NotFoundError('Backup');
+      const head = await app.storage.head(key);
+      if (!head) throw new NotFoundError('Backup');
       await app.storage.delete(key);
+      await app.storageUsage.add('backups', -head.size);
       await app.audit.write(auditContext(request), {
         action: 'backup.deleted',
         entity: 'backup',

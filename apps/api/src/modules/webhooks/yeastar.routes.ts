@@ -14,7 +14,10 @@ const yeastarWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
     config: { auth: { public: true }, rateLimit: { max: 600, timeWindow: '1 minute' } },
     schema: { hide: true, response: { 200: z.object({ ok: z.literal(true) }) } },
     handler: async (request, reply) => {
-      const secret = app.config.YEASTAR_WEBHOOK_SECRET;
+      // Without telephony in the plan the PBX is not listened to, whatever it sends.
+      const secret = (await app.entitlements.has('telephony'))
+        ? app.config.YEASTAR_WEBHOOK_SECRET
+        : undefined;
       const raw = request.rawBody ?? Buffer.alloc(0);
       const signature = request.headers['x-signature'];
       if (

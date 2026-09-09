@@ -168,6 +168,7 @@ export interface paths {
                                 before: unknown | null;
                                 /** Format: date-time */
                                 createdAt: string;
+                                diffAvailable: boolean;
                                 entity: string;
                                 entityId: string | null;
                                 /** Format: uuid */
@@ -5061,6 +5062,243 @@ export interface paths {
                             data: {
                                 affected: number;
                                 skipped: string[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                customerName: string;
+                                expired: boolean;
+                                expiresAt: string | null;
+                                expiresInDays: number | null;
+                                features: {
+                                    api_docs: boolean;
+                                    audit_diff: boolean;
+                                    backups: boolean;
+                                    custom_fields: boolean;
+                                    deals: boolean;
+                                    exports: boolean;
+                                    imports: boolean;
+                                    leads: boolean;
+                                    messaging: boolean;
+                                    recordings: boolean;
+                                    reports: boolean;
+                                    reports_team: boolean;
+                                    softphone: boolean;
+                                    telephony: boolean;
+                                    webforms: boolean;
+                                };
+                                issuedAt: string | null;
+                                issueId: string | null;
+                                keyId: string | null;
+                                limits: {
+                                    channels: number | null;
+                                    pipelines: number | null;
+                                    recording_retention_days: number | null;
+                                    seats: number | null;
+                                    storage_gb: number | null;
+                                };
+                                link: {
+                                    configured: boolean;
+                                    connected: boolean;
+                                    lastHeartbeatAt: string | null;
+                                };
+                                ownerContact: {
+                                    /** Format: email */
+                                    email: string;
+                                    name: string;
+                                    phone?: string;
+                                };
+                                plan: {
+                                    id: string;
+                                    name: string;
+                                };
+                                receivedAt: string | null;
+                                /** @enum {string} */
+                                source: "console" | "file" | "default";
+                                usage: {
+                                    channels: {
+                                        max: number | null;
+                                        used: number;
+                                    };
+                                    pipelines: {
+                                        max: number | null;
+                                        used: number;
+                                    };
+                                    recordingRetentionDays: {
+                                        configured: number;
+                                        effective: number;
+                                        max: number | null;
+                                    };
+                                    seats: {
+                                        max: number | null;
+                                        used: number;
+                                    };
+                                    storage: {
+                                        breakdown: {
+                                            attachments: number;
+                                            backups: number;
+                                            recordings: number;
+                                        };
+                                        maxBytes: number | null;
+                                        refreshedAt: string | null;
+                                        usedBytes: number;
+                                    };
+                                };
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entitlements/reload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                entitlements: {
+                                    customerName: string;
+                                    expired: boolean;
+                                    expiresAt: string | null;
+                                    expiresInDays: number | null;
+                                    features: {
+                                        api_docs: boolean;
+                                        audit_diff: boolean;
+                                        backups: boolean;
+                                        custom_fields: boolean;
+                                        deals: boolean;
+                                        exports: boolean;
+                                        imports: boolean;
+                                        leads: boolean;
+                                        messaging: boolean;
+                                        recordings: boolean;
+                                        reports: boolean;
+                                        reports_team: boolean;
+                                        softphone: boolean;
+                                        telephony: boolean;
+                                        webforms: boolean;
+                                    };
+                                    issuedAt: string | null;
+                                    issueId: string | null;
+                                    keyId: string | null;
+                                    limits: {
+                                        channels: number | null;
+                                        pipelines: number | null;
+                                        recording_retention_days: number | null;
+                                        seats: number | null;
+                                        storage_gb: number | null;
+                                    };
+                                    link: {
+                                        configured: boolean;
+                                        connected: boolean;
+                                        lastHeartbeatAt: string | null;
+                                    };
+                                    ownerContact: {
+                                        /** Format: email */
+                                        email: string;
+                                        name: string;
+                                        phone?: string;
+                                    };
+                                    plan: {
+                                        id: string;
+                                        name: string;
+                                    };
+                                    receivedAt: string | null;
+                                    /** @enum {string} */
+                                    source: "console" | "file" | "default";
+                                    usage: {
+                                        channels: {
+                                            max: number | null;
+                                            used: number;
+                                        };
+                                        pipelines: {
+                                            max: number | null;
+                                            used: number;
+                                        };
+                                        recordingRetentionDays: {
+                                            configured: number;
+                                            effective: number;
+                                            max: number | null;
+                                        };
+                                        seats: {
+                                            max: number | null;
+                                            used: number;
+                                        };
+                                        storage: {
+                                            breakdown: {
+                                                attachments: number;
+                                                backups: number;
+                                                recordings: number;
+                                            };
+                                            maxBytes: number | null;
+                                            refreshedAt: string | null;
+                                            usedBytes: number;
+                                        };
+                                    };
+                                };
+                                reason?: string;
+                                /** @enum {string} */
+                                result: "applied" | "rejected";
                             };
                         };
                     };

@@ -26,6 +26,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../../lib/errors.
 import { twoFactorRequiredFor } from '../../plugins/authorize.js';
 import type { Db } from '../../plugins/prisma.js';
 import type { AuditContext, AuditService } from '../audit/audit.service.js';
+import type { EntitlementsService } from '../entitlements/entitlements.service.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import type { Storage } from '../../integrations/storage/storage.js';
 import type { Redis } from 'ioredis';
@@ -36,6 +37,7 @@ export interface UsersDeps {
   valkey: Redis;
   audit: AuditService;
   settings: SettingsService;
+  entitlements: EntitlementsService;
   storage: Storage;
   appUrl: string;
   avatarUrl: (key: string | null) => string | null;
@@ -218,6 +220,11 @@ export class UsersService {
       select: { id: true },
     });
     if (existing) throw new ConflictError('A user with this email already exists');
+    await this.deps.entitlements.assertLimit(
+      'seats',
+      await this.deps.db.user.count({ where: { isActive: true } }),
+      ctx,
+    );
 
     // Better Auth creates user + credential account with a random password the user will never use.
     const password = randomBytes(24).toString('base64url');
@@ -316,6 +323,13 @@ export class UsersService {
     const before = await this.get(id);
     if (before.id === ctx.actorId)
       throw new ConflictError('You cannot deactivate your own account');
+    if (isActive && !before.isActive) {
+      await this.deps.entitlements.assertLimit(
+        'seats',
+        await this.deps.db.user.count({ where: { isActive: true } }),
+        ctx,
+      );
+    }
     await this.deps.db.user.update({ where: { id }, data: { isActive } });
     if (!isActive) {
       await this.deps.auth.api.revokeUserSessions({

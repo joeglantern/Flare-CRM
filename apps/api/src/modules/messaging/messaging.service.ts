@@ -376,6 +376,7 @@ export class MessagingService {
         const ext = mimeType.split('/')[1]?.split(';')[0] ?? 'bin';
         const key = newObjectKey('attachments', ext);
         const put = await this.app.storage.put(key, file.buffer, mimeType);
+        await this.app.storageUsage.add('attachments', put.size);
         attachments.push({
           id: newId(),
           key,

@@ -13,6 +13,8 @@
     "./phone": "./src/phone.ts",
     "./visibility": "./src/visibility.ts",
     "./socket-events": "./src/socket-events.ts",
+    "./entitlements": "./src/entitlements.ts",
+    "./console-link": "./src/console-link.ts",
     "./schemas/*": "./src/schemas/*.ts"
   },
   "scripts": {

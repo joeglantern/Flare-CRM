@@ -64,7 +64,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
 
   // ── channels (admin) ─────────────────────────────────────────────────────────────────
   app.get('/channels', {
-    config: { auth: { permission: 'chat:read' } },
+    config: { auth: { permission: 'chat:read', feature: 'messaging' } },
     schema: { tags: ['messaging'], response: { 200: dataResponse(z.array(channelDto)) } },
     handler: async () => ({
       data: (await app.db.channel.findMany({ orderBy: { createdAt: 'asc' } })).map(channelToDto),
@@ -72,7 +72,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/channels', {
-    config: { auth: { permission: 'channel:manage' } },
+    config: { auth: { permission: 'channel:manage', feature: 'messaging' } },
     schema: {
       tags: ['messaging'],
       body: createChannelBody,
@@ -85,6 +85,11 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
         (await app.db.channel.findFirst({ where: { type: b.type, externalId: b.externalId } }))
       )
         throw new ConflictError('A channel with this external id already exists');
+      await app.entitlements.assertLimit(
+        'channels',
+        await app.db.channel.count({ where: { isActive: true } }),
+        auditContext(request),
+      );
       const row = await app.db.channel.create({
         data: {
           id: newId(),
@@ -108,7 +113,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.patch('/channels/:id', {
-    config: { auth: { permission: 'channel:manage' } },
+    config: { auth: { permission: 'channel:manage', feature: 'messaging' } },
     schema: {
       tags: ['messaging'],
       params: idParams,
@@ -119,6 +124,13 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
       const before = await app.db.channel.findUnique({ where: { id: request.params.id } });
       if (!before) throw new NotFoundError('Channel');
       const b = request.body;
+      if (b.isActive === true) {
+        await app.entitlements.assertLimit(
+          'channels',
+          await app.db.channel.count({ where: { isActive: true, id: { not: request.params.id } } }),
+          auditContext(request),
+        );
+      }
       const row = await app.db.channel.update({
         where: { id: before.id },
         data: {
@@ -143,7 +155,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
 
   // ── conversations ────────────────────────────────────────────────────────────────────
   app.get('/conversations', {
-    config: { auth: { permission: 'chat:read' } },
+    config: { auth: { permission: 'chat:read', feature: 'messaging' } },
     schema: {
       tags: ['messaging'],
       querystring: listConversationsQuery,
@@ -156,7 +168,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/conversations', {
-    config: { auth: { permission: 'chat:send' } },
+    config: { auth: { permission: 'chat:send', feature: 'messaging' } },
     schema: {
       tags: ['messaging'],
       body: startConversationBody,
@@ -171,7 +183,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/conversations/:id', {
-    config: { auth: { permission: 'chat:read' } },
+    config: { auth: { permission: 'chat:read', feature: 'messaging' } },
     schema: {
       tags: ['messaging'],
       params: idParams,
@@ -185,7 +197,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/conversations/:id/messages', {
-    config: { auth: { permission: 'chat:read' } },
+    config: { auth: { permission: 'chat:read', feature: 'messaging' } },
     schema: {
       tags: ['messaging'],
       params: idParams,
@@ -197,7 +209,10 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/conversations/:id/messages', {
-    config: { auth: { permission: 'chat:send' }, rateLimit: { max: 60, timeWindow: '1 minute' } },
+    config: {
+      auth: { permission: 'chat:send', feature: 'messaging' },
+      rateLimit: { max: 60, timeWindow: '1 minute' },
+    },
     schema: {
       tags: ['messaging'],
       params: idParams,
@@ -219,7 +234,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/conversations/:id/read', {
-    config: { auth: { permission: 'chat:read' } },
+    config: { auth: { permission: 'chat:read', feature: 'messaging' } },
     schema: {
       tags: ['messaging'],
       params: idParams,
@@ -231,7 +246,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/conversations/:id/assign', {
-    config: { auth: { permission: 'chat:read' } },
+    config: { auth: { permission: 'chat:read', feature: 'messaging' } },
     schema: {
       tags: ['messaging'],
       params: idParams,
@@ -254,7 +269,7 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
 
   for (const status of ['close', 'reopen', 'archive'] as const) {
     app.post(`/conversations/:id/${status}`, {
-      config: { auth: { permission: 'chat:close' } },
+      config: { auth: { permission: 'chat:close', feature: 'messaging' } },
       schema: {
         tags: ['messaging'],
         params: idParams,
@@ -292,7 +307,9 @@ const messagingRoutes: FastifyPluginAsyncZod = async (app) => {
         prefix: 'attachments',
         allowed: ATTACHMENT_TYPES,
         maxBytes: MAX_UPLOAD_BYTES,
+        beforeStore: (bytes) => app.entitlements.assertStorage(bytes, auditContext(request)),
       });
+      await app.storageUsage.add('attachments', stored.size);
       const row = await app.db.attachment.create({
         data: {
           id: newId(),

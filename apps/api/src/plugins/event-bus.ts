@@ -41,6 +41,12 @@ export interface DomainEvents {
     createdAt: string;
   };
   'user.extension_changed': { userId: string };
+  'entitlements.changed': {
+    plan: string;
+    features: Record<string, boolean>;
+    expiresAt: string | null;
+    issueId: string | null;
+  };
 }
 
 type Handler<E extends keyof DomainEvents> = (payload: DomainEvents[E]) => void | Promise<void>;

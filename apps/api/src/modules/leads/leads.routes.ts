@@ -26,7 +26,7 @@ const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/leads', {
-    config: { auth: { permission: 'lead:read' } },
+    config: { auth: { permission: 'lead:read', feature: 'leads' } },
     schema: {
       tags: ['leads'],
       querystring: listLeadsQuery,
@@ -36,7 +36,7 @@ const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/leads', {
-    config: { auth: { permission: 'lead:create' } },
+    config: { auth: { permission: 'lead:create', feature: 'leads' } },
     schema: { tags: ['leads'], body: createLeadBody, response: { 201: dataResponse(leadDto) } },
     handler: async (request, reply) => {
       const { actor, scope } = await scopeOf(app, request);
@@ -52,7 +52,7 @@ const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/leads/bulk', {
-    config: { auth: { permission: 'lead:update' } },
+    config: { auth: { permission: 'lead:update', feature: 'leads' } },
     schema: { tags: ['leads'], body: bulkLeadsBody, response: { 200: dataResponse(bulkResult) } },
     handler: async (request) => {
       const { actor, scope } = await scopeOf(app, request);
@@ -70,7 +70,7 @@ const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/leads/:id', {
-    config: { auth: { permission: 'lead:read' } },
+    config: { auth: { permission: 'lead:read', feature: 'leads' } },
     schema: { tags: ['leads'], params: idParams, response: { 200: dataResponse(leadDto) } },
     handler: async (request) => ({
       data: await service.get((await scopeOf(app, request)).scope, request.params.id),
@@ -78,7 +78,7 @@ const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.patch('/leads/:id', {
-    config: { auth: { permission: 'lead:update' } },
+    config: { auth: { permission: 'lead:update', feature: 'leads' } },
     schema: {
       tags: ['leads'],
       params: idParams,
@@ -100,7 +100,7 @@ const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.delete('/leads/:id', {
-    config: { auth: { permission: 'lead:delete' } },
+    config: { auth: { permission: 'lead:delete', feature: 'leads' } },
     schema: { tags: ['leads'], params: idParams, response: { 204: z.null() } },
     handler: async (request, reply) => {
       const { actor, scope } = await scopeOf(app, request);
@@ -115,7 +115,7 @@ const leadsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/leads/:id/convert', {
-    config: { auth: { permission: 'lead:convert' } },
+    config: { auth: { permission: 'lead:convert', feature: 'leads' } },
     schema: {
       tags: ['leads'],
       params: idParams,

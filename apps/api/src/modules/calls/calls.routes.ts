@@ -38,7 +38,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   };
 
   app.get('/calls', {
-    config: { auth: { permission: 'call:read' } },
+    config: { auth: { permission: 'call:read', feature: 'telephony' } },
     schema: {
       tags: ['calls'],
       querystring: listCallsQuery,
@@ -51,7 +51,10 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/calls/dial', {
-    config: { auth: { permission: 'call:dial' }, rateLimit: { max: 10, timeWindow: '1 minute' } },
+    config: {
+      auth: { permission: 'call:dial', feature: 'telephony' },
+      rateLimit: { max: 10, timeWindow: '1 minute' },
+    },
     schema: { tags: ['calls'], body: dialBody, response: { 202: dataResponse(dialResult) } },
     handler: async (request, reply) => {
       const { scope } = await scopeOf(app, request);
@@ -66,7 +69,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/calls/:id', {
-    config: { auth: { permission: 'call:read' } },
+    config: { auth: { permission: 'call:read', feature: 'telephony' } },
     schema: { tags: ['calls'], params: idParams, response: { 200: dataResponse(callDto) } },
     handler: async (request) => ({
       data: await service.get((await scopeOf(app, request)).scope, request.params.id),
@@ -74,7 +77,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.patch('/calls/:id/disposition', {
-    config: { auth: { permission: 'call:set_disposition' } },
+    config: { auth: { permission: 'call:set_disposition', feature: 'telephony' } },
     schema: {
       tags: ['calls'],
       params: idParams,
@@ -96,7 +99,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/calls/:id/link-contact', {
-    config: { auth: { permission: 'call:read' } },
+    config: { auth: { permission: 'call:read', feature: 'telephony' } },
     schema: {
       tags: ['calls'],
       params: idParams,
@@ -118,7 +121,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post('/calls/:id/control', {
     config: {
-      auth: { permission: 'call:control' },
+      auth: { permission: 'call:control', feature: 'telephony' },
       rateLimit: { max: 60, timeWindow: '1 minute' },
     },
     schema: {
@@ -142,7 +145,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/calls/:id/recording', {
-    config: { auth: { permission: 'call:listen_recording' } },
+    config: { auth: { permission: 'call:listen_recording', feature: ['telephony', 'recordings'] } },
     schema: { tags: ['calls'], params: idParams, hide: true },
     handler: async (request, reply) => {
       const { scope } = await scopeOf(app, request);
@@ -175,7 +178,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/calls/:id/recording-history', {
-    config: { auth: { permission: 'call:listen_recording' } },
+    config: { auth: { permission: 'call:listen_recording', feature: ['telephony', 'recordings'] } },
     schema: {
       tags: ['calls'],
       params: idParams,
@@ -188,7 +191,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.delete('/calls/:id/recording', {
-    config: { auth: { permission: 'call:delete_recording' } },
+    config: { auth: { permission: 'call:delete_recording', feature: ['telephony', 'recordings'] } },
     schema: { tags: ['calls'], params: idParams, response: { 204: z.null() } },
     handler: async (request, reply) => {
       await service.deleteRecording(
@@ -203,7 +206,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   // ── dispositions ─────────────────────────────────────────────────────────────────────
 
   app.get('/call-dispositions', {
-    config: { auth: { authenticated: true } },
+    config: { auth: { authenticated: true, feature: 'telephony' } },
     schema: {
       tags: ['calls'],
       querystring: z.object({ includeInactive: z.enum(['true', 'false']).optional() }),
@@ -218,7 +221,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/call-dispositions', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'telephony' } },
     schema: {
       tags: ['calls'],
       body: createDispositionBody,
@@ -242,7 +245,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.patch('/call-dispositions/:id', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'telephony' } },
     schema: {
       tags: ['calls'],
       params: idParams,
@@ -272,7 +275,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.delete('/call-dispositions/:id', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'telephony' } },
     schema: { tags: ['calls'], params: idParams, response: { 204: z.null() } },
     handler: async (request, reply) => {
       const before = await app.db.callDisposition.findUnique({ where: { id: request.params.id } });
@@ -309,7 +312,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/cti/status', {
-    config: { auth: { permission: 'pbx:view_status' } },
+    config: { auth: { permission: 'pbx:view_status', feature: 'telephony' } },
     schema: { tags: ['cti'], response: { 200: dataResponse(ctiStatusDto) } },
     handler: async () => {
       const status = await readCtiStatus(app.valkey);
@@ -332,7 +335,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/cti/live-calls', {
-    config: { auth: { permission: 'pbx:view_status' } },
+    config: { auth: { permission: 'pbx:view_status', feature: 'telephony' } },
     schema: { tags: ['cti'], response: { 200: dataResponse(z.array(liveCallDto)) } },
     handler: async () => {
       const live = await app.cti.machine.liveCalls();
@@ -371,7 +374,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.post('/cti/reconcile', {
     config: {
-      auth: { permission: 'pbx:reconcile' },
+      auth: { permission: 'pbx:reconcile', feature: 'telephony' },
       rateLimit: { max: 5, timeWindow: '1 minute' },
     },
     schema: {
@@ -402,7 +405,10 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/cti/linkus-sign', {
-    config: { auth: { permission: 'call:webrtc' }, rateLimit: { max: 10, timeWindow: '1 minute' } },
+    config: {
+      auth: { permission: 'call:webrtc', feature: ['telephony', 'softphone'] },
+      rateLimit: { max: 10, timeWindow: '1 minute' },
+    },
     schema: { tags: ['cti'], response: { 200: dataResponse(linkusSignDto) } },
     handler: async (request) => {
       const user = requireUser(request);

@@ -17,6 +17,9 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   | 'PBX_UNAVAILABLE'
   | 'SERVICE_UNAVAILABLE'
+  | 'FEATURE_NOT_IN_PLAN'
+  | 'PLAN_EXPIRED'
+  | 'LIMIT_REACHED'
   | 'INTERNAL';
 
 export class AppError extends Error {
@@ -97,6 +100,33 @@ export class PbxUnavailableError extends AppError {
 export class ServiceUnavailableError extends AppError {
   constructor(message = 'Service temporarily unavailable') {
     super('SERVICE_UNAVAILABLE', 503, message);
+  }
+}
+
+/**
+ * Plan errors (docs/20). A feature that is not in the customer's plan is a 403 like any other
+ * refusal of an identity's request. A limit is a 409: freeing a seat makes the identical request
+ * succeed, exactly like DUPLICATE or STALE_VERSION, and the form can show it inline.
+ */
+export class FeatureNotInPlanError extends AppError {
+  constructor(feature: string, label: string) {
+    super('FEATURE_NOT_IN_PLAN', 403, `${label} is not included in your plan`, { feature });
+  }
+}
+export class PlanExpiredError extends AppError {
+  constructor(expiredAt: string) {
+    super('PLAN_EXPIRED', 403, 'Your plan has expired; changes are refused until it is renewed', {
+      expiredAt,
+    });
+  }
+}
+export class LimitReachedError extends AppError {
+  constructor(limit: string, label: string, used: number, max: number) {
+    super('LIMIT_REACHED', 409, `${label} limit reached (${String(used)} of ${String(max)})`, {
+      limit,
+      used,
+      max,
+    });
   }
 }
 

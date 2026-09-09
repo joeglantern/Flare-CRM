@@ -67,7 +67,7 @@ const customFieldsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/custom-fields', {
-    config: { auth: { permission: 'custom_field:manage' } },
+    config: { auth: { permission: 'custom_field:manage', feature: 'custom_fields' } },
     schema: {
       tags: ['custom-fields'],
       body: createCustomFieldBody,
@@ -106,7 +106,7 @@ const customFieldsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.patch('/custom-fields/:id', {
-    config: { auth: { permission: 'custom_field:manage' } },
+    config: { auth: { permission: 'custom_field:manage', feature: 'custom_fields' } },
     schema: {
       tags: ['custom-fields'],
       params: idParams,
@@ -140,7 +140,7 @@ const customFieldsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.delete('/custom-fields/:id', {
-    config: { auth: { permission: 'custom_field:manage' } },
+    config: { auth: { permission: 'custom_field:manage', feature: 'custom_fields' } },
     schema: { tags: ['custom-fields'], params: idParams, response: { 204: z.null() } },
     handler: async (request, reply) => {
       const before = await app.db.customFieldDefinition.findUnique({
@@ -163,7 +163,7 @@ const customFieldsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/custom-fields/reorder', {
-    config: { auth: { permission: 'custom_field:manage' } },
+    config: { auth: { permission: 'custom_field:manage', feature: 'custom_fields' } },
     schema: { tags: ['custom-fields'], body: reorderBody, response: { 204: z.null() } },
     handler: async (request, reply) => {
       await app.db.$transaction(

@@ -4,6 +4,8 @@
 import { Worker, type Job } from 'bullmq';
 import type { FastifyInstance } from 'fastify';
 import { createHash } from 'node:crypto';
+import { LimitReachedError } from '../lib/errors.js';
+import { SYSTEM_AUDIT } from '../modules/entitlements/entitlements.service.js';
 import { newObjectKey } from '../integrations/storage/storage.js';
 import { reconcileCdrs } from '../integrations/yeastar/reconcile.js';
 import { rooms } from '../lib/realtime.js';
@@ -97,6 +99,12 @@ export function startProcessors(app: FastifyInstance): RunningWorkers {
       select: { id: true, recordingStatus: true, userId: true },
     });
     if (!call || call.recordingStatus === 'stored') return;
+    if (!(await app.entitlements.has('recordings'))) {
+      // The PBX keeps its own copy; the CRM simply does not fetch one for this plan.
+      await app.db.call.update({ where: { id: callId }, data: { recordingStatus: 'none' } });
+      app.log.info({ callId }, 'recording not fetched: recordings are not in the plan');
+      return;
+    }
     await app.db.call.update({ where: { id: callId }, data: { recordingStatus: 'downloading' } });
     try {
       const { download_resource_url } = await client.recordingDownloadUrl({ file: fileName });
@@ -117,7 +125,26 @@ export function startProcessors(app: FastifyInstance): RunningWorkers {
         : ext === 'mp3'
           ? 'audio/mpeg'
           : 'audio/wav';
+      try {
+        await app.entitlements.assertStorage(buffer.length, SYSTEM_AUDIT);
+      } catch (err) {
+        if (!(err instanceof LimitReachedError)) throw err;
+        // Over the storage limit is not a transient failure: mark it and stop retrying.
+        await app.db.call.update({ where: { id: callId }, data: { recordingStatus: 'failed' } });
+        await app.audit.write(SYSTEM_AUDIT, {
+          action: 'recording.skipped_limit',
+          entity: 'call',
+          entityId: callId,
+          after: { bytes: buffer.length, details: err.details },
+        });
+        app.log.warn(
+          { callId, bytes: buffer.length },
+          'recording not stored: storage limit reached',
+        );
+        return;
+      }
       await app.storage.put(key, buffer, contentType);
+      await app.storageUsage.add('recordings', buffer.length);
       await app.db.call.update({
         where: { id: callId },
         data: {

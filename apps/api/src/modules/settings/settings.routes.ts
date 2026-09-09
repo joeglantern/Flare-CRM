@@ -1,5 +1,6 @@
-import { dataResponse } from '@crm/shared';
+import { LIMITS, dataResponse } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { LimitReachedError } from '../../lib/errors.js';
 import { auditContext } from '../../lib/request.js';
 import {
   publicSettingsSchema,
@@ -42,6 +43,18 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
       response: { 200: dataResponse(settingsResponseSchema) },
     },
     handler: async (request) => {
+      const requestedRetention = request.body.recording?.retentionDays;
+      if (requestedRetention !== undefined) {
+        const max = await app.entitlements.limit('recording_retention_days');
+        if (max !== null && requestedRetention > max) {
+          throw new LimitReachedError(
+            'recording_retention_days',
+            LIMITS.recording_retention_days.label,
+            requestedRetention,
+            max,
+          );
+        }
+      }
       const before = await app.settings.getAll();
       const after = await app.settings.patch(request.body, request.user?.id ?? null);
       await app.audit.write(auditContext(request), {

@@ -72,7 +72,7 @@ function dateRange(
 const importExportRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post('/imports', {
     config: {
-      auth: { permission: ['contact:import'] },
+      auth: { permission: ['contact:import'], feature: 'imports' },
       rateLimit: { max: 10, timeWindow: '10 minutes' },
     },
     schema: { tags: ['import-export'], response: { 202: dataResponse(importJobDto) } },
@@ -149,7 +149,7 @@ const importExportRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/imports', {
-    config: { auth: { permission: 'contact:import' } },
+    config: { auth: { permission: 'contact:import', feature: 'imports' } },
     schema: {
       tags: ['import-export'],
       querystring: listImportsQuery,
@@ -177,7 +177,7 @@ const importExportRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/imports/:id', {
-    config: { auth: { permission: 'contact:import' } },
+    config: { auth: { permission: 'contact:import', feature: 'imports' } },
     schema: {
       tags: ['import-export'],
       params: idParams,
@@ -199,7 +199,10 @@ const importExportRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/exports/:entity', {
-    config: { auth: { authenticated: true }, rateLimit: { max: 10, timeWindow: '10 minutes' } },
+    config: {
+      auth: { authenticated: true, feature: 'exports' },
+      rateLimit: { max: 10, timeWindow: '10 minutes' },
+    },
     schema: { tags: ['import-export'], params: exportParams, querystring: exportQuery, hide: true },
     handler: async (request, reply) => {
       const { actor, scope } = await scopeOf(app, request);

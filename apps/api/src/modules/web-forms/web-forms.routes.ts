@@ -51,7 +51,7 @@ function toDto(
 
 export const webFormsRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get('/web-forms', {
-    config: { auth: { permission: 'webform:manage' } },
+    config: { auth: { permission: 'webform:manage', feature: ['leads', 'webforms'] } },
     schema: { tags: ['web-forms'], response: { 200: dataResponse(z.array(webFormDto)) } },
     handler: async () => ({
       data: (await app.db.webForm.findMany({ orderBy: { createdAt: 'desc' } })).map((r) =>
@@ -61,7 +61,7 @@ export const webFormsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/web-forms', {
-    config: { auth: { permission: 'webform:manage' } },
+    config: { auth: { permission: 'webform:manage', feature: ['leads', 'webforms'] } },
     schema: {
       tags: ['web-forms'],
       body: createWebFormBody,
@@ -89,7 +89,7 @@ export const webFormsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.patch('/web-forms/:id', {
-    config: { auth: { permission: 'webform:manage' } },
+    config: { auth: { permission: 'webform:manage', feature: ['leads', 'webforms'] } },
     schema: {
       tags: ['web-forms'],
       params: idParams,
@@ -121,7 +121,7 @@ export const webFormsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.delete('/web-forms/:id', {
-    config: { auth: { permission: 'webform:manage' } },
+    config: { auth: { permission: 'webform:manage', feature: ['leads', 'webforms'] } },
     schema: { tags: ['web-forms'], params: idParams, response: { 204: z.null() } },
     handler: async (request, reply) => {
       const before = await app.db.webForm.findUnique({ where: { id: request.params.id } });
@@ -151,6 +151,8 @@ export const publicFormsRoutes: FastifyPluginAsyncZod = async (app) => {
       response: { 201: z.object({ ok: z.literal(true) }) },
     },
     handler: async (request, reply) => {
+      // A public endpoint says nothing about plans: a form whose feature is off is not found.
+      if (!(await app.entitlements.has('webforms'))) throw new NotFoundError('Form');
       const form = await app.db.webForm.findFirst({
         where: { token: request.params.token, isActive: true },
       });

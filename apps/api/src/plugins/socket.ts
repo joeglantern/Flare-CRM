@@ -172,6 +172,7 @@ export default fp(
         void (async () => {
           const parsed = clientEvents['conv:join'].safeParse(raw);
           if (!parsed.success) return;
+          if (!(await app.entitlements.has('messaging'))) return;
           const scope = resolveScope(
             { id: userId, role, teamId },
             await app.settings.get('agentVisibility'),
@@ -246,6 +247,15 @@ export default fp(
 
 /** Domain events → socket events (both processes). */
 function wireDomainEvents(app: FastifyInstance, rt: Broadcaster): void {
+  app.events.on('entitlements.changed', (e) => {
+    rt.to(rooms.all).emit('entitlements:changed', {
+      at: nowIso(),
+      plan: e.plan,
+      features: e.features,
+      expiresAt: e.expiresAt,
+      issueId: e.issueId,
+    });
+  });
   app.events.on('notification.created', (n) => {
     rt.to(rooms.user(n.userId)).emit('notification:new', {
       at: nowIso(),

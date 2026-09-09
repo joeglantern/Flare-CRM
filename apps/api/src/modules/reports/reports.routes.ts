@@ -32,10 +32,11 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   /** Report scope derives from report:* permissions, not from agentVisibility. */
   const reportScope = async (request: FastifyRequest): Promise<VisibilityScope> => {
     const { actor } = await scopeOf(app, request);
-    if (roleHasPermission(actor.role, 'report:view_all')) return { kind: 'all' };
-    if (roleHasPermission(actor.role, 'report:view_team') && actor.teamId)
+    const teamReports = await app.entitlements.has('reports_team');
+    if (teamReports && roleHasPermission(actor.role, 'report:view_all')) return { kind: 'all' };
+    if (teamReports && roleHasPermission(actor.role, 'report:view_team') && actor.teamId)
       return { kind: 'team', teamId: actor.teamId, includeUnassigned: true };
-    if (roleHasPermission(actor.role, 'report:view_team')) return { kind: 'all' }; // manager without a team sees everything (docs/07 §4)
+    if (teamReports && roleHasPermission(actor.role, 'report:view_team')) return { kind: 'all' }; // manager without a team sees everything (docs/07 §4)
     return { kind: 'own', userId: actor.id, includeUnassigned: false };
   };
 
@@ -75,7 +76,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   };
 
   app.get('/reports/calls/summary', {
-    config: { auth: { permission: 'report:view_own' } },
+    config: { auth: { permission: 'report:view_own', feature: ['reports', 'telephony'] } },
     schema: {
       tags: ['reports'],
       querystring: callsReportQuery,
@@ -100,7 +101,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/reports/calls/agents', {
-    config: { auth: { permission: 'report:view_own' } },
+    config: { auth: { permission: 'report:view_own', feature: ['reports', 'telephony'] } },
     schema: {
       tags: ['reports'],
       querystring: callsReportQuery,
@@ -148,7 +149,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/reports/calls/missed', {
-    config: { auth: { permission: 'report:view_own' } },
+    config: { auth: { permission: 'report:view_own', feature: ['reports', 'telephony'] } },
     schema: {
       tags: ['reports'],
       querystring: missedCallsQuery,
@@ -214,7 +215,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/reports/pipeline/summary', {
-    config: { auth: { permission: 'report:view_own' } },
+    config: { auth: { permission: 'report:view_own', feature: ['reports', 'deals'] } },
     schema: {
       tags: ['reports'],
       querystring: pipelineReportQuery,
@@ -239,7 +240,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/reports/pipeline/conversion', {
-    config: { auth: { permission: 'report:view_own' } },
+    config: { auth: { permission: 'report:view_own', feature: ['reports', 'deals'] } },
     schema: {
       tags: ['reports'],
       querystring: pipelineReportQuery,
@@ -264,7 +265,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.get('/reports/pipeline/forecast', {
-    config: { auth: { permission: 'report:view_own' } },
+    config: { auth: { permission: 'report:view_own', feature: ['reports', 'deals'] } },
     schema: {
       tags: ['reports'],
       querystring: forecastQuery,

@@ -320,6 +320,7 @@ const contactsRoutes: FastifyPluginAsyncZod = async (app) => {
         prefix: 'avatars',
         allowed: IMAGE_TYPES,
         maxBytes: 5 * 1024 * 1024,
+        beforeStore: (bytes) => app.entitlements.assertStorage(bytes, auditContext(request)),
       });
       return {
         data: await service.setAvatar(

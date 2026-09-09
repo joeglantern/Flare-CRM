@@ -136,7 +136,10 @@ export async function runRetention(app: FastifyInstance): Promise<RetentionSumma
   // 4. recordings
   let recordings = 0;
   let recordingErrors = 0;
-  const recordingBefore = daysAgo(recording.retentionDays);
+  const retentionDays = await app.entitlements.effectiveRecordingRetentionDays(
+    recording.retentionDays,
+  );
+  const recordingBefore = daysAgo(retentionDays);
   const expired = await db.call.findMany({
     where: { recordingKey: { not: null }, startedAt: { lt: recordingBefore } },
     select: { id: true, recordingKey: true, contactId: true },
@@ -164,7 +167,7 @@ export async function runRetention(app: FastifyInstance): Promise<RetentionSumma
           entity: 'call',
           entityId: call.id,
           before: { recordingKey: call.recordingKey },
-          after: { retentionDays: recording.retentionDays },
+          after: { retentionDays },
         },
       );
       recordings++;
@@ -198,6 +201,12 @@ export async function runRetention(app: FastifyInstance): Promise<RetentionSumma
   } catch (err) {
     app.log.error({ err }, 'trimming old backups failed');
   }
+
+  // 7. the storage counter the plan limit is checked against: a running total during the day,
+  //    recomputed from the truth here so nothing drifts for longer than a night.
+  await app.storageUsage.recompute().catch((err: unknown) => {
+    app.log.error({ err }, 'storage usage recompute failed');
+  });
 
   const summary: RetentionSummary = {
     purged,

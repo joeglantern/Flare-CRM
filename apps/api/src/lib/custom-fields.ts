@@ -1,10 +1,11 @@
+import { FEATURES } from '@crm/shared';
 /**
  * Dynamic validation of `customFields` JSON against active CustomFieldDefinition rows (R-7.1.2).
  * Unknown keys are rejected; inactive definitions are ignored on write but preserved on read.
  */
 import type { CustomFieldEntity, CustomFieldType } from '@crm/shared';
 import { z } from 'zod';
-import { ValidationError } from './errors.js';
+import { ValidationError, FeatureNotInPlanError } from './errors.js';
 import type { Db } from '../plugins/prisma.js';
 
 interface Definition {
@@ -74,7 +75,14 @@ export function buildCustomFieldsSchema(defs: Definition[]) {
 }
 
 export class CustomFieldsValidator {
+  private inPlan: () => Promise<boolean> = () => Promise.resolve(true);
+
   constructor(private readonly db: Db) {}
+
+  /** Set once entitlements exist; until then every value is accepted. */
+  setFeatureGate(inPlan: () => Promise<boolean>): void {
+    this.inPlan = inPlan;
+  }
 
   async definitions(entity: CustomFieldEntity): Promise<Definition[]> {
     const rows = await this.db.customFieldDefinition.findMany({
@@ -100,6 +108,9 @@ export class CustomFieldsValidator {
   ): Promise<Record<string, unknown>> {
     const defs = await this.definitions(entity);
     if (input === undefined) return existing ?? {};
+    if (Object.keys(input).length > 0 && !(await this.inPlan())) {
+      throw new FeatureNotInPlanError('custom_fields', FEATURES.custom_fields.label);
+    }
     const merged = { ...(existing ?? {}), ...input };
     const result = buildCustomFieldsSchema(defs).safeParse(merged);
     if (!result.success) {

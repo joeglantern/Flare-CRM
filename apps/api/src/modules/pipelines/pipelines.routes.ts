@@ -72,7 +72,7 @@ const pipelinesRoutes: FastifyPluginAsyncZod = async (app) => {
   };
 
   app.get('/pipelines', {
-    config: { auth: { permission: 'deal:read' } },
+    config: { auth: { permission: 'deal:read', feature: 'deals' } },
     schema: { tags: ['pipelines'], response: { 200: dataResponse(z.array(pipelineDto)) } },
     handler: async () => ({
       data: (
@@ -85,13 +85,18 @@ const pipelinesRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/pipelines', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'deals' } },
     schema: {
       tags: ['pipelines'],
       body: createPipelineBody,
       response: { 201: dataResponse(pipelineDto) },
     },
     handler: async (request, reply) => {
+      await app.entitlements.assertLimit(
+        'pipelines',
+        await app.db.pipeline.count(),
+        auditContext(request),
+      );
       const b = request.body;
       if (await app.db.pipeline.findUnique({ where: { name: b.name } }))
         throw new ConflictError('A pipeline with this name already exists');
@@ -138,7 +143,7 @@ const pipelinesRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.patch('/pipelines/:id', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'deals' } },
     schema: {
       tags: ['pipelines'],
       params: idParams,
@@ -175,7 +180,7 @@ const pipelinesRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.delete('/pipelines/:id', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'deals' } },
     schema: { tags: ['pipelines'], params: idParams, response: { 204: z.null() } },
     handler: async (request, reply) => {
       const before = await load(request.params.id);
@@ -197,7 +202,7 @@ const pipelinesRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/pipelines/:id/stages', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'deals' } },
     schema: {
       tags: ['pipelines'],
       params: idParams,
@@ -229,7 +234,7 @@ const pipelinesRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.patch('/pipelines/:id/stages/:stageId', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'deals' } },
     schema: {
       tags: ['pipelines'],
       params: stageParams,
@@ -262,7 +267,7 @@ const pipelinesRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.delete('/pipelines/:id/stages/:stageId', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'deals' } },
     schema: {
       tags: ['pipelines'],
       params: stageParams,
@@ -292,7 +297,7 @@ const pipelinesRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/pipelines/:id/stages/reorder', {
-    config: { auth: { permission: 'pipeline:manage' } },
+    config: { auth: { permission: 'pipeline:manage', feature: 'deals' } },
     schema: {
       tags: ['pipelines'],
       params: idParams,
