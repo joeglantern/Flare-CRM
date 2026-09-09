@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:unit": "vitest run",
     "openapi:types": "openapi-typescript ../../docs/openapi.json -o src/lib/api/schema.d.ts --root-types --alphabetize",
-    "brand": "node scripts/build-brand-assets.mjs"
+    "brand": "node scripts/build-brand-assets.mjs",
+    "help:figures": "node scripts/capture-help-figures.mjs"
   },
   "dependencies": {
     "@crm/shared": "workspace:*",

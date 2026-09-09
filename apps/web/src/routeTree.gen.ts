@@ -33,6 +33,8 @@ import { Route as AppContactsIndexRouteImport } from './routes/_app/contacts/ind
 import { Route as AppContactsContactIdRouteImport } from './routes/_app/contacts/$contactId'
 import { Route as AppDealsIndexRouteImport } from './routes/_app/deals/index'
 import { Route as AppDealsDealIdRouteImport } from './routes/_app/deals/$dealId'
+import { Route as AppHelpIndexRouteImport } from './routes/_app/help/index'
+import { Route as AppHelpPrintRouteImport } from './routes/_app/help/print'
 import { Route as AppInboxIndexRouteImport } from './routes/_app/inbox/index'
 import { Route as AppInboxConversationIdRouteImport } from './routes/_app/inbox/$conversationId'
 import { Route as AppLeadsIndexRouteImport } from './routes/_app/leads/index'
@@ -157,6 +159,16 @@ const AppDealsDealIdRoute = AppDealsDealIdRouteImport.update({
   path: '/deals/$dealId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHelpIndexRoute = AppHelpIndexRouteImport.update({
+  id: '/help/',
+  path: '/help/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHelpPrintRoute = AppHelpPrintRouteImport.update({
+  id: '/help/print',
+  path: '/help/print',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppInboxIndexRoute = AppInboxIndexRouteImport.update({
   id: '/inbox/',
   path: '/inbox/',
@@ -198,12 +210,14 @@ export interface FileRoutesByFullPath {
   '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AppContactsContactIdRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
+  '/help/print': typeof AppHelpPrintRoute
   '/inbox/$conversationId': typeof AppInboxConversationIdRoute
   '/leads/$leadId': typeof AppLeadsLeadIdRoute
   '/calls/': typeof AppCallsIndexRoute
   '/companies/': typeof AppCompaniesIndexRoute
   '/contacts/': typeof AppContactsIndexRoute
   '/deals/': typeof AppDealsIndexRoute
+  '/help/': typeof AppHelpIndexRoute
   '/inbox/': typeof AppInboxIndexRoute
   '/leads/': typeof AppLeadsIndexRoute
 }
@@ -227,12 +241,14 @@ export interface FileRoutesByTo {
   '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AppContactsContactIdRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
+  '/help/print': typeof AppHelpPrintRoute
   '/inbox/$conversationId': typeof AppInboxConversationIdRoute
   '/leads/$leadId': typeof AppLeadsLeadIdRoute
   '/calls': typeof AppCallsIndexRoute
   '/companies': typeof AppCompaniesIndexRoute
   '/contacts': typeof AppContactsIndexRoute
   '/deals': typeof AppDealsIndexRoute
+  '/help': typeof AppHelpIndexRoute
   '/inbox': typeof AppInboxIndexRoute
   '/leads': typeof AppLeadsIndexRoute
 }
@@ -258,12 +274,14 @@ export interface FileRoutesById {
   '/_app/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/_app/contacts/$contactId': typeof AppContactsContactIdRoute
   '/_app/deals/$dealId': typeof AppDealsDealIdRoute
+  '/_app/help/print': typeof AppHelpPrintRoute
   '/_app/inbox/$conversationId': typeof AppInboxConversationIdRoute
   '/_app/leads/$leadId': typeof AppLeadsLeadIdRoute
   '/_app/calls/': typeof AppCallsIndexRoute
   '/_app/companies/': typeof AppCompaniesIndexRoute
   '/_app/contacts/': typeof AppContactsIndexRoute
   '/_app/deals/': typeof AppDealsIndexRoute
+  '/_app/help/': typeof AppHelpIndexRoute
   '/_app/inbox/': typeof AppInboxIndexRoute
   '/_app/leads/': typeof AppLeadsIndexRoute
 }
@@ -289,12 +307,14 @@ export interface FileRouteTypes {
     | '/companies/$companyId'
     | '/contacts/$contactId'
     | '/deals/$dealId'
+    | '/help/print'
     | '/inbox/$conversationId'
     | '/leads/$leadId'
     | '/calls/'
     | '/companies/'
     | '/contacts/'
     | '/deals/'
+    | '/help/'
     | '/inbox/'
     | '/leads/'
   fileRoutesByTo: FileRoutesByTo
@@ -318,12 +338,14 @@ export interface FileRouteTypes {
     | '/companies/$companyId'
     | '/contacts/$contactId'
     | '/deals/$dealId'
+    | '/help/print'
     | '/inbox/$conversationId'
     | '/leads/$leadId'
     | '/calls'
     | '/companies'
     | '/contacts'
     | '/deals'
+    | '/help'
     | '/inbox'
     | '/leads'
   id:
@@ -348,12 +370,14 @@ export interface FileRouteTypes {
     | '/_app/companies/$companyId'
     | '/_app/contacts/$contactId'
     | '/_app/deals/$dealId'
+    | '/_app/help/print'
     | '/_app/inbox/$conversationId'
     | '/_app/leads/$leadId'
     | '/_app/calls/'
     | '/_app/companies/'
     | '/_app/contacts/'
     | '/_app/deals/'
+    | '/_app/help/'
     | '/_app/inbox/'
     | '/_app/leads/'
   fileRoutesById: FileRoutesById
@@ -537,6 +561,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDealsDealIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/help/': {
+      id: '/_app/help/'
+      path: '/help'
+      fullPath: '/help/'
+      preLoaderRoute: typeof AppHelpIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/help/print': {
+      id: '/_app/help/print'
+      path: '/help/print'
+      fullPath: '/help/print'
+      preLoaderRoute: typeof AppHelpPrintRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/inbox/': {
       id: '/_app/inbox/'
       path: '/inbox'
@@ -583,12 +621,14 @@ interface AppRouteChildren {
   AppCompaniesCompanyIdRoute: typeof AppCompaniesCompanyIdRoute
   AppContactsContactIdRoute: typeof AppContactsContactIdRoute
   AppDealsDealIdRoute: typeof AppDealsDealIdRoute
+  AppHelpPrintRoute: typeof AppHelpPrintRoute
   AppInboxConversationIdRoute: typeof AppInboxConversationIdRoute
   AppLeadsLeadIdRoute: typeof AppLeadsLeadIdRoute
   AppCallsIndexRoute: typeof AppCallsIndexRoute
   AppCompaniesIndexRoute: typeof AppCompaniesIndexRoute
   AppContactsIndexRoute: typeof AppContactsIndexRoute
   AppDealsIndexRoute: typeof AppDealsIndexRoute
+  AppHelpIndexRoute: typeof AppHelpIndexRoute
   AppInboxIndexRoute: typeof AppInboxIndexRoute
   AppLeadsIndexRoute: typeof AppLeadsIndexRoute
 }
@@ -608,12 +648,14 @@ const AppRouteChildren: AppRouteChildren = {
   AppCompaniesCompanyIdRoute: AppCompaniesCompanyIdRoute,
   AppContactsContactIdRoute: AppContactsContactIdRoute,
   AppDealsDealIdRoute: AppDealsDealIdRoute,
+  AppHelpPrintRoute: AppHelpPrintRoute,
   AppInboxConversationIdRoute: AppInboxConversationIdRoute,
   AppLeadsLeadIdRoute: AppLeadsLeadIdRoute,
   AppCallsIndexRoute: AppCallsIndexRoute,
   AppCompaniesIndexRoute: AppCompaniesIndexRoute,
   AppContactsIndexRoute: AppContactsIndexRoute,
   AppDealsIndexRoute: AppDealsIndexRoute,
+  AppHelpIndexRoute: AppHelpIndexRoute,
   AppInboxIndexRoute: AppInboxIndexRoute,
   AppLeadsIndexRoute: AppLeadsIndexRoute,
 }

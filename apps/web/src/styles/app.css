@@ -265,6 +265,9 @@
 }
 
 @media print {
+  @page {
+    margin: 18mm 16mm;
+  }
   .no-print {
     display: none !important;
   }
@@ -272,5 +275,35 @@
     border: 0 !important;
     background: #fff !important;
     color: #000 !important;
+    max-width: none !important;
+  }
+  /* The manual: one chapter per page, and nothing split across a page break mid-thought. */
+  [data-print-chapter] {
+    break-before: page;
+  }
+  [data-print-chapter]:first-of-type {
+    break-before: avoid;
+  }
+  [data-print-sheet] h2,
+  [data-print-sheet] h3 {
+    break-after: avoid;
+  }
+  [data-print-sheet] figure,
+  [data-print-sheet] table,
+  [data-print-sheet] ol,
+  [data-print-sheet] ul {
+    break-inside: avoid;
+  }
+  [data-print-sheet] img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  [data-print-sheet] kbd {
+    border: 1px solid #999 !important;
+    color: #000 !important;
+  }
+  [data-print-sheet] a {
+    color: #000 !important;
+    text-decoration: none !important;
   }
 }

@@ -4,6 +4,7 @@
  */
 import {
   Activity,
+  CircleHelp,
   BarChart3,
   Building2,
   Contact,
@@ -138,5 +139,12 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/settings',
     roles: ['admin', 'manager'],
     permission: 'settings:read',
+  },
+  {
+    id: 'help',
+    label: 'Help',
+    icon: CircleHelp,
+    href: '/help',
+    roles: ['admin', 'manager', 'agent'],
   },
 ];

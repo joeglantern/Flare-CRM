@@ -2,9 +2,10 @@
  * TopBar (Component Inventory · App shell): breadcrumb, global search, notification bell,
  * presence and extension chip, theme toggle, user menu.
  */
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import {
   ChevronRight,
+  CircleHelp,
   Keyboard,
   LogOut,
   Menu,
@@ -25,6 +26,7 @@ import { authClient } from '@/lib/auth/client';
 import { useMe } from '@/lib/auth/me';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
+import { chapterForPath } from '@/features/help/context';
 import { NotificationBell } from './NotificationBell';
 import { usePageMetaStore } from './page-meta';
 
@@ -49,6 +51,8 @@ export function TopBar({
   const theme = useTheme();
   const navigate = useNavigate();
   const crumbs = usePageMetaStore((s) => s.crumbs);
+  const location = useRouterState({ select: (s) => s.location });
+  const help = chapterForPath(location.pathname, location.searchStr);
   const menuRef = useRef<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -125,6 +129,22 @@ export function TopBar({
             {presence.label}
             {me.extension !== null && <span className="mono text-muted">{me.extension}</span>}
           </span>
+        </Tooltip>
+
+        <Tooltip content="Help for this screen (G then L)">
+          <Link
+            to="/help"
+            search={
+              {
+                chapter: help.chapter,
+                ...(help.section !== undefined ? { section: help.section } : {}),
+              } as never
+            }
+            aria-label="Help for this screen"
+            className="flex h-8 w-8 items-center justify-center rounded-sm text-muted no-underline hover:bg-hover hover:text-text hover:no-underline"
+          >
+            <CircleHelp size={16} aria-hidden />
+          </Link>
         </Tooltip>
 
         <NotificationBell />

@@ -6,6 +6,7 @@
  */
 import {
   Building2,
+  CircleHelp,
   Contact,
   FileSpreadsheet,
   Inbox,
@@ -168,6 +169,16 @@ export function CommandPalette({
         permission: 'contact:import',
         feature: 'imports',
         run: go('/imports'),
+      },
+      {
+        id: 'go-help',
+        label: 'Open the manual',
+        icon: CircleHelp,
+        keywords: 'help manual guide how documentation',
+        run: () => {
+          onOpenChange(false);
+          void navigate({ to: '/help' });
+        },
       },
       {
         id: 'go-settings',

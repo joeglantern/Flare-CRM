@@ -43,6 +43,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: 'Inbox', keys: 'G I' },
       { label: 'Tasks', keys: 'G T' },
       { label: 'Missed calls', keys: 'G M' },
+      { label: 'The manual', keys: 'G L' },
     ],
   },
   {
@@ -64,6 +65,7 @@ export const GOTO_SEQUENCES: { key: string; to: string; permission?: Permission 
   { key: 'i', to: '/inbox', permission: 'chat:read' },
   { key: 't', to: '/tasks', permission: 'task:read' },
   { key: 'm', to: '/calls/missed', permission: 'call:read' },
+  { key: 'l', to: '/help' },
 ];
 
 /** True when a keystroke should be ignored because the user is typing. */
