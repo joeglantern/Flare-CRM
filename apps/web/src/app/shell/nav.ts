@@ -17,7 +17,7 @@ import {
   Target,
   type LucideIcon,
 } from 'lucide-react';
-import type { Permission } from '@crm/shared';
+import type { FeatureKey, Permission } from '@crm/shared';
 
 export interface NavItem {
   id: string;
@@ -26,6 +26,8 @@ export interface NavItem {
   href: string;
   roles: ('admin' | 'manager' | 'agent')[];
   permission?: Permission;
+  /** Hidden when the customer's plan does not include this (docs/20). */
+  feature?: FeatureKey;
   /** Which live count feeds the badge. */
   count?: 'leads' | 'tasks' | 'calls' | 'inbox';
 }
@@ -62,6 +64,7 @@ export const NAV_ITEMS: NavItem[] = [
     roles: ['admin', 'manager', 'agent'],
     permission: 'lead:read',
     count: 'leads',
+    feature: 'leads',
   },
   {
     id: 'deals',
@@ -70,6 +73,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/deals',
     roles: ['admin', 'manager', 'agent'],
     permission: 'deal:read',
+    feature: 'deals',
   },
   {
     id: 'tasks',
@@ -88,6 +92,7 @@ export const NAV_ITEMS: NavItem[] = [
     roles: ['admin', 'manager', 'agent'],
     permission: 'call:read',
     count: 'calls',
+    feature: 'telephony',
   },
   {
     id: 'live',
@@ -96,6 +101,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/live-calls',
     roles: ['admin', 'manager'],
     permission: 'pbx:view_status',
+    feature: 'telephony',
   },
   {
     id: 'inbox',
@@ -105,6 +111,7 @@ export const NAV_ITEMS: NavItem[] = [
     roles: ['admin', 'manager', 'agent'],
     permission: 'chat:read',
     count: 'inbox',
+    feature: 'messaging',
   },
   {
     id: 'reports',
@@ -113,6 +120,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/reports',
     roles: ['admin', 'manager', 'agent'],
     permission: 'report:view_own',
+    feature: 'reports',
   },
   {
     id: 'imports',
@@ -121,6 +129,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/imports',
     roles: ['admin', 'manager'],
     permission: 'contact:import',
+    feature: 'imports',
   },
   {
     id: 'settings',

@@ -23,13 +23,14 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useResetWhen } from '@/lib/hooks';
 import { createPortal } from 'react-dom';
-import type { Permission } from '@crm/shared';
+import type { FeatureKey, Permission } from '@crm/shared';
 import { Avatar } from '@/components/ui/Avatar';
 import { Kbd } from '@/components/ui/Kbd';
 import { Spinner } from '@/components/ui/Loading';
 import { useGlobalSearch, type SearchHit } from '@/features/search/api';
 import { useDialer } from '@/features/telephony/dialer';
 import { formatPhone } from '@/lib/format';
+import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
 import { useSettings } from '@/providers/settings';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,8 @@ export interface Command {
   icon: LucideIcon;
   keywords: string;
   permission?: Permission;
+  /** Hidden when the plan does not include it (docs/20). */
+  feature?: FeatureKey;
   meta?: string;
   run: () => void;
 }
@@ -60,6 +63,7 @@ export function CommandPalette({
 }) {
   const navigate = useNavigate();
   const perms = usePermissions();
+  const { features } = useEntitlements();
   const settings = useSettings();
   const dialer = useDialer();
   const [query, setQuery] = useState(initialQuery);
@@ -109,6 +113,7 @@ export function CommandPalette({
         icon: Target,
         keywords: 'leads enquiries',
         permission: 'lead:read',
+        feature: 'leads',
         run: go('/leads'),
       },
       {
@@ -117,6 +122,7 @@ export function CommandPalette({
         icon: Kanban,
         keywords: 'deals pipeline board',
         permission: 'deal:read',
+        feature: 'deals',
         run: go('/deals'),
       },
       {
@@ -133,6 +139,7 @@ export function CommandPalette({
         icon: Phone,
         keywords: 'calls history',
         permission: 'call:read',
+        feature: 'telephony',
         run: go('/calls'),
       },
       {
@@ -141,6 +148,7 @@ export function CommandPalette({
         icon: Phone,
         keywords: 'missed callback',
         permission: 'call:read',
+        feature: 'telephony',
         run: go('/calls/missed'),
       },
       {
@@ -149,6 +157,7 @@ export function CommandPalette({
         icon: Inbox,
         keywords: 'inbox whatsapp messages',
         permission: 'chat:read',
+        feature: 'messaging',
         run: go('/inbox'),
       },
       {
@@ -157,6 +166,7 @@ export function CommandPalette({
         icon: FileSpreadsheet,
         keywords: 'import csv',
         permission: 'contact:import',
+        feature: 'imports',
         run: go('/imports'),
       },
       {
@@ -195,14 +205,19 @@ export function CommandPalette({
         icon: Kanban,
         keywords: 'create deal new',
         permission: 'deal:create',
+        feature: 'deals',
         run: () => {
           onOpenChange(false);
           void navigate({ to: '/deals', search: { create: true } as never });
         },
       },
     ];
-    return base.filter((c) => c.permission === undefined || perms.has(c.permission));
-  }, [navigate, onOpenChange, perms, query]);
+    return base.filter(
+      (c) =>
+        (c.permission === undefined || perms.has(c.permission)) &&
+        (c.feature === undefined || features[c.feature]),
+    );
+  }, [navigate, onOpenChange, perms, features, query]);
 
   const rows = useMemo<Row[]>(() => {
     const q = query.trim().toLowerCase();

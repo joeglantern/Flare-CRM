@@ -7,6 +7,7 @@
 import { Outlet, createFileRoute, redirect } from '@tanstack/react-router';
 import { AuthenticatedRuntime } from '@/app/AuthenticatedRuntime';
 import { AppShell } from '@/app/shell/AppShell';
+import { EntitlementsProvider } from '@/providers/entitlements';
 import { SettingsProvider } from '@/providers/settings';
 import { SocketProvider } from '@/providers/socket';
 import { isApiError } from '@/lib/api/errors';
@@ -40,11 +41,13 @@ function AppLayout() {
   return (
     <SettingsProvider>
       <SocketProvider>
-        <AuthenticatedRuntime>
-          <AppShell>
-            <Outlet />
-          </AppShell>
-        </AuthenticatedRuntime>
+        <EntitlementsProvider>
+          <AuthenticatedRuntime>
+            <AppShell>
+              <Outlet />
+            </AppShell>
+          </AuthenticatedRuntime>
+        </EntitlementsProvider>
       </SocketProvider>
     </SettingsProvider>
   );

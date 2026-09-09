@@ -34,4 +34,5 @@ export const qk = {
   list: (type: string, params?: Record<string, unknown>) => ['list', type, params ?? {}] as const,
   timeline: (type: string, id: string) => ['timeline', type, id] as const,
   cti: () => ['cti'] as const,
+  entitlements: () => ['entitlements'] as const,
 } as const;

@@ -7,6 +7,7 @@
  * disabled, except where seeing the value is itself useful (PBX status, system health).
  */
 import type {
+  FeatureKey,
   BackupDto,
   ChannelDto,
   CustomFieldDefinitionDto,
@@ -15,6 +16,7 @@ import type {
   WebFormDto,
 } from '@crm/shared';
 import {
+  BadgeCheck,
   Activity,
   Building2,
   Check,
@@ -51,6 +53,7 @@ import { EmptyState, ErrorState, ForbiddenState } from '@/components/data/states
 import { DetailList, Panel } from '@/components/entity/EntityHeader';
 import { OwnerPicker } from '@/components/entity/pickers';
 import { PageHeader } from '@/app/shell/TopBar';
+import { PlanSection } from './PlanSection';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { errorMessage } from '@/lib/api/errors';
 import { useListState, useSearchParam } from '@/lib/list-state';
@@ -68,6 +71,7 @@ import {
 } from '@/features/inbox/api';
 import { useCreateUser, useUpdateUser, useUserAction, useUsers } from '@/features/users/api';
 import { formatBytes } from '@/lib/api/attachments';
+import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
 import { useFullSettings } from '@/providers/settings';
 import {
@@ -100,21 +104,72 @@ interface Section {
     | 'webform:manage'
     | 'audit:read'
     | 'team:read';
+  /** Hidden when the customer's plan does not include it (docs/20). */
+  feature?: FeatureKey;
 }
 
 const SECTIONS: Section[] = [
   { id: 'general', label: 'General', icon: Cog, requires: 'settings:read' },
-  { id: 'telephony', label: 'Telephony', icon: Phone, requires: 'settings:read' },
-  { id: 'recording', label: 'Recording', icon: Activity, requires: 'settings:read' },
+  { id: 'plan', label: 'Your plan', icon: BadgeCheck, requires: 'settings:read' },
+  {
+    id: 'telephony',
+    label: 'Telephony',
+    icon: Phone,
+    requires: 'settings:read',
+    feature: 'telephony',
+  },
+  {
+    id: 'recording',
+    label: 'Recording',
+    icon: Activity,
+    requires: 'settings:read',
+    feature: 'recordings',
+  },
   { id: 'matching', label: 'Number matching', icon: SlidersHorizontal, requires: 'settings:read' },
   { id: 'security', label: 'Security', icon: ShieldCheck, requires: 'settings:read' },
   { id: 'retention', label: 'Data retention', icon: Database, requires: 'settings:read' },
-  { id: 'backups', label: 'Backups', icon: HardDriveDownload, requires: 'settings:manage' },
-  { id: 'fields', label: 'Custom fields', icon: KeyRound, requires: 'custom_field:manage' },
-  { id: 'pipelines', label: 'Pipelines', icon: Workflow, requires: 'pipeline:manage' },
-  { id: 'dispositions', label: 'Call outcomes', icon: Check, requires: 'settings:manage' },
-  { id: 'channels', label: 'Channels', icon: Building2, requires: 'channel:manage' },
-  { id: 'forms', label: 'Web forms', icon: ClipboardCopy, requires: 'webform:manage' },
+  {
+    id: 'backups',
+    label: 'Backups',
+    icon: HardDriveDownload,
+    requires: 'settings:manage',
+    feature: 'backups',
+  },
+  {
+    id: 'fields',
+    label: 'Custom fields',
+    icon: KeyRound,
+    requires: 'custom_field:manage',
+    feature: 'custom_fields',
+  },
+  {
+    id: 'pipelines',
+    label: 'Pipelines',
+    icon: Workflow,
+    requires: 'pipeline:manage',
+    feature: 'deals',
+  },
+  {
+    id: 'dispositions',
+    label: 'Call outcomes',
+    icon: Check,
+    requires: 'settings:manage',
+    feature: 'telephony',
+  },
+  {
+    id: 'channels',
+    label: 'Channels',
+    icon: Building2,
+    requires: 'channel:manage',
+    feature: 'messaging',
+  },
+  {
+    id: 'forms',
+    label: 'Web forms',
+    icon: ClipboardCopy,
+    requires: 'webform:manage',
+    feature: 'webforms',
+  },
   { id: 'users', label: 'Users', icon: Users, requires: 'team:read' },
   { id: 'audit', label: 'Audit log', icon: ScrollText, requires: 'audit:read' },
   // /ready only includes the per-check breakdown for admins (docs/08 M4); settings:manage is
@@ -127,7 +182,12 @@ export function SettingsScreen() {
   const perms = usePermissions();
   const [section, setSection] = useSearchParam('section');
 
-  const visible = SECTIONS.filter((s) => s.requires === undefined || perms.has(s.requires));
+  const { features } = useEntitlements();
+  const visible = SECTIONS.filter(
+    (s) =>
+      (s.requires === undefined || perms.has(s.requires)) &&
+      (s.feature === undefined || features[s.feature]),
+  );
   const active = visible.find((s) => s.id === section)?.id ?? visible[0]?.id ?? 'general';
 
   if (visible.length === 0) return <ForbiddenState permission="settings:read" what="Settings" />;
@@ -167,6 +227,7 @@ export function SettingsScreen() {
 
         <div className="flex min-w-0 flex-col gap-4">
           {active === 'general' && <GeneralSection />}
+          {active === 'plan' && <PlanSection />}
           {active === 'telephony' && <TelephonySection />}
           {active === 'recording' && <RecordingSection />}
           {active === 'matching' && <MatchingSection />}

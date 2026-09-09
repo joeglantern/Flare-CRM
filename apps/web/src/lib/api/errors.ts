@@ -40,7 +40,25 @@ export class ApiError extends Error {
   }
 
   get isForbidden(): boolean {
-    return this.status === 403 && !this.isTwoFactorRequired;
+    return this.status === 403 && !this.isTwoFactorRequired && !this.isPlanProblem;
+  }
+
+  /** The plan does not include this (docs/20), as opposed to the role not allowing it. */
+  get isFeatureNotInPlan(): boolean {
+    return this.code === 'FEATURE_NOT_IN_PLAN';
+  }
+
+  get isPlanExpired(): boolean {
+    return this.code === 'PLAN_EXPIRED';
+  }
+
+  /** A ceiling was reached; freeing something makes the same request work. */
+  get isLimitReached(): boolean {
+    return this.code === 'LIMIT_REACHED';
+  }
+
+  get isPlanProblem(): boolean {
+    return this.isFeatureNotInPlan || this.isPlanExpired;
   }
 
   get isRetryable(): boolean {

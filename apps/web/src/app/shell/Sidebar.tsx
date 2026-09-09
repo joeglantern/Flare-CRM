@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useMe } from '@/lib/auth/me';
+import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav';
@@ -25,8 +26,12 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
   const perms = usePermissions();
   const path = useRouterState({ select: (s) => s.location.pathname });
 
+  const { features } = useEntitlements();
   const items = NAV_ITEMS.filter(
-    (n) => n.roles.includes(me.role) && (n.permission === undefined || perms.has(n.permission)),
+    (n) =>
+      n.roles.includes(me.role) &&
+      (n.permission === undefined || perms.has(n.permission)) &&
+      (n.feature === undefined || features[n.feature]),
   );
 
   return (

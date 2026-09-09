@@ -15,6 +15,7 @@ import { useCtiStatus } from '@/features/telephony/api';
 import { activeCall, useCallStore } from '@/features/telephony/call-store';
 import { DialerProvider } from '@/features/telephony/dialer';
 import { useChannels } from '@/features/inbox/api';
+import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
 import { GOTO_SEQUENCES, isTypingTarget } from './shortcuts';
 import { Banners } from './Banners';
@@ -48,17 +49,25 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const live = activeCall(cards);
   const ringing = cards.some((c) => c.status === 'ringing');
 
-  const cti = useCtiStatus(perms.has('pbx:view_status'));
-  const channels = useChannels(perms.has('chat:read'));
+  // Queries for a feature the customer does not have would only ever be refused; do not ask.
+  const { features } = useEntitlements();
+  const cti = useCtiStatus(features.telephony && perms.has('pbx:view_status'));
+  const channels = useChannels(features.messaging && perms.has('chat:read'));
 
   // Sidebar counts. Each is the same query the screen behind it uses, so nothing is fetched twice.
-  const leads = useLeads({ status: 'new', pageSize: 1 }, perms.has('lead:read'));
+  const leads = useLeads({ status: 'new', pageSize: 1 }, features.leads && perms.has('lead:read'));
   const tasks = useTasks(
     { mine: 'true', status: 'open', overdue: 'true', pageSize: 1 },
     perms.has('task:read'),
   );
-  const missed = useCalls({ status: 'missed', mine: 'true', pageSize: 1 }, perms.has('call:read'));
-  const inbox = useConversations({ mine: 'true', status: 'open' }, perms.has('chat:read'));
+  const missed = useCalls(
+    { status: 'missed', mine: 'true', pageSize: 1 },
+    features.telephony && perms.has('call:read'),
+  );
+  const inbox = useConversations(
+    { mine: 'true', status: 'open' },
+    features.messaging && perms.has('chat:read'),
+  );
 
   const toggleSidebar = useCallback(() => {
     setCollapsed((c) => {
@@ -190,7 +199,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           connected: activeChannel !== undefined,
         }}
       />
-      <CallPopupHost />
+      {features.telephony && <CallPopupHost />}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ShortcutsSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <SessionExpiredDialog />
