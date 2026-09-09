@@ -1,10 +1,8 @@
 /**
  * Calls list, detail and recordings (docs/09 · Calls).
  * A company's calls come from `companyId` on GET /calls (formerly GAP-08).
- * GAP-12: playback is audited but the history is not on the DTO, so call detail links to the
- * filtered audit log instead of duplicating a list.
  */
-import type { CallDto } from '@crm/shared';
+import type { CallDto, RecordingHistoryEntryDto } from '@crm/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {} from 'react';
 import { http, type OffsetList, type Query } from '@/lib/api/client';
@@ -40,6 +38,16 @@ export function useCall(id: string | null) {
     queryKey: qk.entity('call', id ?? ''),
     enabled: id !== null && id !== '',
     queryFn: () => http.get<CallDto>(`/api/v1/calls/${id ?? ''}`),
+  });
+}
+
+/** Who has played this call's recording, most recent first (formerly GAP-12). */
+export function useRecordingHistory(callId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: qk.list('recording-history', { callId }),
+    enabled: enabled && callId !== null,
+    queryFn: () =>
+      http.get<RecordingHistoryEntryDto[]>(`/api/v1/calls/${callId ?? ''}/recording-history`),
   });
 }
 

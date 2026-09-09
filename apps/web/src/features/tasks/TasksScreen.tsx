@@ -40,7 +40,6 @@ import {
   useDeleteTask,
   useTaskCalendar,
   useTasks,
-  useUpdateTask,
   type TaskFilters,
 } from './api';
 import { TaskFormDialog } from './TaskForm';
@@ -140,7 +139,6 @@ function TaskList() {
   const list = useListState<TaskFilters>();
   const users = useAssignableUsers();
   const complete = useCompleteTask();
-  const update = useUpdateTask();
   const remove = useDeleteTask();
   const bulk = useBulkTaskAction();
   const [selection, setSelection] = useState<string[]>([]);
@@ -285,7 +283,7 @@ function TaskList() {
               {
                 ids,
                 label: 'Marking done',
-                apply: (id) => complete.mutateAsync({ id }),
+                action: 'complete',
               },
               {
                 onSuccess: () => {
@@ -504,7 +502,8 @@ function TaskList() {
                   {
                     ids: selection,
                     label: 'Reassigning',
-                    apply: (id) => update.mutateAsync({ id, body: { assigneeId: assignTo } }),
+                    action: 'assign',
+                    assigneeId: assignTo,
                   },
                   {
                     onSuccess: () => {

@@ -1,4 +1,6 @@
 import {
+  bulkResult,
+  bulkTasksBody,
   calendarQuery,
   createTaskBody,
   dataResponse,
@@ -60,6 +62,29 @@ const tasksRoutes: FastifyPluginAsyncZod = async (app) => {
           auditContext(request),
         ),
       });
+    },
+  });
+
+  app.post('/tasks/bulk', {
+    config: { auth: { permission: 'task:update' } },
+    schema: {
+      tags: ['tasks'],
+      body: bulkTasksBody,
+      response: { 200: dataResponse(bulkResult) },
+    },
+    handler: async (request) => {
+      const { actor, scope } = await scopeOf(app, request);
+      if (request.body.action === 'assign' && !roleHasPermission(actor.role, 'task:assign')) {
+        return { data: { affected: 0, skipped: request.body.ids } };
+      }
+      return {
+        data: await service.bulk(
+          scope,
+          actorFor(actor.role, actor.id),
+          request.body,
+          auditContext(request),
+        ),
+      };
     },
   });
 

@@ -2,8 +2,9 @@
  * Contact 360 (Contacts · Detail): header with click-to-dial, tabs for timeline, deals,
  * tasks, notes, calls, conversations and files, custom fields and the related company.
  *
- * GAP-14: there is no per-contact files endpoint. The Files tab lists the attachments that arrive
- * on this contact's conversations, which is where files actually come from today, and says so.
+ * There is no per-contact files endpoint, so the Files tab gathers what actually carries a file
+ * for a contact today: attachments on their conversations and on notes written about them
+ * (formerly GAP-14, before a note could carry a file at all).
  */
 import type { ContactDto } from '@crm/shared';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -45,7 +46,7 @@ import { NotesPanel } from '@/components/entity/Notes';
 import { TagList } from '@/components/entity/TagInput';
 import { Timeline, typesForFilter } from '@/components/entity/Timeline';
 import { usePageMeta } from '@/app/shell/page-meta';
-import { useTimeline } from '@/features/activity/api';
+import { useNotes, useTimeline } from '@/features/activity/api';
 import { useCalls } from '@/features/calls/api';
 import {
   useChannels,
@@ -748,53 +749,92 @@ function ConversationsTab({ contact }: { contact: ContactDto }) {
   );
 }
 
-/** GAP-14: no per-contact file store; these are the attachments on this contact's conversations. */
+/** A file with wherever it actually came from, so the two sources read as one list, not two. */
+interface ContactFile {
+  id: string;
+  fileName: string;
+  sizeBytes: number;
+  url: string;
+  date: string;
+  source: 'conversation' | 'note';
+}
+
 function FilesTab({ contact }: { contact: ContactDto }) {
   const perms = usePermissions();
-  const conversations = useConversations({ contactId: contact.id }, perms.has('chat:read'));
+  const canChat = perms.has('chat:read');
+  const canNotes = perms.has('note:read');
+  const conversations = useConversations({ contactId: contact.id }, canChat);
   const conversationIds = useMemo(
     () => (conversations.data?.pages.flatMap((p) => p.data) ?? []).map((c) => c.id),
     [conversations.data],
   );
-  if (!perms.has('chat:read')) {
+  const notes = useNotes('contact', canNotes ? contact.id : null);
+  const noteFiles: ContactFile[] = useMemo(
+    () =>
+      (notes.data?.pages.flatMap((p) => p.data) ?? []).flatMap((n) =>
+        n.attachments.map((a) => ({ ...a, date: n.createdAt, source: 'note' as const })),
+      ),
+    [notes.data],
+  );
+
+  if (!canChat && !canNotes) {
     return <ForbiddenState compact permission="chat:read" what="files" />;
   }
+
   return (
     <Panel
       title="Files"
-      note="Attachments on this contact's conversations · GET /conversations/:id/messages"
+      note="Attachments on this contact's conversations and notes"
       padded={false}
     >
-      {conversationIds.length === 0 ? (
+      {canChat && conversationIds.length > 0 ? (
+        <ConversationAttachments
+          conversationIds={conversationIds}
+          extra={canNotes ? noteFiles : []}
+        />
+      ) : noteFiles.length === 0 ? (
         <EmptyState
           compact
           object="folder"
           title="No files yet"
-          description="Files arrive as WhatsApp attachments. There is no separate file store for a contact."
+          description="Files arrive as WhatsApp attachments or as files added to a note about this contact."
         />
       ) : (
-        <ConversationAttachments conversationIds={conversationIds} />
+        <FileList files={[...noteFiles].sort((a, b) => b.date.localeCompare(a.date))} />
       )}
     </Panel>
   );
 }
 
-function ConversationAttachments({ conversationIds }: { conversationIds: string[] }) {
+function ConversationAttachments({
+  conversationIds,
+  extra,
+}: {
+  conversationIds: string[];
+  extra: ContactFile[];
+}) {
   // One conversation at a time keeps the hook count stable; in practice a contact has one thread.
   const messages = useMessages(conversationIds[0] ?? null);
-  const files = (messages.data?.pages.flatMap((p) => p.data) ?? [])
+  const fromMessages: ContactFile[] = (messages.data?.pages.flatMap((p) => p.data) ?? [])
     .filter((m) => m.attachments.length > 0)
-    .flatMap((m) => m.attachments.map((a) => ({ ...a, sentAt: m.sentAt })));
+    .flatMap((m) =>
+      m.attachments.map((a) => ({ ...a, date: m.sentAt, source: 'conversation' as const })),
+    );
+  const files = [...fromMessages, ...extra].sort((a, b) => b.date.localeCompare(a.date));
   if (files.length === 0) {
     return (
       <EmptyState
         compact
         object="folder"
         title="No files yet"
-        description="Nothing has been sent or received on these conversations."
+        description="Nothing has been sent, received or attached to a note yet."
       />
     );
   }
+  return <FileList files={files} />;
+}
+
+function FileList({ files }: { files: ContactFile[] }) {
   return (
     <ul>
       {files.map((f) => (
@@ -811,9 +851,12 @@ function ConversationAttachments({ conversationIds }: { conversationIds: string[
           >
             {f.fileName}
           </a>
+          <span className="w-16 shrink-0 text-right text-sm text-faint">
+            {f.source === 'note' ? 'Note' : 'Chat'}
+          </span>
           <span className="shrink-0 text-sm text-muted">{Math.round(f.sizeBytes / 1024)} KB</span>
           <span className="w-24 shrink-0 text-right text-muted">
-            <DateTime value={f.sentAt} />
+            <DateTime value={f.date} />
           </span>
         </li>
       ))}

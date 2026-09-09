@@ -17,6 +17,7 @@ import {
   offsetListResponse,
   reconcileBody,
   reconcileResult,
+  recordingHistoryEntryDto,
   updateDispositionBody,
 } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -170,6 +171,19 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
         void reply.status(206);
       }
       return reply.send(obj.body);
+    },
+  });
+
+  app.get('/calls/:id/recording-history', {
+    config: { auth: { permission: 'call:listen_recording' } },
+    schema: {
+      tags: ['calls'],
+      params: idParams,
+      response: { 200: dataResponse(z.array(recordingHistoryEntryDto)) },
+    },
+    handler: async (request) => {
+      const { scope } = await scopeOf(app, request);
+      return { data: await service.recordingHistory(scope, request.params.id) };
     },
   });
 

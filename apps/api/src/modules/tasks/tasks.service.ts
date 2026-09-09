@@ -3,6 +3,7 @@
  * rescheduling/cancelling is exact.
  */
 import type {
+  bulkTasksBody,
   CreateTaskBody,
   TaskDto,
   UpdateTaskBody,
@@ -417,6 +418,37 @@ export class TasksService {
     ctx: AuditContext,
   ): Promise<TaskDto> {
     return this.update(scope, actor, id, { status: 'done' }, ctx);
+  }
+
+  /**
+   * Runs `update` per task rather than one SQL statement, because completing or reassigning a
+   * task also reschedules its reminder job, records activity and notifies the new assignee, all
+   * of which depend on that task's own state. A row that is not visible, not writable, or fails
+   * its own validation is skipped rather than failing the whole batch, matching what the browser
+   * did when this ran as one request per row (formerly GAP-03).
+   */
+  async bulk(
+    scope: VisibilityScope,
+    actor: Actor,
+    body: z.infer<typeof bulkTasksBody>,
+    ctx: AuditContext,
+  ): Promise<{ affected: number; skipped: string[] }> {
+    const patch: UpdateTaskBody =
+      body.action === 'complete' ? { status: 'done' } : { assigneeId: body.assigneeId ?? null };
+    const skipped: string[] = [];
+    let affected = 0;
+    for (const id of body.ids) {
+      try {
+        await this.update(scope, actor, id, patch, ctx);
+        affected++;
+      } catch (err) {
+        // Expected for a row outside scope, unwritable, or failing its own validation; logged for
+        // anything less ordinary, since the client only ever sees the id, not why it was skipped.
+        this.app.log.debug({ err, taskId: id }, 'bulk task update skipped');
+        skipped.push(id);
+      }
+    }
+    return { affected, skipped };
   }
 
   async softDelete(

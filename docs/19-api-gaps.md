@@ -20,43 +20,35 @@ plainly that the answer is not available.
 
 ## Contacts and companies
 
-| Gap    | What the design assumed             | What the API does                                                                    | How the frontend handles it                                                                                                                                                            |
-| ------ | ----------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GAP-02 | Merge picks a winner per field      | `POST /contacts/:id/merge` takes `sourceId` only; the target always wins on conflict | The merge dialog shows exactly which values will be lost before it runs, rather than offering a field picker the API would ignore.                                                     |
-| GAP-06 | Company has `domain` and `size`     | The DTO has `website` (a full URL) and `industry`                                    | The list shows the hostname parsed from the website. Company size lives as a custom field, so it renders through the custom fields block.                                              |
-| GAP-07 | A deal aggregate on the company DTO | No aggregate                                                                         | Open deal count and value are fetched with one small `GET /deals?companyId` per visible row, batched through `useQueries`. That column is not sortable, and the table footer says why. |
-| GAP-14 | A per-contact file store            | No per-contact files endpoint                                                        | The Files tab lists attachments from that contact's conversations, which is where files actually come from today, and labels itself as such.                                           |
+| Gap    | What the design assumed         | What the API does                                                                    | How the frontend handles it                                                                                                               |
+| ------ | ------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| GAP-02 | Merge picks a winner per field  | `POST /contacts/:id/merge` takes `sourceId` only; the target always wins on conflict | The merge dialog shows exactly which values will be lost before it runs, rather than offering a field picker the API would ignore.        |
+| GAP-06 | Company has `domain` and `size` | The DTO has `website` (a full URL) and `industry`                                    | The list shows the hostname parsed from the website. Company size lives as a custom field, so it renders through the custom fields block. |
 
 ## Tasks
 
-| Gap    | What the design assumed | What the API does | How the frontend handles it                                                                                                                                                                         |
-| ------ | ----------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GAP-03 | `POST /tasks/bulk`      | No bulk endpoint  | `useBulkTaskAction` issues one `PATCH` per row with a progress toast, and reports how many failed instead of implying the whole batch worked. It is the only place in the app that loops mutations. |
+| Gap | What the design assumed | What the API does | How the frontend handles it |
+| --- | ----------------------- | ----------------- | --------------------------- |
 
 ## Inbox
 
 | Gap    | What the design assumed       | What the API does                                                        | How the frontend handles it                                                                                                                                                                     |
 | ------ | ----------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GAP-04 | A team scope on conversations | `GET /conversations` takes `mine`, `unassigned` or a single `assigneeId` | Anyone with `chat:assign` gets a per-person assignee filter. A client-side team filter was rejected: the list is cursor paginated, so filtering a page in the browser would silently drop rows. |
-| GAP-05 | A template list endpoint      | Meta owns template approval and exposes no list                          | Templates come from the channel's `config.templates`. With none recorded, the out-of-window composer says so and points at channel settings rather than offering a send that would fail.        |
 
 ## Calls
 
-| Gap    | What the design assumed                                        | What the API does                                                    | How the frontend handles it                                                                                                                                                                                                                                                    |
-| ------ | -------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| GAP-08 | A `companyId` filter on calls                                  | No such filter                                                       | A company's calls are fetched by its contact ids.                                                                                                                                                                                                                              |
-| GAP-12 | Playback history on the call DTO                               | Playback is audited, but the history is not on the DTO               | Call detail links to the audit log filtered to that call, instead of rendering a list it cannot fill.                                                                                                                                                                          |
-| GAP-15 | "Agents on shift" from PBX registration                        | Registration state is not exposed                                    | The team board reports how many users have an extension set, and labels it as exactly that.                                                                                                                                                                                    |
-| GAP-17 | A "called back" flag and a repeat-caller count on missed calls | `GET /reports/calls/missed` is a filtered call list and nothing more | `useMissedCalls` derives both from calls already loaded: a miss counts as returned when a later outbound call went to the same number, and attempts is how many times that number rang unanswered inside the window. The panel says the numbers are derived, not server truth. |
+| Gap    | What the design assumed                 | What the API does                 | How the frontend handles it                                                                 |
+| ------ | --------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
+| GAP-15 | "Agents on shift" from PBX registration | Registration state is not exposed | The team board reports how many users have an extension set, and labels it as exactly that. |
 
 ## Reports
 
-| Gap    | What the design assumed                 | What the API does                                                                                    | How the frontend handles it                                                                                     |
-| ------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| GAP-10 | A date range on the forecast            | `GET /reports/pipeline/forecast` takes `months`                                                      | The shared range picker is disabled on that tab and explains why, rather than accepting a range it would drop.  |
-| GAP-16 | Per-hour and per-disposition breakdowns | The summary returns daily series and status totals only; agent rows carry no disposition counts      | Those two charts are not drawn. The screens say the breakdown is unavailable instead of showing an empty chart. |
-| GAP-18 | A scope switch on reports               | Scope is derived from the caller's role; `userId` and `teamId` narrow within it, they never widen it | The header states whose numbers are on screen. No scope switch is offered.                                      |
-| GAP-19 | A report export endpoint                | No such endpoint                                                                                     | Export runs the CSV export of the underlying entity, and the dialog says it exports rows rather than the chart. |
+| Gap    | What the design assumed      | What the API does                                                                                    | How the frontend handles it                                                                                     |
+| ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| GAP-10 | A date range on the forecast | `GET /reports/pipeline/forecast` takes `months`                                                      | The shared range picker is disabled on that tab and explains why, rather than accepting a range it would drop.  |
+| GAP-18 | A scope switch on reports    | Scope is derived from the caller's role; `userId` and `teamId` narrow within it, they never widen it | The header states whose numbers are on screen. No scope switch is offered.                                      |
+| GAP-19 | A report export endpoint     | No such endpoint                                                                                     | Export runs the CSV export of the underlying entity, and the dialog says it exports rows rather than the chart. |
 
 ## Search
 
@@ -83,3 +75,30 @@ than papered over:
 - Company import is gated by `contact:import`; there is no `company:import` permission.
 - A finished answered call has status `completed`. `answered` means the call is still up, which is
   why the demo seed was writing rows the call reports did not count.
+
+## Closed since the design review
+
+Built for real once the workaround stopped being good enough. Kept here, rather than deleted, so
+the number in old commits and audit entries still resolves to something.
+
+- **GAP-05** — a channel's WhatsApp reply templates can now be recorded from Settings, Channels,
+  in `config.templates`, rather than never at all. Meta still owns approval and still exposes no
+  list to pull from.
+- **GAP-07** — the company DTO now carries `openDealCount` and `openDealValue`, computed with one
+  grouped query per page server side, instead of one `GET /deals?companyId` per visible row from
+  the browser.
+- **GAP-08** — `GET /calls` takes a `companyId` filter directly.
+- **GAP-14** — a contact's Files tab now also lists attachments on notes written about them, now
+  that a note can carry one. There is still no dedicated file store; this is what actually carries
+  a file for a contact today.
+- **GAP-16** — the calls summary returns `byHour` and `byDisposition`, so both charts draw.
+- **GAP-17** — `GET /reports/calls/missed` returns `attempts` and `returned` on each row, computed
+  across the whole window server side, rather than derived in the browser from whatever page of
+  outbound calls happened to be loaded.
+- **GAP-03** — `POST /tasks/bulk` runs each task's own update inside one request instead of one
+  round trip per row from the browser. It still applies each task's update individually rather
+  than a single SQL statement, because completing or reassigning one also reschedules its
+  reminder, records activity and notifies its assignee, none of which a bulk update could do.
+- **GAP-12** — `GET /calls/:id/recording-history` lists who has played a recording, most recent
+  first, gated on the same permission as listening rather than the audit log's `audit:read`. Call
+  detail shows it inline instead of linking to the audit log.

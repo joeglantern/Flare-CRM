@@ -51,6 +51,13 @@ export const callDto = z.object({
 export type CallDto = z.infer<typeof callDto>;
 
 export const CALL_SORT = ['startedAt', 'talkDurationSec', 'totalDurationSec'] as const;
+/** Who has played a call's recording, most recent first (formerly GAP-12). */
+export const recordingHistoryEntryDto = z.object({
+  at: isoDateTime,
+  actor: userRef.nullable(),
+});
+export type RecordingHistoryEntryDto = z.infer<typeof recordingHistoryEntryDto>;
+
 export const listCallsQuery = paginationOffset.extend({
   direction: z.enum(valuesOf(CallDirection)).optional(),
   status: z.enum(valuesOf(CallStatus)).optional(),

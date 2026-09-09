@@ -572,6 +572,37 @@ export class CallsService {
     return { key: call.recordingKey, fileName: call.recordingFileName ?? `${id}.wav` };
   }
 
+  /**
+   * Who has played this call's recording, most recent first. Gated on the same permission as
+   * listening itself rather than the general audit log's audit:read, so an agent allowed to play
+   * their own call's recording can also see who else has (formerly GAP-12).
+   */
+  async recordingHistory(
+    scope: VisibilityScope,
+    id: string,
+  ): Promise<{ at: string; actor: { id: string; name: string } | null }[]> {
+    await this.getVisible(scope, id);
+    const rows = await this.db.auditLog.findMany({
+      where: { entity: 'call', entityId: id, action: 'recording.accessed' },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: { createdAt: true, actorId: true },
+    });
+    const actorIds = [...new Set(rows.map((r) => r.actorId).filter((v) => v !== null))];
+    const actors =
+      actorIds.length > 0
+        ? await this.db.user.findMany({
+            where: { id: { in: actorIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+    const actorById = new Map(actors.map((a) => [a.id, a]));
+    return rows.map((r) => ({
+      at: r.createdAt.toISOString(),
+      actor: r.actorId === null ? null : (actorById.get(r.actorId) ?? null),
+    }));
+  }
+
   async deleteRecording(scope: VisibilityScope, id: string, ctx: AuditContext): Promise<void> {
     const call = await this.getVisible(scope, id);
     if (call.recordingKey) await this.app.storage.delete(call.recordingKey).catch(() => undefined);

@@ -29,7 +29,7 @@ import { TaskFormDialog } from '@/features/tasks/TaskForm';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { linkTo } from '@/lib/links';
 import { usePermissions } from '@/providers/permissions';
-import { recordingUrl, useCall, useDeleteRecording } from './api';
+import { recordingUrl, useCall, useDeleteRecording, useRecordingHistory } from './api';
 
 export function CallDetailScreen({ callId }: { callId: string }) {
   const perms = usePermissions();
@@ -37,6 +37,9 @@ export function CallDetailScreen({ callId }: { callId: string }) {
   const call = query.data;
   const link = useLinkCallContact();
   const deleteRecording = useDeleteRecording();
+  const canListen =
+    call !== undefined && perms.has('call:listen_recording') && call.recordingStatus === 'stored';
+  const history = useRecordingHistory(call?.id ?? null, canListen);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkTarget, setLinkTarget] = useState<string | null>(null);
   const [taskOpen, setTaskOpen] = useState(false);
@@ -82,7 +85,6 @@ export function CallDetailScreen({ callId }: { callId: string }) {
   const who =
     call.contact?.displayName ?? call.externalDisplay ?? call.externalNumber ?? 'Unknown number';
   const unmatched = call.contactId === null;
-  const canListen = perms.has('call:listen_recording') && call.recordingStatus === 'stored';
   const canDeleteRecording =
     perms.has('call:delete_recording') && call.recordingStatus === 'stored';
 
@@ -152,23 +154,38 @@ export function CallDetailScreen({ callId }: { callId: string }) {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-3">
           {canListen ? (
-            <Panel
-              title="Recording"
-              note="Every play is written to the audit log with your name (GAP-12)."
-            >
+            <Panel title="Recording" note="Every play is written to the audit log with your name.">
               <div className="flex flex-col gap-3">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption -- a phone recording has no caption track */}
                 <audio controls preload="none" src={recordingUrl(call.id)} className="w-full">
                   Your browser cannot play this recording.
                 </audio>
+
+                {history.data !== undefined && history.data.length > 0 && (
+                  <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-muted">
+                      <ScrollText size={13} aria-hidden />
+                      Who listened
+                    </span>
+                    <ul className="flex flex-col gap-1">
+                      {history.data.map((h, i) => (
+                        <li
+                          // one call can be played more than once by the same person, so there is
+                          // no natural unique key beyond position in this already time-ordered list
+                          key={i}
+                          className="flex items-center gap-2 text-sm text-muted"
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {h.actor?.name ?? 'Someone no longer on the team'}
+                          </span>
+                          <DateTime value={h.at} mode="relative" />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2">
-                  {perms.has('audit:read') && (
-                    <Link to="/settings" search={{ section: 'audit', entityId: call.id } as never}>
-                      <Button variant="ghost" size="sm" icon={ScrollText}>
-                        Who listened
-                      </Button>
-                    </Link>
-                  )}
                   {canDeleteRecording && (
                     <Button
                       variant="ghost"

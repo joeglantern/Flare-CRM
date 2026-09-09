@@ -64,6 +64,19 @@ export const updateTaskBody = z
   .strict();
 export type UpdateTaskBody = z.infer<typeof updateTaskBody>;
 
+export const bulkTasksBody = z
+  .object({
+    action: z.enum(['complete', 'assign']),
+    ids: z.array(uuid).min(1).max(500),
+    assigneeId: uuid.nullable().optional(),
+  })
+  .strict()
+  .refine((v) => (v.action === 'assign' ? v.assigneeId !== undefined : true), {
+    message: 'assigneeId required',
+    path: ['assigneeId'],
+  });
+export type BulkTasksBody = z.infer<typeof bulkTasksBody>;
+
 export const TASK_SORT = ['dueAt', 'priority', 'createdAt', 'updatedAt', 'title'] as const;
 export const listTasksQuery = paginationOffset.extend({
   q: z.string().trim().max(120).optional(),

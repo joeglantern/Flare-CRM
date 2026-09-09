@@ -1,9 +1,5 @@
 /**
  * Tasks (docs/09 · Tasks).
- *
- * GAP-03: there is no POST /tasks/bulk. Bulk complete and reassign therefore issue one PATCH per
- * row with a progress toast and a partial-failure summary; `useBulkTaskAction` does exactly that
- * and is the only place in the app that loops mutations.
  */
 import type { CreateTaskBody, TaskDto, UpdateTaskBody } from '@crm/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -144,48 +140,29 @@ export function useCompleteTask() {
   });
 }
 
-/**
- * GAP-03: no bulk endpoint for tasks. One PATCH per row, a progress toast, and a summary that
- * names how many failed rather than pretending the whole batch worked.
- */
 export function useBulkTaskAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      ids,
-      apply,
-    }: {
+    mutationFn: (body: {
       ids: string[];
       label: string;
-      apply: (id: string) => Promise<unknown>;
-    }) => {
-      let ok = 0;
-      const failed: string[] = [];
-      for (const [i, id] of ids.entries()) {
-        try {
-          await apply(id);
-          ok++;
-        } catch {
-          failed.push(id);
-        }
-        toast({
-          key: 'bulk-tasks',
-          tone: 'neutral',
-          title: `Updating ${String(i + 1)} of ${String(ids.length)}`,
-          duration: 0,
-        });
-      }
-      return { ok, failed };
-    },
-    onSuccess: ({ ok, failed }, { label }) => {
+      action: 'complete' | 'assign';
+      assigneeId?: string | null;
+    }) =>
+      http.post<{ affected: number; skipped: string[] }>('/api/v1/tasks/bulk', {
+        action: body.action,
+        ids: body.ids,
+        ...(body.assigneeId !== undefined ? { assigneeId: body.assigneeId } : {}),
+      }),
+    onSuccess: ({ affected, skipped }, { label }) => {
       toast({
         key: 'bulk-tasks',
-        tone: failed.length > 0 ? 'warning' : 'success',
+        tone: skipped.length > 0 ? 'warning' : 'success',
         title:
-          failed.length > 0
-            ? `${label}: ${String(ok)} done, ${String(failed.length)} failed`
-            : `${label}: ${String(ok)} done`,
-        description: failed.length > 0 ? 'The failed rows were left unchanged.' : undefined,
+          skipped.length > 0
+            ? `${label}: ${String(affected)} done, ${String(skipped.length)} skipped`
+            : `${label}: ${String(affected)} done`,
+        description: skipped.length > 0 ? 'The skipped rows were left unchanged.' : undefined,
         duration: 6000,
       });
       void qc.invalidateQueries({ queryKey: qk.list('tasks') });
