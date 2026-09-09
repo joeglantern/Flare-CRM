@@ -3,8 +3,7 @@
  * timestamps, with column visibility, export and every view state.
  *
  * GAP-06: no `domain` field. The Website column shows the hostname of the stored URL.
- * GAP-07: no deal aggregate on the DTO, so open deals are counted client side for the visible
- * page only. That column is therefore not sortable, and the table footer says so.
+ * Open deals come straight from the company DTO (formerly GAP-07).
  *
  * There is no `company:import` permission. POST /imports guards every entity with `contact:import`,
  * so that is what gates the Import button here.
@@ -28,7 +27,7 @@ import { errorInfo, viewStateOf } from '@/lib/view-state';
 import { useAssignableUsers } from '@/features/users/api';
 import { usePermissions } from '@/providers/permissions';
 import { useSocketState } from '@/providers/socket';
-import { useCompanies, useCompanyDealTotals, type CompanyFilters } from './api';
+import { useCompanies, type CompanyFilters } from './api';
 import { CompanyFormDrawer } from './CompanyForm';
 
 /** GAP-06: the DTO stores a full URL, the column shows just the host. */
@@ -55,10 +54,6 @@ export function CompaniesListScreen() {
   const users = useAssignableUsers();
 
   const rows = query.data?.data ?? [];
-  const totals = useCompanyDealTotals(
-    rows.map((c) => c.id),
-    canRead && perms.has('deal:read') && rows.length > 0,
-  );
 
   const state = viewStateOf({
     allowed: canRead,
@@ -142,17 +137,14 @@ export function CompaniesListScreen() {
       width: '1.1fr',
       align: 'end',
       hideable: true,
-      render: (c) => {
-        const t = totals.map[c.id];
-        if (t === undefined)
-          return <span className="text-faint">{totals.loading ? '…' : '—'}</span>;
-        if (t.count === 0) return <span className="text-faint">None</span>;
-        return (
+      render: (c) =>
+        c.openDealCount === 0 ? (
+          <span className="text-faint">None</span>
+        ) : (
           <span className="mono text-muted">
-            {t.count} · <Money amount={t.value} currency="KES" compact />
+            {c.openDealCount} · <Money amount={c.openDealValue} currency="KES" compact />
           </span>
-        );
-      },
+        ),
     },
     {
       key: 'owner',
@@ -331,7 +323,7 @@ export function CompaniesListScreen() {
                   : {}),
               }
         }
-        endpoint="GET /companies · offset paginated. Open deals come from GET /deals?companyId for the visible page only (GAP-07)"
+        endpoint="GET /companies · offset paginated. Open deals are on the DTO."
       />
 
       <CompanyFormDrawer

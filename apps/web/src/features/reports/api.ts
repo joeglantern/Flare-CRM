@@ -43,6 +43,8 @@ export interface CallsSummary {
   avgRingSec: number;
   totalTalkSec: number;
   series: { date: string; inbound: number; outbound: number; missed: number; answered: number }[];
+  byHour: { hour: number; inbound: number; outbound: number; missed: number; answered: number }[];
+  byDisposition: { dispositionId: string | null; name: string; count: number }[];
 }
 
 export interface AgentPerformanceRow {

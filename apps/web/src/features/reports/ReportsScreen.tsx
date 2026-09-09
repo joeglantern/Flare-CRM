@@ -148,7 +148,16 @@ function CallVolumeReport({ filters }: { filters: { from: string; to: string } }
     );
   }
 
-  const { totals, answerRate, avgTalkSec, avgRingSec, totalTalkSec, series } = query.data;
+  const {
+    totals,
+    answerRate,
+    avgTalkSec,
+    avgRingSec,
+    totalTalkSec,
+    series,
+    byHour,
+    byDisposition,
+  } = query.data;
   if (totals.calls === 0) {
     return (
       <EmptyState
@@ -210,10 +219,7 @@ function CallVolumeReport({ filters }: { filters: { from: string; to: string } }
         />
       </Panel>
 
-      <Panel
-        title="How calls ended"
-        note="Straight from the summary. There is no per-hour or per-disposition breakdown on this endpoint (GAP-16)."
-      >
+      <Panel title="How calls ended" note="Status totals from the summary.">
         <div className="flex flex-col gap-3">
           {breakdown.map((b) => (
             <ProgressBar
@@ -225,6 +231,53 @@ function CallVolumeReport({ filters }: { filters: { from: string; to: string } }
             />
           ))}
         </div>
+      </Panel>
+
+      <Panel
+        title="By hour of day"
+        note="When the phones ring. All hours are shown so a quiet one reads as quiet, not missing."
+      >
+        <BarChart
+          labelWidth={56}
+          legend={[
+            { label: 'Answered', tone: SERIES[0] ?? 'var(--chart-1)' },
+            { label: 'Missed', tone: 'var(--danger)' },
+            { label: 'Outbound', tone: SERIES[1] ?? 'var(--chart-2)' },
+          ]}
+          series={byHour.map((h) => ({
+            label: `${String(h.hour).padStart(2, '0')}:00`,
+            segments: [
+              { value: h.answered, tone: SERIES[0] ?? 'var(--chart-1)', label: 'Answered' },
+              { value: h.missed, tone: 'var(--danger)', label: 'Missed' },
+              { value: h.outbound, tone: SERIES[1] ?? 'var(--chart-2)', label: 'Outbound' },
+            ],
+          }))}
+        />
+      </Panel>
+
+      <Panel
+        title="Outcomes"
+        note="Dispositions agents recorded after the call. Calls with none are counted as not set."
+      >
+        {byDisposition.length === 0 ? (
+          <p className="text-base text-muted">No calls in this range.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {byDisposition.map((d, i) => (
+              <ProgressBar
+                key={d.dispositionId ?? 'none'}
+                value={d.count}
+                max={totals.calls}
+                label={`${d.name} ${String(d.count)}`}
+                tone={
+                  d.dispositionId === null
+                    ? 'var(--text-faint)'
+                    : (SERIES[i % SERIES.length] ?? 'var(--chart-1)')
+                }
+              />
+            ))}
+          </div>
+        )}
       </Panel>
     </div>
   );
@@ -371,9 +424,8 @@ function MissedCallsReport({ filters }: { filters: { from: string; to: string } 
         <StatCard label="Missed calls" value={query.total} icon={PhoneMissed} />
         <StatCard
           label="Not called back"
-          value={query.derivingCallbacks ? null : notReturned}
+          value={notReturned}
           tone={notReturned > 0 ? 'danger' : 'success'}
-          loading={query.derivingCallbacks}
         />
         <StatCard label="Repeat callers" value={repeats} sub="rang more than once in this range" />
       </div>

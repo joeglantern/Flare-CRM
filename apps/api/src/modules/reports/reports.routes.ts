@@ -1,11 +1,11 @@
 import {
   agentPerformanceDto,
-  callDto,
   callsReportQuery,
   callsSummaryDto,
   dataResponse,
   forecastDto,
   forecastQuery,
+  missedCallDto,
   missedCallsQuery,
   offsetListResponse,
   pipelineConversionDto,
@@ -152,11 +152,12 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
     schema: {
       tags: ['reports'],
       querystring: missedCallsQuery,
-      response: { 200: offsetListResponse(callDto) },
+      response: { 200: offsetListResponse(missedCallDto) },
     },
     handler: async (request, reply) => {
       const q = request.query;
-      const result = await calls.list(await reportScope(request), requireUser(request).id, {
+      const scope = await reportScope(request);
+      const result = await calls.list(scope, requireUser(request).id, {
         page: q.page,
         pageSize: q.format === 'csv' ? 100 : q.pageSize,
         direction: 'inbound',
@@ -165,21 +166,50 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
         ...(q.from ? { from: q.from } : {}),
         ...(q.to ? { to: q.to } : {}),
       });
+      const numbers = [
+        ...new Set(result.data.map((c) => c.externalNumber).filter((n) => n !== null)),
+      ];
+      const earliest = result.data.reduce<Date | null>((min, c) => {
+        const t = new Date(c.startedAt);
+        return min === null || t < min ? t : min;
+      }, null);
+      const ctx = await calls.missedContext(
+        scope,
+        numbers,
+        { from: q.from ? new Date(q.from) : undefined, to: q.to ? new Date(q.to) : undefined },
+        earliest ?? new Date(0),
+      );
+      const data = result.data.map((c) => {
+        const back =
+          c.externalNumber === null
+            ? undefined
+            : ctx.callbacks.find(
+                (o) => o.externalE164 === c.externalNumber && o.startedAt > new Date(c.startedAt),
+              );
+        return {
+          ...c,
+          attempts: c.externalNumber === null ? 1 : (ctx.attempts.get(c.externalNumber) ?? 1),
+          returned: back !== undefined,
+          returnedAt: back?.startedAt.toISOString() ?? null,
+        };
+      });
       if (q.format === 'csv')
         return sendCsv(
           request,
           reply,
           'missed-calls',
-          ['startedAt', 'number', 'contact', 'extension', 'ringSec'],
-          result.data.map((c) => [
+          ['startedAt', 'number', 'contact', 'extension', 'ringSec', 'attempts', 'returnedAt'],
+          data.map((c) => [
             c.startedAt,
             c.externalNumber,
             c.contact?.displayName ?? '',
             c.extension,
             c.ringDurationSec,
+            c.attempts,
+            c.returnedAt ?? '',
           ]),
         );
-      return reply.send(result);
+      return reply.send({ data, page: result.page });
     },
   });
 

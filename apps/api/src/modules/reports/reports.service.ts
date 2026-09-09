@@ -56,7 +56,8 @@ export class ReportsService {
     const teamFilter = filters.teamId
       ? Prisma.sql`AND c.user_id IN (SELECT id FROM users WHERE team_id = ${filters.teamId}::uuid)`
       : Prisma.empty;
-    const base = Prisma.sql`FROM calls c WHERE c.started_at >= ${range.from} AND c.started_at < ${range.to} AND ${callScopeSql(scope)} ${userFilter} ${teamFilter}`;
+    const cond = Prisma.sql`c.started_at >= ${range.from} AND c.started_at < ${range.to} AND ${callScopeSql(scope)} ${userFilter} ${teamFilter}`;
+    const base = Prisma.sql`FROM calls c WHERE ${cond}`;
 
     const [totals] = await this.db.$queryRaw<
       {
@@ -101,6 +102,41 @@ export class ReportsService {
       ${base}
       GROUP BY 1 ORDER BY 1`);
 
+    const hours = await this.db.$queryRaw<
+      { hour: number; inbound: bigint; outbound: bigint; missed: bigint; answered: bigint }[]
+    >(Prisma.sql`
+      SELECT extract(hour FROM c.started_at AT TIME ZONE ${range.tz})::int AS hour,
+        count(*) FILTER (WHERE c.direction = 'inbound') AS inbound,
+        count(*) FILTER (WHERE c.direction = 'outbound') AS outbound,
+        count(*) FILTER (WHERE c.status IN ('missed','abandoned')) AS missed,
+        count(*) FILTER (WHERE c.status = 'completed') AS answered
+      ${base}
+      GROUP BY 1 ORDER BY 1`);
+    const byHourMap = new Map(hours.map((h) => [h.hour, h]));
+    const byHour = Array.from({ length: 24 }, (_, hour) => {
+      const h = byHourMap.get(hour);
+      return {
+        hour,
+        inbound: num(h?.inbound ?? 0n),
+        outbound: num(h?.outbound ?? 0n),
+        missed: num(h?.missed ?? 0n),
+        answered: num(h?.answered ?? 0n),
+      };
+    });
+
+    const dispositions = await this.db.$queryRaw<
+      { disposition_id: string | null; name: string | null; count: bigint }[]
+    >(Prisma.sql`
+      SELECT c.disposition_id, d.name, count(*) AS count
+      FROM calls c LEFT JOIN call_dispositions d ON d.id = c.disposition_id
+      WHERE ${cond}
+      GROUP BY 1, 2 ORDER BY 3 DESC`);
+    const byDisposition = dispositions.map((r) => ({
+      dispositionId: r.disposition_id,
+      name: r.name ?? 'Not set',
+      count: num(r.count),
+    }));
+
     const t = totals ?? {
       calls: 0n,
       inbound: 0n,
@@ -138,6 +174,8 @@ export class ReportsService {
       avgTalkSec: round(num(t.avg_talk)),
       avgRingSec: round(num(t.avg_ring)),
       totalTalkSec: num(t.total_talk),
+      byHour,
+      byDisposition,
       series: series.map((s) => ({
         date: s.day.toISOString().slice(0, 10),
         inbound: num(s.inbound),

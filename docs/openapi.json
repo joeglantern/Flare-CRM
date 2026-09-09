@@ -4675,6 +4675,14 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           },
+                          "openDealCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "openDealValue": {
+                            "type": "number"
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -4711,6 +4719,8 @@
                           "ownerId",
                           "customFields",
                           "contactCount",
+                          "openDealCount",
+                          "openDealValue",
                           "createdAt",
                           "updatedAt",
                           "deletedAt"
@@ -5024,6 +5034,14 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "openDealCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "openDealValue": {
+                          "type": "number"
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time",
@@ -5060,6 +5078,8 @@
                         "ownerId",
                         "customFields",
                         "contactCount",
+                        "openDealCount",
+                        "openDealValue",
                         "createdAt",
                         "updatedAt",
                         "deletedAt"
@@ -5231,6 +5251,14 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "openDealCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "openDealValue": {
+                          "type": "number"
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time",
@@ -5267,6 +5295,8 @@
                         "ownerId",
                         "customFields",
                         "contactCount",
+                        "openDealCount",
+                        "openDealValue",
                         "createdAt",
                         "updatedAt",
                         "deletedAt"
@@ -5566,6 +5596,14 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "openDealCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "openDealValue": {
+                          "type": "number"
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time",
@@ -5602,6 +5640,8 @@
                         "ownerId",
                         "customFields",
                         "contactCount",
+                        "openDealCount",
+                        "openDealValue",
                         "createdAt",
                         "updatedAt",
                         "deletedAt"
@@ -5795,6 +5835,14 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "openDealCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "openDealValue": {
+                          "type": "number"
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time",
@@ -5831,6 +5879,8 @@
                         "ownerId",
                         "customFields",
                         "contactCount",
+                        "openDealCount",
+                        "openDealValue",
                         "createdAt",
                         "updatedAt",
                         "deletedAt"
@@ -20623,6 +20673,16 @@
           {
             "schema": {
               "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "query",
+            "name": "companyId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
               "enum": [
                 "true"
               ]
@@ -23172,6 +23232,81 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "byHour": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "hour": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 23
+                              },
+                              "inbound": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "outbound": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "missed": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "answered": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "hour",
+                              "inbound",
+                              "outbound",
+                              "missed",
+                              "answered"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "byDisposition": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "dispositionId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "dispositionId",
+                              "name",
+                              "count"
+                            ],
+                            "additionalProperties": false
+                          }
                         }
                       },
                       "required": [
@@ -23182,7 +23317,9 @@
                         "avgTalkSec",
                         "avgRingSec",
                         "totalTalkSec",
-                        "series"
+                        "series",
+                        "byHour",
+                        "byDisposition"
                       ],
                       "additionalProperties": false
                     }
@@ -23694,6 +23831,26 @@
                             "type": "string",
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "attempts": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "returned": {
+                            "type": "boolean"
+                          },
+                          "returnedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -23723,7 +23880,10 @@
                           "dispositionNote",
                           "recordingStatus",
                           "createdAt",
-                          "updatedAt"
+                          "updatedAt",
+                          "attempts",
+                          "returned",
+                          "returnedAt"
                         ],
                         "additionalProperties": false
                       }

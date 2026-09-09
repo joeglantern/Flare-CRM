@@ -51,7 +51,12 @@ interface CompanyRow {
   _count: { contacts: number };
 }
 
-export function companyToDto(r: CompanyRow): CompanyDto {
+export interface OpenDeals {
+  count: number;
+  value: number;
+}
+
+export function companyToDto(r: CompanyRow, deals: OpenDeals = { count: 0, value: 0 }): CompanyDto {
   return {
     id: r.id,
     name: r.name,
@@ -65,6 +70,8 @@ export function companyToDto(r: CompanyRow): CompanyDto {
     ownerId: r.ownerId,
     customFields: jsonObject(r.customFields),
     contactCount: r._count.contacts,
+    openDealCount: deals.count,
+    openDealValue: deals.value,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
     deletedAt: isoOrNull(r.deletedAt),
@@ -127,7 +134,31 @@ export class CompaniesService {
       }),
       this.db.company.count({ where }),
     ]);
-    return { data: rows.map(companyToDto), page: { page: q.page, pageSize: q.pageSize, total } };
+    const deals = await this.openDealsFor(rows.map((r) => r.id));
+    return {
+      data: rows.map((r) => companyToDto(r, deals[r.id])),
+      page: { page: q.page, pageSize: q.pageSize, total },
+    };
+  }
+
+  /**
+   * One grouped query for a page of companies, rather than one deals request per row from the
+   * browser, which is what the list did before the DTO carried this (formerly GAP-07).
+   */
+  private async openDealsFor(ids: string[]): Promise<Record<string, OpenDeals>> {
+    if (ids.length === 0) return {};
+    const grouped = await this.db.deal.groupBy({
+      by: ['companyId'],
+      where: { companyId: { in: ids }, status: 'open', deletedAt: null },
+      _count: { _all: true },
+      _sum: { value: true },
+    });
+    const out: Record<string, OpenDeals> = {};
+    for (const g of grouped) {
+      if (g.companyId)
+        out[g.companyId] = { count: g._count._all, value: Number(g._sum.value ?? 0) };
+    }
+    return out;
   }
 
   async getVisible(scope: VisibilityScope, id: string): Promise<CompanyRow> {
@@ -140,7 +171,8 @@ export class CompaniesService {
   }
 
   async get(scope: VisibilityScope, id: string): Promise<CompanyDto> {
-    return companyToDto(await this.getVisible(scope, id));
+    const row = await this.getVisible(scope, id);
+    return companyToDto(row, (await this.openDealsFor([row.id]))[row.id]);
   }
 
   async create(

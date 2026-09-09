@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { callDto } from './call.js';
 import { isoDate, isoDateTime, paginationOffset, uuid } from './common.js';
 
 const range = z.object({
@@ -10,6 +11,18 @@ const range = z.object({
 });
 
 export const callsReportQuery = range.extend({ userId: uuid.optional(), teamId: uuid.optional() });
+/**
+ * A missed call with what an agent needs to act on it: how many times this number has been missed
+ * in the window, and whether anyone has already called it back. Computed on the server across the
+ * whole window, not from whatever page of outbound calls happened to be loaded.
+ */
+export const missedCallDto = callDto.extend({
+  attempts: z.number().int(),
+  returned: z.boolean(),
+  returnedAt: isoDateTime.nullable(),
+});
+export type MissedCallDto = z.infer<typeof missedCallDto>;
+
 export const missedCallsQuery = paginationOffset.extend({
   from: isoDateTime.optional(),
   to: isoDateTime.optional(),
@@ -43,6 +56,20 @@ export const callsSummaryDto = z.object({
       missed: z.number().int(),
       answered: z.number().int(),
     }),
+  ),
+  /** All twenty-four hours in the report time zone, zero where nothing happened. */
+  byHour: z.array(
+    z.object({
+      hour: z.number().int().min(0).max(23),
+      inbound: z.number().int(),
+      outbound: z.number().int(),
+      missed: z.number().int(),
+      answered: z.number().int(),
+    }),
+  ),
+  /** Calls per outcome; `dispositionId` is null for calls that were never dispositioned. */
+  byDisposition: z.array(
+    z.object({ dispositionId: uuid.nullable(), name: z.string(), count: z.number().int() }),
   ),
 });
 

@@ -57,6 +57,8 @@ export const listCallsQuery = paginationOffset.extend({
   userId: uuid.optional(),
   mine: z.enum(['true', 'false']).optional(),
   contactId: uuid.optional(),
+  /** Every call whose contact belongs to this company. */
+  companyId: uuid.optional(),
   unmatched: z.enum(['true']).optional(),
   hasRecording: z.enum(['true', 'false']).optional(),
   number: z.string().trim().max(32).optional(),

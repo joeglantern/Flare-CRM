@@ -3,7 +3,7 @@
  * notes, plus the profile and custom fields panels.
  *
  * GAP-06: the DTO has no `size` and no `domain`. Size is a custom field; website is a full URL.
- * GAP-07: there is no deal aggregate, so the pipeline total is summed from GET /deals?companyId.
+ * The deals panel sums the deals it lists; the company DTO also carries the open total.
  */
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Building2, ExternalLink, Kanban, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
@@ -455,7 +455,7 @@ function CompanyDealsTab({ companyId, onNew }: { companyId: string; onNew: () =>
   return (
     <Panel
       title="Deals"
-      note={`Open pipeline ${new Intl.NumberFormat('en-KE').format(openValue)} KES · GAP-07: summed client side from GET /deals?companyId`}
+      note={`Open pipeline ${new Intl.NumberFormat('en-KE').format(openValue)} KES across the deals listed here`}
       padded={false}
       actions={
         perms.has('deal:create') ? (

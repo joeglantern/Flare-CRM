@@ -36,6 +36,9 @@ export const companyDto = z.object({
   ownerId: uuid.nullable(),
   customFields: z.record(z.string(), z.unknown()),
   contactCount: z.number().int(),
+  /** Open deals on this company: how many, and their summed value. */
+  openDealCount: z.number().int(),
+  openDealValue: z.number(),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
   deletedAt: isoDateTime.nullable(),

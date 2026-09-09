@@ -119,6 +119,53 @@ export class CallsService {
     return { OR: [scopeWhere(scope, SHAPES.call), { contact: scopeWhere(scope, SHAPES.contact) }] };
   }
 
+  /**
+   * For a set of numbers: how many inbound calls from each were missed inside the window, and the
+   * outbound calls to each after `since`. Bounded by the numbers on one page rather than by a page
+   * of outbound calls, so a busy line cannot push a callback out of view.
+   */
+  async missedContext(
+    scope: VisibilityScope,
+    numbers: string[],
+    window: { from?: Date | undefined; to?: Date | undefined },
+    since: Date,
+  ): Promise<{
+    attempts: Map<string, number>;
+    callbacks: { externalE164: string | null; startedAt: Date }[];
+  }> {
+    if (numbers.length === 0) return { attempts: new Map(), callbacks: [] };
+    const inWindow = {
+      ...(window.from ? { gte: window.from } : {}),
+      ...(window.to ? { lte: window.to } : {}),
+    };
+    const [grouped, callbacks] = await Promise.all([
+      this.db.call.groupBy({
+        by: ['externalE164'],
+        where: {
+          AND: [
+            this.callScope(scope),
+            { direction: 'inbound', status: 'missed', externalE164: { in: numbers } },
+            ...(Object.keys(inWindow).length > 0 ? [{ startedAt: inWindow }] : []),
+          ],
+        },
+        _count: { _all: true },
+      }),
+      this.db.call.findMany({
+        where: {
+          AND: [
+            this.callScope(scope),
+            { direction: 'outbound', externalE164: { in: numbers }, startedAt: { gt: since } },
+          ],
+        },
+        select: { externalE164: true, startedAt: true },
+        orderBy: { startedAt: 'asc' },
+      }),
+    ]);
+    const attempts = new Map<string, number>();
+    for (const g of grouped) if (g.externalE164) attempts.set(g.externalE164, g._count._all);
+    return { attempts, callbacks };
+  }
+
   async list(scope: VisibilityScope, actorId: string, q: z.infer<typeof listCallsQuery>) {
     const digits = q.number?.replace(/\D/g, '') ?? '';
     const where: Prisma.CallWhereInput = {
@@ -129,6 +176,7 @@ export class CallsService {
         ...(q.userId ? [{ userId: q.userId }] : []),
         ...(q.mine === 'true' ? [{ userId: actorId }] : []),
         ...(q.contactId ? [{ contactId: q.contactId }] : []),
+        ...(q.companyId ? [{ contact: { companyId: q.companyId } }] : []),
         ...(q.unmatched ? [{ contactId: null, direction: { not: 'internal' } }] : []),
         ...(q.hasRecording
           ? [{ recordingStatus: q.hasRecording === 'true' ? 'stored' : { not: 'stored' } }]

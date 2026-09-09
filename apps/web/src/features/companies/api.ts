@@ -3,17 +3,10 @@
  *
  * GAP-06: the DTO has `website` (a full URL) and `industry`; there is no `domain` and no `size`.
  * The list shows the website hostname and size lives as a custom field.
- * GAP-07: there is no deal aggregate on the DTO, so the open-deals column is computed client-side
- * from /deals?companyId for the visible page only, which is why it is not sortable.
+ * Open deals are part of the company DTO (formerly GAP-07).
  */
-import type {
-  CompanyDto,
-  ContactDto,
-  CreateCompanyBody,
-  DealDto,
-  UpdateCompanyBody,
-} from '@crm/shared';
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CompanyDto, ContactDto, CreateCompanyBody, UpdateCompanyBody } from '@crm/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, type OffsetList, type Query } from '@/lib/api/client';
 import { qk } from '@/lib/query';
 import { MAX_PAGE_SIZE } from '@crm/shared';
@@ -61,32 +54,6 @@ export function useCompanySearch(q: string) {
     queryFn: () => http.list<CompanyDto>('/api/v1/companies', { q, pageSize: 10 }),
     select: (r) => r.data,
   });
-}
-
-/** GAP-07: one small deals query per visible company, batched with useQueries. */
-export function useCompanyDealTotals(companyIds: string[], enabled: boolean) {
-  const results = useQueries({
-    queries: companyIds.map((id) => ({
-      queryKey: qk.list('company-deal-total', { id }),
-      enabled,
-      staleTime: 60_000,
-      queryFn: () =>
-        http.list<DealDto>('/api/v1/deals', {
-          companyId: id,
-          status: 'open',
-          pageSize: MAX_PAGE_SIZE,
-        }),
-      select: (r: OffsetList<DealDto>) => ({
-        count: r.page.total,
-        value: r.data.reduce((a, d) => a + d.value, 0),
-      }),
-    })),
-  });
-  const map: Record<string, { count: number; value: number } | undefined> = {};
-  companyIds.forEach((id, i) => {
-    map[id] = results[i]?.data;
-  });
-  return { map, loading: results.some((r) => r.isPending) };
 }
 
 export function useCompanyMutations() {

@@ -465,6 +465,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    companyId?: string;
                     contactId?: string;
                     direction?: "inbound" | "outbound" | "internal";
                     from?: string;
@@ -1201,6 +1202,8 @@ export interface paths {
                                 id: string;
                                 industry: string | null;
                                 name: string;
+                                openDealCount: number;
+                                openDealValue: number;
                                 owner: {
                                     /** Format: uuid */
                                     id: string;
@@ -1284,6 +1287,8 @@ export interface paths {
                                 id: string;
                                 industry: string | null;
                                 name: string;
+                                openDealCount: number;
+                                openDealValue: number;
                                 owner: {
                                     /** Format: uuid */
                                     id: string;
@@ -1353,6 +1358,8 @@ export interface paths {
                                 id: string;
                                 industry: string | null;
                                 name: string;
+                                openDealCount: number;
+                                openDealValue: number;
                                 owner: {
                                     /** Format: uuid */
                                     id: string;
@@ -1458,6 +1465,8 @@ export interface paths {
                                 id: string;
                                 industry: string | null;
                                 name: string;
+                                openDealCount: number;
+                                openDealValue: number;
                                 owner: {
                                     /** Format: uuid */
                                     id: string;
@@ -1581,6 +1590,8 @@ export interface paths {
                                 id: string;
                                 industry: string | null;
                                 name: string;
+                                openDealCount: number;
+                                openDealValue: number;
                                 owner: {
                                     /** Format: uuid */
                                     id: string;
@@ -6678,6 +6689,7 @@ export interface paths {
                         "application/json": {
                             data: {
                                 answeredAt: string | null;
+                                attempts: number;
                                 callPath: string | null;
                                 contact: {
                                     displayName: string;
@@ -6706,6 +6718,8 @@ export interface paths {
                                 pbxCallId: string;
                                 /** @enum {string} */
                                 recordingStatus: "none" | "pending" | "downloading" | "stored" | "failed";
+                                returned: boolean;
+                                returnedAt: string | null;
                                 ringDurationSec: number | null;
                                 /** Format: date-time */
                                 startedAt: string;
@@ -6776,6 +6790,18 @@ export interface paths {
                                 answerRate: number;
                                 avgRingSec: number;
                                 avgTalkSec: number;
+                                byDisposition: {
+                                    count: number;
+                                    dispositionId: string | null;
+                                    name: string;
+                                }[];
+                                byHour: {
+                                    answered: number;
+                                    hour: number;
+                                    inbound: number;
+                                    missed: number;
+                                    outbound: number;
+                                }[];
                                 /** Format: date-time */
                                 from: string;
                                 series: {
