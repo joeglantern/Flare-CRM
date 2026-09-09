@@ -1,3 +1,4 @@
+import { newId } from '../../src/lib/ids.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TestContext } from '../setup/test-app.js';
 
@@ -193,6 +194,48 @@ describe('auth & authorization', () => {
     await expect(ctx.app.db.auditLog.delete({ where: { id: row.id } })).rejects.toThrow(
       /append-only/,
     );
+  });
+
+  it('an admin can reset a locked-out user two-factor, and it is audited', async () => {
+    const admin = await ctx.createUser({ role: 'admin' });
+    // Created without a second factor so the sign-in in createUser actually yields a session,
+    // then switched on: a user who already had 2FA would be redirected to verify and never get
+    // one, which is not the state a locked-out person is in.
+    const stuck = await ctx.createUser({ role: 'manager' });
+    await ctx.app.db.user.update({ where: { id: stuck.id }, data: { twoFactorEnabled: true } });
+    await ctx.app.db.twoFactor.create({
+      data: { id: newId(), userId: stuck.id, secret: 'JBSWY3DPEHPK3PXP', backupCodes: 'x' },
+    });
+    // Sessions live in Valkey, not a table, so the guarantee is checked the way it is felt:
+    // the cookie they are holding right now stops working.
+    const before = await ctx.as(stuck, { method: 'GET', url: '/api/v1/users/me' });
+    expect(before.statusCode, before.body).toBe(200);
+
+    const res = await ctx.as(admin, {
+      method: 'POST',
+      url: `/api/v1/users/${stuck.id}/two-factor/reset`,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json<{ data: { twoFactorEnabled: boolean } }>().data.twoFactorEnabled).toBe(false);
+    expect(await ctx.app.db.twoFactor.count({ where: { userId: stuck.id } })).toBe(0);
+    // signed out everywhere: a second factor they cannot prove must not keep old sessions alive
+    const after = await ctx.as(stuck, { method: 'GET', url: '/api/v1/users/me' });
+    expect(after.statusCode).toBe(401);
+
+    const entry = await ctx.app.db.auditLog.findFirst({
+      where: { action: 'user.two_factor_reset', entityId: stuck.id },
+    });
+    expect(entry?.actorId).toBe(admin.id);
+
+    // handing out a way in is not something an agent or a manager may do
+    for (const role of ['agent', 'manager'] as const) {
+      const other = await ctx.createUser({ role });
+      const denied = await ctx.as(other, {
+        method: 'POST',
+        url: `/api/v1/users/${stuck.id}/two-factor/reset`,
+      });
+      expect(denied.statusCode, `${role} should not reset two-factor`).toBe(403);
+    }
   });
 
   it("audit list resolves the actor's name rather than a bare id", async () => {

@@ -2294,6 +2294,7 @@ function UsersSection() {
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const action = useUserAction();
+  const [resetting, setResetting] = useState<UserDto | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<UserDto | null>(null);
 
@@ -2431,6 +2432,18 @@ function UsersSection() {
                       );
                     },
                   },
+                  ...(u.twoFactorEnabled
+                    ? [
+                        {
+                          id: 'reset-2fa',
+                          label: 'Reset two-factor',
+                          danger: true,
+                          onSelect: () => {
+                            setResetting(u);
+                          },
+                        },
+                      ]
+                    : []),
                 ]
               : undefined
           }
@@ -2441,6 +2454,51 @@ function UsersSection() {
           }}
         />
       </Panel>
+
+      <ConfirmDialog
+        open={resetting !== null}
+        onOpenChange={(v) => {
+          if (!v) setResetting(null);
+        }}
+        title="Reset two-factor for this person?"
+        description={
+          resetting === null
+            ? ''
+            : `${resetting.name} will be asked to set up an authenticator again the next time they sign in.`
+        }
+        confirmLabel="Reset two-factor"
+        tone="danger"
+        loading={action.isPending}
+        consequences={[
+          'Their current authenticator and backup codes stop working.',
+          'They are signed out everywhere immediately.',
+          'Only do this when you are sure who you are talking to.',
+        ]}
+        onConfirm={() => {
+          const target = resetting;
+          if (target === null) return;
+          action.mutate(
+            { id: target.id, action: 'two-factor/reset' },
+            {
+              onSuccess: () => {
+                setResetting(null);
+                toast({
+                  tone: 'success',
+                  title: 'Two-factor reset',
+                  description: `${target.name} can enrol again at their next sign-in.`,
+                });
+              },
+              onError: (e) => {
+                toast({
+                  tone: 'danger',
+                  title: 'Could not reset two-factor',
+                  description: errorMessage(e),
+                });
+              },
+            },
+          );
+        }}
+      />
 
       <UserDialog
         open={createOpen}

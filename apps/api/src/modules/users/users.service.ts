@@ -349,6 +349,36 @@ export class UsersService {
     return after;
   }
 
+  /**
+   * Clears someone's second factor so they can enrol again (docs/07). This is the only way back
+   * in for a person who has lost both their phone and their backup codes; without it the account
+   * is locked for good. Deliberately an admin action, audited, and it ends their sessions too:
+   * an account that cannot prove a second factor should not keep the ones it already has.
+   */
+  async resetTwoFactor(
+    id: string,
+    actorHeaders: IncomingHttpHeaders,
+    ctx: AuditContext,
+  ): Promise<UserDto> {
+    const before = await this.get(id);
+    await this.deps.db.$transaction(async (tx) => {
+      await tx.twoFactor.deleteMany({ where: { userId: id } });
+      await tx.user.update({ where: { id }, data: { twoFactorEnabled: false } });
+    });
+    await this.deps.auth.api.revokeUserSessions({
+      headers: fromNodeHeaders(actorHeaders),
+      body: { userId: id },
+    });
+    await this.deps.audit.write(ctx, {
+      action: 'user.two_factor_reset',
+      entity: 'user',
+      entityId: id,
+      before: { twoFactorEnabled: before.twoFactorEnabled },
+      after: { twoFactorEnabled: false },
+    });
+    return this.get(id);
+  }
+
   async revokeSessions(
     id: string,
     actorHeaders: IncomingHttpHeaders,

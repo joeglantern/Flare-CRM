@@ -153,6 +153,14 @@ const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     }),
   });
 
+  app.post('/users/:id/two-factor/reset', {
+    config: { auth: { permission: 'user:update' } },
+    schema: { tags: ['users'], params: idParams, response: { 200: dataResponse(userDto) } },
+    handler: async (request) => ({
+      data: await service.resetTwoFactor(request.params.id, request.headers, auditContext(request)),
+    }),
+  });
+
   app.post('/users/:id/sessions/revoke', {
     config: { auth: { permission: 'session:revoke' } },
     schema: { tags: ['users'], params: idParams, response: { 204: z.null() } },

@@ -67,7 +67,7 @@ export const gettingStarted: Chapter = {
         {
           type: 'callout',
           tone: 'warning',
-          text: 'If you lose your phone and your backup codes, no one can recover your access: an administrator has to reset your two-factor from Settings, Users. That is the point of it.',
+          text: 'If you lose your phone, use one of your backup codes to sign in, then set the authenticator up again. If the backup codes are gone too, an administrator can reset your two-factor from Settings, Users; nobody can recover the old one, which is the point of it.',
         },
       ],
     },

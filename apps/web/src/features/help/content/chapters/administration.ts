@@ -162,6 +162,26 @@ export const usersRoles: Chapter = {
       ],
     },
     {
+      id: 'lost-authenticator',
+      heading: 'When someone loses their phone',
+      permission: 'user:update',
+      blocks: [
+        {
+          type: 'p',
+          text: 'They should try a backup code first: one of the codes saved during setup signs them in, and they can then set the authenticator up again themselves.',
+        },
+        {
+          type: 'p',
+          text: 'If those are gone too, open Settings, Users, find them in the list and choose <em>Reset two-factor</em> from the row menu. They are signed out everywhere and asked to enrol again the next time they sign in.',
+        },
+        {
+          type: 'callout',
+          tone: 'warning',
+          text: 'Anyone who can do this can hand someone else a way in. Be certain who you are talking to before you reset it, and know that the reset is recorded in the audit log with your name against it.',
+        },
+      ],
+    },
+    {
       id: 'deactivating',
       heading: 'When someone leaves',
       permission: 'user:update',
