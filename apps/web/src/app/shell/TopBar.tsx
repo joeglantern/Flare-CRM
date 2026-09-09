@@ -101,7 +101,7 @@ export function TopBar({
       <button
         type="button"
         onClick={onOpenSearch}
-        className="ml-auto flex h-8 w-full max-w-[420px] items-center gap-2 rounded-sm border border-strong bg-bg px-2.5 text-base text-faint hover:border-[var(--text-faint)] md:ml-4"
+        className="ml-auto flex h-8 w-full max-w-[420px] items-center gap-2 rounded-sm border border-strong bg-bg px-2.5 text-base text-muted hover:border-[var(--text-faint)] md:ml-4"
       >
         <Search size={14} className="shrink-0" aria-hidden />
         <span className="min-w-0 flex-1 truncate text-left">
