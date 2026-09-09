@@ -61,16 +61,24 @@ export function BrandObject({
   size?: number;
   className?: string;
 }) {
+  // AVIF first, WebP next, PNG for anything that understands neither; all three are built from the
+  // same master by scripts/build-brand-assets.mjs. The modern formats are about a tenth the size.
+  const base = `/brand/objects/${name}`;
   return (
-    <img
-      src={`/brand/objects/${name}.png`}
-      alt=""
-      aria-hidden
-      width={size}
-      height={size}
-      className={cn('shrink-0 object-contain', className)}
-      style={{ width: size, height: size }}
-    />
+    <picture className={cn('shrink-0', className)} style={{ width: size, height: size }}>
+      <source type="image/avif" srcSet={`${base}.avif`} />
+      <source type="image/webp" srcSet={`${base}.webp`} />
+      <img
+        src={`${base}.png`}
+        alt=""
+        aria-hidden
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
+        className="h-full w-full object-contain"
+      />
+    </picture>
   );
 }
 

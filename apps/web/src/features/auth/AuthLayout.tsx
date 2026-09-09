@@ -48,13 +48,29 @@ export function AuthLayout({
       </div>
 
       <aside className="relative hidden items-center justify-center overflow-hidden border-l border-border bg-surface lg:flex">
-        <img
-          src={resolved === 'light' ? '/brand/hero-light.png' : '/brand/hero-dark.png'}
-          alt=""
-          aria-hidden
-          loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        {/*
+         * This is the largest thing on the sign-in page and it is above the fold, so it is fetched
+         * eagerly at high priority; lazy loading here only delayed it. The theme choice picks the
+         * crop, the browser picks the format.
+         */}
+        <picture>
+          <source
+            type="image/avif"
+            srcSet={`/brand/hero-${resolved === 'light' ? 'light' : 'dark'}.avif`}
+          />
+          <source
+            type="image/webp"
+            srcSet={`/brand/hero-${resolved === 'light' ? 'light' : 'dark'}.webp`}
+          />
+          <img
+            src={`/brand/hero-${resolved === 'light' ? 'light' : 'dark'}.png`}
+            alt=""
+            aria-hidden
+            fetchPriority="high"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        </picture>
         {/*
          * The mark sits centre right in both the dark and light crops, leaving the upper left flat
          * and quiet. Putting the line there means it is read first, never crosses the subject, and

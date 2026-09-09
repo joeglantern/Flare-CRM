@@ -26,7 +26,10 @@ export const PRESENCE_LABEL: Record<Presence, string> = {
   offline: 'Offline',
 };
 
-/** 16 abstract placeholders; the same entity always lands on the same one. */
+/**
+ * 16 abstract placeholders; the same entity always lands on the same one. Returns the path
+ * without an extension: the placeholder ships as AVIF, WebP and PNG and the browser picks.
+ */
 export function placeholderAvatar(seed: string): string {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) {
@@ -34,7 +37,7 @@ export function placeholderAvatar(seed: string): string {
     h = Math.imul(h, 16777619);
   }
   const n = (Math.abs(h) % 16) + 1;
-  return `/brand/avatars/abstract-${String(n).padStart(2, '0')}.png`;
+  return `/brand/avatars/abstract-${String(n).padStart(2, '0')}`;
 }
 
 export interface AvatarProps {
@@ -49,22 +52,40 @@ export interface AvatarProps {
 }
 
 export function Avatar({ src, name, seed, size = 24, presence, className }: AvatarProps) {
-  const url =
-    src !== null && src !== undefined && src !== '' ? src : placeholderAvatar(seed ?? name);
+  const uploaded = src !== null && src !== undefined && src !== '' ? src : null;
   const dot = size >= 32 ? 10 : 8;
+  const imgClass = 'h-full w-full rounded-full bg-hover object-cover';
   return (
     <span
       className={cn('relative inline-flex shrink-0', className)}
       style={{ width: size, height: size }}
     >
-      <img
-        src={url}
-        alt={name}
-        width={size}
-        height={size}
-        loading="lazy"
-        className="h-full w-full rounded-full bg-hover object-cover"
-      />
+      {uploaded !== null ? (
+        // A real avatar is one file the API already sniffed and stored; there is nothing to pick.
+        <img
+          src={uploaded}
+          alt={name}
+          width={size}
+          height={size}
+          loading="lazy"
+          decoding="async"
+          className={imgClass}
+        />
+      ) : (
+        <picture className="contents">
+          <source type="image/avif" srcSet={`${placeholderAvatar(seed ?? name)}.avif`} />
+          <source type="image/webp" srcSet={`${placeholderAvatar(seed ?? name)}.webp`} />
+          <img
+            src={`${placeholderAvatar(seed ?? name)}.png`}
+            alt={name}
+            width={size}
+            height={size}
+            loading="lazy"
+            decoding="async"
+            className={imgClass}
+          />
+        </picture>
+      )}
       {presence !== null && presence !== undefined && (
         <i
           title={PRESENCE_LABEL[presence]}

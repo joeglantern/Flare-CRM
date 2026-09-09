@@ -21,15 +21,18 @@ A four-point curved spark, satin warm red-orange (#FF6A3D core, #B83F1E shadow),
 
 There is no separate app icon master. The icon is drawn as vector from the mark on the brand sheet, which is the better source anyway.
 
-## Naming of derived files (to be produced)
+## Derived files
 
-- `apps/web/public/brand/logo-mark.svg`, `logo-wordmark.svg`, `logo-lockup.svg`, plus `-mono-white`, `-mono-black` variants
-- `apps/web/public/favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `maskable-512.png`
-- `apps/web/public/brand/og.png` (1200 x 630)
-- `apps/web/src/assets/empty/<name>.png` (one per object, transparent, 512 px, plus 2x)
-- `apps/web/src/assets/textures/<name>.png` (tileable, 512 px)
-- `apps/web/src/assets/avatars/abstract-01.png` to `abstract-16.png`
-- `apps/web/src/assets/hero/login-dark.png`, `login-light.png`
+Produced by `apps/web/scripts/build-brand-assets.mjs` (`pnpm --filter @crm/web brand`) into `apps/web/public/`. Everything there is generated; edit the source or the script, never the output.
+
+- `brand/mark.svg`, `mark-mono-white.svg`, `mark-mono-black.svg`, `app-icon.svg` (hand-drawn vector, the script rasterises from these)
+- `favicon.svg`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `maskable-512.png`
+- `brand/og.png` (1200 x 630)
+- `brand/objects/<name>.{avif,webp,png}` (40 objects, transparent, 256 px)
+- `brand/avatars/abstract-01` to `abstract-16` `.{avif,webp,png}` (128 px)
+- `brand/hero-dark` and `brand/hero-light` `.{avif,webp,png}`
+
+Anything the app displays ships in all three formats and is referenced through `<picture>`, so the browser takes AVIF, falls back to WebP, then PNG. The icons and the open-graph card are PNG only because manifests and link-preview crawlers do not negotiate formats. Textures are not derived: nothing in the app uses them yet.
 
 ## Usage rules (from docs/18)
 

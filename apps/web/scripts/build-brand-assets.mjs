@@ -10,6 +10,13 @@
  * The master grids already carry a real alpha channel, so nothing is keyed or matted. Each tile is
  * only cleaned of neighbour bleed by scripts/lib/object-tile.mjs, then trimmed and padded.
  *
+ * Everything the app itself displays (objects, avatars, hero) is written three times: AVIF and
+ * WebP for the browser to pick through <picture>, and PNG as the fallback and the canonical file.
+ * A 256px illustration is ~80 KB as PNG and under 10 KB as either modern format, and there are
+ * forty of them, so this is the difference between empty states appearing instantly and visibly
+ * popping in. The PWA icons and the open-graph card stay PNG only: manifests and link-preview
+ * crawlers do not negotiate formats.
+ *
  *   pnpm --filter @crm/web brand
  */
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -22,6 +29,22 @@ const here = dirname(fileURLToPath(import.meta.url));
 const src = resolve(here, '../../../assets/brand/source');
 const pub = resolve(here, '../public');
 const out = (...p) => resolve(pub, ...p);
+
+/**
+ * Writes `<base>.png`, `<base>.webp` and `<base>.avif` from one pipeline. Quality 85 is visually
+ * lossless on these flat, hard-edged illustrations while still landing a tenth of the PNG size;
+ * effort is turned up because this runs once at build time, never at request time.
+ */
+async function emit(pipeline, base) {
+  // The PNG is encoded once, here, and written as those exact bytes: passing it back through
+  // sharp would re-encode at the default compression level and make the fallback larger.
+  const png = await pipeline.png({ compressionLevel: 9 }).toBuffer();
+  await Promise.all([
+    writeFile(`${base}.png`, png),
+    sharp(png).webp({ quality: 85, effort: 6 }).toFile(`${base}.webp`),
+    sharp(png).avif({ quality: 80, effort: 6 }).toFile(`${base}.avif`),
+  ]);
+}
 
 const OBJECTS_1 = [
   'handset',
@@ -93,15 +116,15 @@ async function sliceGrid(file, cols, rows, names, dir, opts = {}) {
       if (opts.object) {
         // cleaned, then padded into a square so every object shares a baseline
         const cut = await cleanTile(tile);
-        await sharp({
-          create: {
-            width: size,
-            height: size,
-            channels: 4,
-            background: { r: 0, g: 0, b: 0, alpha: 0 },
-          },
-        })
-          .composite([
+        await emit(
+          sharp({
+            create: {
+              width: size,
+              height: size,
+              channels: 4,
+              background: { r: 0, g: 0, b: 0, alpha: 0 },
+            },
+          }).composite([
             {
               input: await sharp(cut)
                 .resize(Math.round(size * 0.92), Math.round(size * 0.92), {
@@ -112,22 +135,23 @@ async function sliceGrid(file, cols, rows, names, dir, opts = {}) {
                 .toBuffer(),
               gravity: 'centre',
             },
-          ])
-          .png({ compressionLevel: 9 })
-          .toFile(out(dir, `${name}.png`));
+          ]),
+          out(dir, name),
+        );
       } else {
-        await sharp(tile)
-          .trim({ threshold: 1 })
-          .resize(size, size, {
-            fit: 'contain',
-            background: { r: 0, g: 0, b: 0, alpha: 0 },
-          })
-          .png({ compressionLevel: 9 })
-          .toFile(out(dir, `${name}.png`));
+        await emit(
+          sharp(tile)
+            .trim({ threshold: 1 })
+            .resize(size, size, {
+              fit: 'contain',
+              background: { r: 0, g: 0, b: 0, alpha: 0 },
+            }),
+          out(dir, name),
+        );
       }
     }
   }
-  console.log(`${dir}: ${String(names.length)} files`);
+  console.log(`${dir}: ${String(names.length)} files x3 formats`);
 }
 
 async function main() {
@@ -157,14 +181,24 @@ async function main() {
   const hero = sharp(resolve(src, '07-login-hero-v1.png'));
   const hm = await hero.metadata();
   const half = Math.floor(hm.width / 2);
-  await sharp(resolve(src, '07-login-hero-v1.png'))
-    .extract({ left: 0, top: 0, width: half, height: hm.height })
-    .png({ compressionLevel: 9 })
-    .toFile(out('brand/hero-dark.png'));
-  await sharp(resolve(src, '07-login-hero-v1.png'))
-    .extract({ left: half, top: 0, width: hm.width - half, height: hm.height })
-    .png({ compressionLevel: 9 })
-    .toFile(out('brand/hero-light.png'));
+  await emit(
+    sharp(resolve(src, '07-login-hero-v1.png')).extract({
+      left: 0,
+      top: 0,
+      width: half,
+      height: hm.height,
+    }),
+    out('brand/hero-dark'),
+  );
+  await emit(
+    sharp(resolve(src, '07-login-hero-v1.png')).extract({
+      left: half,
+      top: 0,
+      width: hm.width - half,
+      height: hm.height,
+    }),
+    out('brand/hero-light'),
+  );
 
   // 4. open-graph card
   await sharp(resolve(src, '09-og-image-v2.png'))
