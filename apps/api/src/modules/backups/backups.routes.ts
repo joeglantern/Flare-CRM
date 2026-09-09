@@ -82,8 +82,9 @@ const backupsRoutes: FastifyPluginAsyncZod = async (app) => {
       await app.audit.write(auditContext(request), {
         action: 'backup.uploaded',
         entity: 'backup',
-        entityId: key,
-        after: { fileName: nameOf(key), sizeBytes: stored.size, sha256: sha256Of(buffer) },
+        // No UUID identity here: the object store's key is the identity, and that column only
+        // accepts a UUID, so it goes in the metadata instead of entityId.
+        after: { key, fileName: nameOf(key), sizeBytes: stored.size, sha256: sha256Of(buffer) },
       });
       return reply.status(201).send({
         data: {
@@ -107,7 +108,7 @@ const backupsRoutes: FastifyPluginAsyncZod = async (app) => {
       await app.audit.write(auditContext(request), {
         action: 'backup.downloaded',
         entity: 'backup',
-        entityId: key,
+        after: { key },
       });
       void reply.header('content-type', 'application/octet-stream');
       void reply.header('x-content-type-options', 'nosniff');
@@ -128,8 +129,7 @@ const backupsRoutes: FastifyPluginAsyncZod = async (app) => {
       await app.audit.write(auditContext(request), {
         action: 'backup.deleted',
         entity: 'backup',
-        entityId: key,
-        before: { fileName: nameOf(key) },
+        before: { key, fileName: nameOf(key) },
       });
       return reply.status(204).send(null);
     },

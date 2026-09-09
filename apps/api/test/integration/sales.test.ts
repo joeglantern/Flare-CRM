@@ -269,6 +269,78 @@ describe('sales: pipelines, deals, leads, tasks, notes, notifications', () => {
     expect(emails.some((j) => j.data.subject.startsWith('Reminder'))).toBe(true);
   });
 
+  it('bulk task actions run per row and skip what is not visible or permitted', async () => {
+    const manager = await ctx.createUser({ role: 'manager' });
+    const a = await ctx.as(admin, {
+      method: 'POST',
+      url: '/api/v1/tasks',
+      payload: { title: 'A' },
+    });
+    const b = await ctx.as(admin, {
+      method: 'POST',
+      url: '/api/v1/tasks',
+      payload: { title: 'B' },
+    });
+    const own = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/tasks',
+      payload: { title: 'Own' },
+    });
+    const idA = a.json<Envelope<{ id: string }>>().data.id;
+    const idB = b.json<Envelope<{ id: string }>>().data.id;
+    const idOwn = own.json<Envelope<{ id: string }>>().data.id;
+    const bogusId = '00000000-0000-7000-8000-000000000000';
+
+    // a task created with no assignee defaults to its creator, here the agent
+    expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idOwn } })).assigneeId).toBe(
+      agent.id,
+    );
+
+    // an agent has no task:assign, so a reassign attempt no-ops rather than partially applying
+    const deniedAssign = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/tasks/bulk',
+      payload: { action: 'assign', ids: [idOwn], assigneeId: manager.id },
+    });
+    expect(deniedAssign.statusCode, deniedAssign.body).toBe(200);
+    expect(deniedAssign.json<Envelope<{ affected: number; skipped: string[] }>>().data).toEqual({
+      affected: 0,
+      skipped: [idOwn],
+    });
+    expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idOwn } })).assigneeId).toBe(
+      agent.id,
+    );
+
+    // a mix of two real tasks and one id that does not exist: the real ones complete, the bogus
+    // one is skipped, and the whole batch does not fail because one row could not be found
+    const bulkComplete = await ctx.as(admin, {
+      method: 'POST',
+      url: '/api/v1/tasks/bulk',
+      payload: { action: 'complete', ids: [idA, idB, bogusId] },
+    });
+    expect(bulkComplete.statusCode, bulkComplete.body).toBe(200);
+    const completeResult =
+      bulkComplete.json<Envelope<{ affected: number; skipped: string[] }>>().data;
+    expect(completeResult.affected).toBe(2);
+    expect(completeResult.skipped).toEqual([bogusId]);
+    expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idA } })).status).toBe('done');
+    expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idB } })).status).toBe('done');
+
+    // an admin does have task:assign, and the manager exists, so this one actually applies
+    const bulkAssign = await ctx.as(admin, {
+      method: 'POST',
+      url: '/api/v1/tasks/bulk',
+      payload: { action: 'assign', ids: [idOwn], assigneeId: manager.id },
+    });
+    expect(bulkAssign.json<Envelope<{ affected: number; skipped: string[] }>>().data).toEqual({
+      affected: 1,
+      skipped: [],
+    });
+    expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idOwn } })).assigneeId).toBe(
+      manager.id,
+    );
+  });
+
   it('notes: author-only edits, timeline search', async () => {
     const contact = (
       await ctx.as(agent, { method: 'POST', url: '/api/v1/contacts', payload: { firstName: 'N' } })

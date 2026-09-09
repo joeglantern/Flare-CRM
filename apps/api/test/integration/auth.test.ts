@@ -194,4 +194,40 @@ describe('auth & authorization', () => {
       /append-only/,
     );
   });
+
+  it("audit list resolves the actor's name rather than a bare id", async () => {
+    const admin = await ctx.createUser({ role: 'admin' });
+    await ctx.as(admin, { method: 'POST', url: '/api/v1/teams', payload: { name: 'Support' } });
+
+    const list = await ctx.as(admin, { method: 'GET', url: '/api/v1/audit?action=team.create' });
+    expect(list.statusCode, list.body).toBe(200);
+    const rows = list.json<{
+      data: { actorId: string | null; actor: { id: string; name: string } | null }[];
+    }>().data;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.actorId).toBe(admin.id);
+    // createUser names the row "Test <role>" when no name is given; the resolved actor carries
+    // that same name, not just the id the endpoint used to return on its own.
+    expect(rows[0]?.actor).toEqual({ id: admin.id, name: 'Test admin' });
+
+    // a signature rejection is written with no actor at all; it must come back null, not
+    // crash the caller the way a bare, unresolved id previously did on the frontend
+    await ctx.app.audit.write(
+      { actorId: null, actorType: 'webhook' },
+      { action: 'webhook.signature_rejected', entity: 'whatsapp' },
+    );
+    const system = await ctx.as(admin, {
+      method: 'GET',
+      url: '/api/v1/audit?action=webhook.signature_rejected',
+    });
+    const systemRows = system.json<{ data: { actorId: string | null; actor: unknown }[] }>().data;
+    expect(systemRows[0]?.actorId).toBeNull();
+    expect(systemRows[0]?.actor).toBeNull();
+
+    const denied = await ctx.as(await ctx.createUser({ role: 'agent' }), {
+      method: 'GET',
+      url: '/api/v1/audit',
+    });
+    expect(denied.statusCode).toBe(403);
+  });
 });

@@ -230,6 +230,22 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     });
     expect(audit?.actorId).toBe(agent.id);
 
+    const history = await ctx.as(agent, {
+      method: 'GET',
+      url: `/api/v1/calls/${row.id}/recording-history`,
+    });
+    expect(history.statusCode, history.body).toBe(200);
+    const historyRows =
+      history.json<Envelope<{ at: string; actor: { id: string; name: string } | null }[]>>().data;
+    expect(historyRows).toHaveLength(1);
+    expect(historyRows[0]?.actor?.id).toBe(agent.id);
+
+    const notFound = await ctx.as(agent, {
+      method: 'GET',
+      url: '/api/v1/calls/00000000-0000-7000-8000-000000000000/recording-history',
+    });
+    expect(notFound.statusCode).toBe(404);
+
     // disposition
     const dispositions = (
       await ctx.as(agent, { method: 'GET', url: '/api/v1/call-dispositions' })

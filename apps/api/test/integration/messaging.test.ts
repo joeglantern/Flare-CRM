@@ -362,4 +362,47 @@ describe('messaging: WhatsApp channel end to end', () => {
     });
     expect(denied.statusCode).toBe(403);
   });
+
+  it('editing a channel updates its templates and can turn it off', async () => {
+    const created = await ctx.as(admin, {
+      method: 'POST',
+      url: '/api/v1/channels',
+      payload: { type: 'whatsapp', name: 'Support line' },
+    });
+    const id = created.json<Envelope<{ id: string; isActive: boolean }>>().data.id;
+
+    const patched = await ctx.as(admin, {
+      method: 'PATCH',
+      url: `/api/v1/channels/${id}`,
+      payload: {
+        name: 'Support line (renamed)',
+        config: {
+          templates: [{ name: 'order_update', language: 'en', body: 'Your order {{1}} is {{2}}.' }],
+        },
+      },
+    });
+    expect(patched.statusCode, patched.body).toBe(200);
+    const dto =
+      patched.json<Envelope<{ name: string; config: { templates?: { name: string }[] } }>>().data;
+    expect(dto.name).toBe('Support line (renamed)');
+    // config is a free-form record: the server stores and returns it exactly as sent, it does not
+    // recompute anything in it (the placeholder count is derived client side, not here).
+    expect(dto.config.templates).toEqual([
+      { name: 'order_update', language: 'en', body: 'Your order {{1}} is {{2}}.' },
+    ]);
+
+    const off = await ctx.as(admin, {
+      method: 'PATCH',
+      url: `/api/v1/channels/${id}`,
+      payload: { isActive: false },
+    });
+    expect(off.json<Envelope<{ isActive: boolean }>>().data.isActive).toBe(false);
+
+    const deniedEdit = await ctx.as(agent, {
+      method: 'PATCH',
+      url: `/api/v1/channels/${id}`,
+      payload: { name: 'Should not apply' },
+    });
+    expect(deniedEdit.statusCode).toBe(403);
+  });
 });

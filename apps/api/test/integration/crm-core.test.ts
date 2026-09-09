@@ -270,4 +270,35 @@ describe('core CRM: contacts, companies, custom fields, visibility', () => {
     });
     expect(stale.statusCode).toBe(409);
   });
+
+  it('searches companies by name with no digits, and by phone when the query has some', async () => {
+    // The phone clause used to fall back to a NUL byte when the search text had no digits, which
+    // Postgres refuses outright, so a plain name search failed with a 500 every time.
+    await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/companies',
+      payload: { name: 'Nairobi Logistics', phone: '0700111222' },
+    });
+    await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/companies',
+      payload: { name: 'Other Co' },
+    });
+
+    const byName = await ctx.as(agent, { method: 'GET', url: '/api/v1/companies?q=Logistics' });
+    expect(byName.statusCode, byName.body).toBe(200);
+    expect(byName.json<Envelope<{ name: string }[]>>().data.map((c) => c.name)).toEqual([
+      'Nairobi Logistics',
+    ]);
+
+    const byPhone = await ctx.as(agent, { method: 'GET', url: '/api/v1/companies?q=700111222' });
+    expect(byPhone.statusCode, byPhone.body).toBe(200);
+    expect(byPhone.json<Envelope<{ name: string }[]>>().data.map((c) => c.name)).toEqual([
+      'Nairobi Logistics',
+    ]);
+
+    const noMatch = await ctx.as(agent, { method: 'GET', url: '/api/v1/companies?q=zzz' });
+    expect(noMatch.statusCode, noMatch.body).toBe(200);
+    expect(noMatch.json<Envelope<unknown[]>>().data).toEqual([]);
+  });
 });
