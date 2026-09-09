@@ -16,6 +16,15 @@ export default defineConfig({
     tanstackRouter({ target: 'react', autoCodeSplitting: true, routesDirectory: './src/routes' }),
     react(),
     tailwindcss(),
+    {
+      // The open-graph tags in index.html need the site origin, which only the production build
+      // knows (the web Dockerfile passes it as VITE_APP_URL). Vite leaves an undefined %VAR%
+      // untouched, so this substitutes it explicitly and falls back to an empty origin, which
+      // makes the URLs relative and harmless in a local build.
+      name: 'crm-og-origin',
+      transformIndexHtml: (html) =>
+        html.replaceAll('%VITE_APP_URL%', (process.env.VITE_APP_URL ?? '').replace(/\/+$/, '')),
+    },
   ],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: {

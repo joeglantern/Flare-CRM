@@ -44,16 +44,27 @@ function PickerShell({
   const anchor = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
   const listId = useId();
+  // Same wiring as Select: a combobox takes no name from its content, so the label is tied to
+  // the trigger by id, and the placeholder names it when there is no label at all.
+  const triggerId = `${listId}-trigger`;
   return (
-    <FieldShell label={label} error={error} required={required} className={className}>
+    <FieldShell
+      label={label}
+      error={error}
+      required={required}
+      className={className}
+      htmlFor={triggerId}
+    >
       <div className="flex items-center gap-1">
         <button
           ref={anchor}
+          id={triggerId}
           type="button"
           role="combobox"
           aria-expanded={open}
           aria-controls={`${listId}-list`}
           aria-haspopup="listbox"
+          aria-label={label === undefined ? placeholder : undefined}
           disabled={disabled}
           onClick={() => {
             setOpen((o) => !o);
@@ -64,7 +75,7 @@ function PickerShell({
             disabled === true && 'cursor-not-allowed text-faint',
           )}
         >
-          <span className={cn('min-w-0 flex-1 truncate', selected === null && 'text-faint')}>
+          <span className={cn('min-w-0 flex-1 truncate', selected === null && 'text-muted')}>
             {selected ?? placeholder}
           </span>
           <ChevronsUpDown size={14} className="shrink-0 text-muted" aria-hidden />

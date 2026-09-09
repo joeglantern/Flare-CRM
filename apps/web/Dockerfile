@@ -15,6 +15,10 @@ COPY packages/tsconfig/package.json packages/tsconfig/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 FROM deps AS build
+# Public origin of the deployment, for the absolute URLs link-preview crawlers need in index.html.
+#   docker build --build-arg VITE_APP_URL=https://crm.example.com ...
+ARG VITE_APP_URL=""
+ENV VITE_APP_URL=$VITE_APP_URL
 COPY packages ./packages
 COPY docs/openapi.json ./docs/openapi.json
 COPY apps/web ./apps/web

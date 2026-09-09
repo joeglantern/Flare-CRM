@@ -3,6 +3,24 @@
 @import 'tailwindcss';
 @import './tokens.css';
 
+/*
+ * Inter is font-display: swap, so text first paints in a local face and is re-laid-out when Inter
+ * arrives. With a plain system-ui fallback that reflow moved a whole table on the tasks screen
+ * (layout shift 0.44, where 0.1 is the ceiling). This face is Arial, or the closest local
+ * substitute, scaled so its advance widths and line box match Inter's; the swap then changes
+ * glyph shapes and nothing else. Overrides are Inter's metrics relative to Arial.
+ *
+ * Sits after every @import: CSS drops any import that follows another rule.
+ */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial'), local('Helvetica'), local('Roboto'), local('Liberation Sans');
+  ascent-override: 90.2%;
+  descent-override: 22.48%;
+  line-gap-override: 0%;
+  size-adjust: 107.4%;
+}
+
 /* Tailwind's `dark:` variant follows our attribute, not the OS. */
 @custom-variant dark (&:where(:root:not([data-theme='light']) *, :root:not([data-theme='light'])));
 

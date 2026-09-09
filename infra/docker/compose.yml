@@ -43,6 +43,13 @@ services:
   # publishes the built SPA into web_dist and exits; Caddy serves it (docs/12 §2)
   web:
     image: ${WEB_IMAGE:-ghcr.io/OWNER/crm-web:latest}
+    # `docker compose build web` builds it on the box with the site origin baked into the
+    # open-graph tags; a pulled image should have been built with the same argument.
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_APP_URL: https://${CRM_DOMAIN:?set CRM_DOMAIN in .env}
     restart: 'no'
     volumes:
       - web_dist:/out

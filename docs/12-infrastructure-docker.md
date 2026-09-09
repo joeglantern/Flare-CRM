@@ -117,6 +117,8 @@ WHATSAPP_GRAPH_VERSION=v23.0   WHATSAPP_API_BASE_URL=https://graph.facebook.com 
 TRUST_PROXY_HOPS=1                # Caddy in front of the API
 OPENAPI_ENABLED=false
 WEB_IMAGE=ghcr.io/OWNER/crm-web:latest   # static SPA publisher image; copies dist into the web_dist volume served by Caddy
+                                          # build it with --build-arg VITE_APP_URL=https://<CRM_DOMAIN> (compose build web does)
+                                          # so the open-graph tags in index.html carry absolute URLs for link previews
 METRICS_ENABLED=true
 FIRST_ADMIN_EMAIL=   FIRST_ADMIN_NAME=          # seed creates the first admin and emails a set-password link
 ```

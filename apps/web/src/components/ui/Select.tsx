@@ -63,6 +63,10 @@ export function Select({
 
   const selected = options.find((o) => o.value === value) ?? null;
   const invalid = error !== undefined && error !== '';
+  // A combobox cannot take its name from its content, so the visible label is wired to the
+  // trigger by id; with neither a label nor an explicit name, the placeholder stands in.
+  const triggerId = `${listId}-trigger`;
+  const name = ariaLabel ?? (label === undefined ? placeholder : undefined);
 
   return (
     <FieldShell
@@ -71,15 +75,17 @@ export function Select({
       error={error}
       required={required}
       className={className}
+      htmlFor={triggerId}
     >
       <button
         ref={trigger}
+        id={triggerId}
         type="button"
         role="combobox"
         aria-expanded={open}
         aria-controls={`${listId}-options`}
         aria-haspopup="listbox"
-        aria-label={ariaLabel}
+        aria-label={name}
         disabled={disabled}
         onClick={() => {
           setOpen((o) => !o);
@@ -101,7 +107,9 @@ export function Select({
         {selected?.icon !== undefined && (
           <selected.icon size={14} className="shrink-0 text-muted" aria-hidden />
         )}
-        <span className={cn('min-w-0 flex-1 truncate', selected === null && 'text-faint')}>
+        {/* muted, not faint: a placeholder is still text someone has to read, and faint on the
+            dark theme is 3.8:1, under the 4.5:1 floor */}
+        <span className={cn('min-w-0 flex-1 truncate', selected === null && 'text-muted')}>
           {selected?.render ?? selected?.label ?? placeholder}
         </span>
         <ChevronsUpDown size={14} className="shrink-0 text-muted" aria-hidden />

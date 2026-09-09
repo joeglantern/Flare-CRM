@@ -201,14 +201,18 @@ export function DataTable<T>({
             className="grid h-[34px] items-center gap-3 border-b border-border px-3 text-sm font-medium text-muted"
           >
             {selectable && (
-              <Checkbox
-                ariaLabel={allSelected ? 'Clear selection' : 'Select all on this page'}
-                checked={allSelected}
-                indeterminate={!allSelected && someSelected}
-                onChange={(v) => {
-                  onSelectionChange(v ? rows.map(rowKey) : []);
-                }}
-              />
+              // Every direct child of a row has to be a cell of some kind, so the checkbox sits
+              // inside a header cell rather than being the row's child itself.
+              <div role="columnheader">
+                <Checkbox
+                  ariaLabel={allSelected ? 'Clear selection' : 'Select all on this page'}
+                  checked={allSelected}
+                  indeterminate={!allSelected && someSelected}
+                  onChange={(v) => {
+                    onSelectionChange(v ? rows.map(rowKey) : []);
+                  }}
+                />
+              </div>
             )}
             {visible.map((c) => {
               const active = sort?.key === c.key;
@@ -264,9 +268,15 @@ export function DataTable<T>({
                 style={{ gridTemplateColumns: template }}
                 className="grid h-9 items-center gap-3 border-b border-border px-3"
               >
-                {selectable && <Skeleton width={16} height={16} />}
+                {selectable && (
+                  <div role="cell">
+                    <Skeleton width={16} height={16} />
+                  </div>
+                )}
                 {visible.map((c, j) => (
-                  <Skeleton key={c.key} height={12} width={`${String(70 - ((i + j) % 4) * 12)}%`} />
+                  <div key={c.key} role="cell">
+                    <Skeleton height={12} width={`${String(70 - ((i + j) % 4) * 12)}%`} />
+                  </div>
                 ))}
               </div>
             ))}
@@ -302,56 +312,67 @@ export function DataTable<T>({
                   )}
                 >
                   {selectable && (
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      onKeyDown={(e) => {
-                        e.stopPropagation();
-                      }}
-                      role="presentation"
-                    >
-                      <Checkbox
-                        ariaLabel="Select row"
-                        checked={isSelected}
-                        onChange={(v) => {
-                          onSelectionChange(
-                            v ? [...selection, id] : selection.filter((s) => s !== id),
-                          );
+                    // The cell role is what a row is allowed to contain; without it the checkbox
+                    // reads as the row's own child. The inner span only stops the click so
+                    // ticking the box does not also open the row.
+                    <div role="cell">
+                      <span
+                        role="presentation"
+                        onClick={(e) => {
+                          e.stopPropagation();
                         }}
-                      />
-                    </span>
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                        }}
+                      >
+                        <Checkbox
+                          ariaLabel="Select row"
+                          checked={isSelected}
+                          onChange={(v) => {
+                            onSelectionChange(
+                              v ? [...selection, id] : selection.filter((s) => s !== id),
+                            );
+                          }}
+                        />
+                      </span>
+                    </div>
                   )}
                   {visible.map((c) => (
                     <div
                       key={c.key}
+                      role="cell"
                       className={cn('min-w-0 truncate', c.align === 'end' && 'text-right')}
                     >
                       {c.render(row)}
                     </div>
                   ))}
-                  {rowActions !== undefined && <RowMenu items={rowActions(row)} />}
+                  {rowActions !== undefined && (
+                    <div role="cell">
+                      <RowMenu items={rowActions(row)} />
+                    </div>
+                  )}
                 </div>
               );
             })}
-
-          {failure && (
-            <div className="px-3">
-              {state === 'empty' && emptyState !== undefined && <EmptyState {...emptyState} />}
-              {state === 'forbidden' && <ForbiddenState {...forbidden} />}
-              {state === 'offline' && (
-                <OfflineState {...(onRetry !== undefined ? { onRetry } : {})} />
-              )}
-              {state === 'error' && (
-                <ErrorState
-                  {...(error?.message !== undefined ? { message: error.message } : {})}
-                  {...(error?.requestId !== undefined ? { requestId: error.requestId } : {})}
-                  {...(onRetry !== undefined ? { onRetry } : {})}
-                />
-              )}
-            </div>
-          )}
         </div>
+
+        {/* Outside the table element: an empty state's buttons and links are not table content. */}
+        {failure && (
+          <div className="px-3">
+            {state === 'empty' && emptyState !== undefined && <EmptyState {...emptyState} />}
+            {state === 'forbidden' && <ForbiddenState {...forbidden} />}
+            {state === 'offline' && (
+              <OfflineState {...(onRetry !== undefined ? { onRetry } : {})} />
+            )}
+            {state === 'error' && (
+              <ErrorState
+                {...(error?.message !== undefined ? { message: error.message } : {})}
+                {...(error?.requestId !== undefined ? { requestId: error.requestId } : {})}
+                {...(onRetry !== undefined ? { onRetry } : {})}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       {(pagination !== undefined ||

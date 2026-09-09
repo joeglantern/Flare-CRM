@@ -153,7 +153,7 @@ export function Panel({
     <section className={cn('min-w-0 rounded-md border border-border bg-surface', className)}>
       {title !== undefined && (
         <div className="flex items-center gap-2 border-b border-border px-3.5 py-2.5">
-          <h3 className="min-w-0 flex-1 truncate text-base font-medium">{title}</h3>
+          <h2 className="min-w-0 flex-1 truncate text-base font-medium">{title}</h2>
           {actions}
         </div>
       )}

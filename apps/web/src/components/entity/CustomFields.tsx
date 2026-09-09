@@ -195,10 +195,10 @@ export function CustomFieldsPanel({
   if (active.length === 0) return null;
   return (
     <section className={cn('rounded-md border border-border bg-surface', className)}>
-      <h3 className="flex items-center gap-1.5 border-b border-border px-3.5 py-2.5 text-base font-medium">
+      <h2 className="flex items-center gap-1.5 border-b border-border px-3.5 py-2.5 text-base font-medium">
         <Sparkles size={13} className="text-muted" aria-hidden />
         Custom fields
-      </h3>
+      </h2>
       <dl className="grid grid-cols-[minmax(0,140px)_minmax(0,1fr)] gap-x-3 gap-y-2 px-3.5 py-3 text-base">
         {active.map((d) => (
           <div key={d.id} className="contents">

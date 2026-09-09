@@ -11,6 +11,20 @@
       content="Flare CRM: calls, WhatsApp, contacts and deals in one timeline."
     />
     <meta name="robots" content="noindex" />
+    <!-- Link previews (WhatsApp, Slack, email clients). Crawlers need an absolute image URL;
+         %VITE_APP_URL% is the site origin the build was given, empty for a local build. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Flare CRM" />
+    <meta property="og:title" content="Flare CRM" />
+    <meta
+      property="og:description"
+      content="Calls, WhatsApp, contacts and deals in one timeline."
+    />
+    <meta property="og:url" content="%VITE_APP_URL%/" />
+    <meta property="og:image" content="%VITE_APP_URL%/brand/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
