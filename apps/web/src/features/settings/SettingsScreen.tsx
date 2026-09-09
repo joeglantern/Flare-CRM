@@ -109,7 +109,9 @@ const SECTIONS: Section[] = [
   { id: 'forms', label: 'Web forms', icon: ClipboardCopy, requires: 'webform:manage' },
   { id: 'users', label: 'Users', icon: Users, requires: 'team:read' },
   { id: 'audit', label: 'Audit log', icon: ScrollText, requires: 'audit:read' },
-  { id: 'health', label: 'System health', icon: Activity, requires: 'settings:read' },
+  // /ready only includes the per-check breakdown for admins (docs/08 M4); settings:manage is
+  // admin-only, unlike settings:read, which agents and managers also hold.
+  { id: 'health', label: 'System health', icon: Activity, requires: 'settings:manage' },
 ];
 
 export function SettingsScreen() {
@@ -2391,24 +2393,32 @@ function HealthSection() {
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <Badge tone={query.data.ok ? 'success' : 'danger'}>
-              {query.data.ok ? 'Healthy' : 'Degraded'}
+            <Badge tone={query.data.status === 'ready' ? 'success' : 'danger'}>
+              {query.data.status === 'ready' ? 'Healthy' : 'Degraded'}
             </Badge>
             <span className="mono text-sm text-muted">{query.data.status}</span>
           </div>
-          <ul className="divide-y divide-border rounded-sm border border-border">
-            {Object.entries(query.data.checks).map(([name, check]) => (
-              <li key={name} className="flex items-center gap-3 px-3 py-2">
-                <span className="mono min-w-0 flex-1 truncate text-sm">{name}</span>
-                <Badge tone={check.ok ? 'success' : 'danger'}>{check.ok ? 'OK' : 'Failing'}</Badge>
-                {check.detail !== undefined && (
-                  <span className="mono max-w-64 truncate text-xs text-faint">
-                    {JSON.stringify(check.detail)}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+          {query.data.checks === undefined ? (
+            <p className="text-base text-muted">
+              Signed in without the internal detail view; only the overall status is shown.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border rounded-sm border border-border">
+              {Object.entries(query.data.checks).map(([name, check]) => (
+                <li key={name} className="flex items-center gap-3 px-3 py-2">
+                  <span className="mono min-w-0 flex-1 truncate text-sm">{name}</span>
+                  <Badge tone={check.ok ? 'success' : 'danger'}>
+                    {check.ok ? 'OK' : 'Failing'}
+                  </Badge>
+                  {check.detail !== undefined && (
+                    <span className="mono max-w-64 truncate text-xs text-faint">
+                      {JSON.stringify(check.detail)}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </Panel>

@@ -190,8 +190,9 @@ export function useAuditLog(filters: AuditFilters = {}, enabled = true) {
 
 export interface HealthReport {
   status: string;
-  ok: boolean;
-  checks: Record<string, { ok: boolean; detail?: unknown }>;
+  /** Only present for admins or internal callers (docs/08 M4); absent, the status string still is. */
+  ok?: boolean;
+  checks?: Record<string, { ok: boolean; detail?: unknown }>;
 }
 
 export function useSystemHealth(enabled = true) {
