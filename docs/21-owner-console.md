@@ -144,6 +144,23 @@ The console needs its own hostname pointed at that machine before a certificate 
 that record exists, Caddy retries and the customer's site is unaffected; the certificate appears on
 its own within a minute of the record resolving.
 
+You do not have to wait for it to start using the console. A third overlay serves it on port 8081
+without TLS, published on the host's loopback and nowhere else, so an SSH tunnel is the only way in:
+
+```
+cp same-host/console-tunnel.caddy ../docker/caddy/conf.d/
+cd ../docker
+docker compose -f compose.yml -f ../console/same-host/crm-caddy.yml   -f ../console/same-host/console-tunnel.yml up -d caddy
+
+# from your own machine
+ssh -i <key> -L 8081:127.0.0.1:8081 <user>@<host>   # leave it running
+open http://localhost:8081
+```
+
+While that is the way in, set `CONSOLE_URL=http://localhost:8081` in the console's `.env`: it is what
+password and invitation emails are built from, and a link to a name that does not resolve is no
+link. Put the real name back, and delete the overlay and its conf.d file, once DNS exists.
+
 What this costs: the signing key sits on the same machine as a customer's data, so one compromise
 is two losses. It also means the console goes down when that machine does, including when the
 console is the thing you would use to see why. Both are reasons to move it to its own VPS once

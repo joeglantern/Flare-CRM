@@ -1,0 +1,39 @@
+# Reaching the console before it has a hostname of its own (docs/21 §7).
+#
+# Plain HTTP on port 8081, published only on the host's loopback by same-host/console-tunnel.yml,
+# so the only way to it is an SSH tunnel:
+#
+#   ssh -i <key> -L 8081:127.0.0.1:8081 <user>@<host>
+#   open http://localhost:8081
+#
+# No certificate is involved and nothing new is exposed: without the tunnel the port answers only
+# to the machine itself. Delete this file and drop the overlay once the console has its own name.
+#
+# The site address is `:8081` with no host, so both localhost and 127.0.0.1 reach it.
+
+http://:8081 {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		-Server
+	}
+
+	@api path /api/* /socket.io/* /health /ready
+	handle @api {
+		reverse_proxy host.docker.internal:4100 {
+			header_up X-Request-Start {time.now.unix_ms}
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv/console
+		# 'self' covers the websocket back to this same origin.
+		header Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+		header /index.html Cache-Control "no-store"
+		try_files {path} /index.html
+		file_server
+	}
+}

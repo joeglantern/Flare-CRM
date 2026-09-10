@@ -1,0 +1,13 @@
+# Publishes the tunnel port for same-host/console-tunnel.caddy, on the host's loopback only
+# (docs/21 §7). Stack this on top of the other two overlays while the console has no hostname:
+#
+#   cd ~/flare-crm/infra/docker
+#   docker compose -f compose.yml \
+#     -f ../console/same-host/crm-caddy.yml \
+#     -f ../console/same-host/console-tunnel.yml up -d caddy
+#
+# Drop it, and the matching conf.d file, once the console answers on its own name.
+services:
+  caddy:
+    ports:
+      - '127.0.0.1:8081:8081'
