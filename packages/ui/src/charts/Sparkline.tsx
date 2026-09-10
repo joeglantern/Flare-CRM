@@ -108,7 +108,7 @@ export function Sparkline({
                 <AreaGradient id={gradientId} color={color} />
               </defs>
             )}
-            {area && areaPath !== null && (
+            {area && areaPath !== null && coords.length > 1 && (
               <AreaMark d={areaPath} fill={`url(#${gradientId})`} shown={shown} />
             )}
             {linePath !== null && (

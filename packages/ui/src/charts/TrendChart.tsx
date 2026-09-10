@@ -113,9 +113,10 @@ export function TrendChart({
     return { series: s, point };
   });
 
+  const unit = granularity === 'month' ? 'month' : 'day';
   const cursorText =
     at === null
-      ? `${count} ${granularity === 'month' ? 'months' : 'days'} to ${labelDate(dates[count - 1]?.t ?? '')}`
+      ? `${count} ${count === 1 ? unit : `${unit}s`} to ${labelDate(dates[count - 1]?.t ?? '')}`
       : [
           longDateLabel(dates[at]?.t ?? ''),
           ...readings.map((r) =>
@@ -175,7 +176,7 @@ export function TrendChart({
           const only = coords.length === 1 ? coords[0] : undefined;
           return (
             <g key={s.key}>
-              {filled && areaPath !== null && (
+              {filled && areaPath !== null && coords.length > 1 && (
                 <AreaMark
                   d={areaPath}
                   fill={`url(#${gradientId}-${index})`}

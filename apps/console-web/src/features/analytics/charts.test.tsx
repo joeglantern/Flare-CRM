@@ -74,6 +74,19 @@ describe('a chart frame', () => {
   });
 });
 
+describe('a series of one point', () => {
+  it('is drawn as a point, and counted in the singular', () => {
+    const { container } = renderSeatsChart([{ t: '2026-09-03', v: 6 }]);
+
+    // A single sample is not a line, so it is not drawn as one.
+    expect(container.querySelectorAll('path')).toHaveLength(0);
+    expect(container.querySelectorAll('circle')).toHaveLength(1);
+
+    const cursor = screen.getByRole('slider', { name: 'Inspect seats by day' });
+    expect(cursor).toHaveAttribute('aria-valuetext', '1 day to 3 Sep');
+  });
+});
+
 describe('the trend cursor', () => {
   it('walks the series with the arrow keys and says where it is', async () => {
     const user = userEvent.setup();
