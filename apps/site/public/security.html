@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Security and data · Flare CRM</title>
+    <meta
+      name="description"
+      content="Your data is on your server. What that means in practice, and what we can and cannot reach."
+    />
+    <link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://flarehub.co.ke/security" />
+    <meta property="og:title" content="Security and data · Flare CRM" />
+    <meta
+      property="og:description"
+      content="Your data is on your server. What that means in practice, and what we can and cannot reach."
+    />
+    <meta property="og:image" content="https://flarehub.co.ke/brand/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/assets/base.css" />
+    <link rel="stylesheet" href="/assets/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="/"
+          ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b
+          ><span>CRM</span></a
+        >
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/product">Product</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/security" aria-current="page">Security</a>
+          <a href="/setup">Setup</a>
+        </nav>
+        <div class="header-actions">
+          <button class="btn btn-icon" type="button" data-theme-toggle aria-label="Switch theme">
+            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#sun" /></svg>
+          </button>
+          <a class="btn btn-signin" href="#signin" data-signin-open>Sign in</a>
+          <a class="btn btn-primary" href="/contact">Book a demo</a>
+        </div>
+      </div>
+    </header>
+
+    <dialog class="signin" id="signin">
+      <form method="dialog">
+        <div class="signin-title">
+          <img src="/brand/mark.svg" alt="" width="20" height="20" />Find your Flare
+        </div>
+        <p class="muted">
+          Every company has its own installation at its own address, so there is no single sign-in
+          page. Type your company name and we will send you to the right one.
+        </p>
+        <label class="field" for="company"
+          ><span>Company name</span>
+          <input
+            id="company"
+            name="company"
+            type="text"
+            autocomplete="organization"
+            placeholder="Kilimani Auto Parts"
+          />
+        </label>
+        <p class="signin-preview">
+          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right" /></svg>
+          <span class="mono" id="company-address">yourcompany.flarehub.co.ke</span>
+        </p>
+        <a class="btn btn-primary btn-lg" id="company-go" href="#">Go to sign in</a>
+        <p class="muted" style="font-size: 13px">
+          Your administrator can tell you the address. It is also in the welcome email you were
+          sent.
+        </p>
+        <button class="btn" type="submit" value="close">Close</button>
+      </form>
+    </dialog>
+    <main>
+      <div class="wrap">
+        <div class="page-head">
+          <div class="eyebrow">Security and data</div>
+          <h1>Your data is on your server. Here is what that means in practice.</h1>
+          <p>
+            Not a shared database with a tenant column. One company, one installation, one database,
+            one address. What follows is what is actually built, not a badge wall.
+          </p>
+        </div>
+        <section class="security-section" data-reveal>
+          <img class="object" src="/objects/sim.png" alt="" width="72" height="72" loading="lazy" />
+          <div class="stack">
+            <h2 class="h3">One company, one installation</h2>
+            <p class="muted">
+              Your CRM runs on its own server with its own database. It is not a row in ours. A
+              fault, a breach or a bad deploy elsewhere cannot reach it, and neither can another
+              customer.
+            </p>
+          </div>
+          <div class="facts">
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Your own address: yourcompany.flarehub.co.ke or your own domain</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Your own database; nobody else's data in the same tables</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Traffic encrypted in transit; passwords hashed and visible to nobody</span>
+            </div>
+          </div>
+        </section>
+        <section class="security-section" data-reveal>
+          <img class="object" src="/objects/key.png" alt="" width="72" height="72" loading="lazy" />
+          <div class="stack">
+            <h2 class="h3">Two-factor on every account</h2>
+            <p class="muted">
+              Available to everyone and required of administrators and managers. Privileged screens
+              stay locked until an authenticator is enrolled, and that is enforced by the server,
+              not just hidden by the interface.
+            </p>
+          </div>
+          <div class="facts">
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Authenticator app with backup codes shown once</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span
+                >Required for admins and managers; optional for agents unless you say
+                otherwise</span
+              >
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Sessions end after twelve hours and after an idle period you set</span>
+            </div>
+          </div>
+        </section>
+        <section class="security-section" data-reveal>
+          <img
+            class="object"
+            src="/objects/lock.png"
+            alt=""
+            width="72"
+            height="72"
+            loading="lazy"
+          />
+          <div class="stack">
+            <h2 class="h3">Roles decide what each person sees</h2>
+            <p class="muted">
+              Three roles. Agents see what they own, managers see their team, administrators see
+              everything. Every screen and every API route checks it, and refusals are logged like
+              everything else.
+            </p>
+          </div>
+          <div class="facts">
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Admin, manager, agent</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Agent visibility set to owned, team or all</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>A refused request is written to the audit log with who and what</span>
+            </div>
+          </div>
+        </section>
+        <section class="security-section" data-reveal>
+          <img
+            class="object"
+            src="/objects/shield.png"
+            alt=""
+            width="72"
+            height="72"
+            loading="lazy"
+          />
+          <div class="stack">
+            <h2 class="h3">An audit log nobody can edit</h2>
+            <p class="muted">
+              Every consequential action is appended with before and after values, the person, the
+              time and the address. Append-only at the database level. Not an administrator, not us,
+              not anyone can change or delete a line.
+            </p>
+          </div>
+          <div class="facts">
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Record changes, settings, roles, recording plays and downloads</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Our own support actions appear in your log, naming us and the reason</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Kept for the life of the installation</span>
+            </div>
+          </div>
+        </section>
+        <section class="security-section" data-reveal>
+          <img
+            class="object"
+            src="/objects/cassette.png"
+            alt=""
+            width="72"
+            height="72"
+            loading="lazy"
+          />
+          <div class="stack">
+            <h2 class="h3">Backups you can count</h2>
+            <p class="muted">
+              Taken nightly, the last fourteen kept, and the status of the last one is shown on the
+              system health page. If a plan includes it, you can download a snapshot yourself.
+            </p>
+          </div>
+          <div class="facts">
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Nightly, fourteen retained</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Last backup time and result visible in Settings</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Restore checksum verified</span>
+            </div>
+          </div>
+        </section>
+        <section class="security-section" data-reveal>
+          <img
+            class="object"
+            src="/objects/hourglass.png"
+            alt=""
+            width="72"
+            height="72"
+            loading="lazy"
+          />
+          <div class="stack">
+            <h2 class="h3">Retention on a schedule you set</h2>
+            <p class="muted">
+              Deleted records are hidden first and destroyed when your purge period passes, so a
+              mistake can be undone. Recordings are deleted at the number of days you choose. A
+              nightly job does it whether anyone remembers or not.
+            </p>
+          </div>
+          <div class="facts">
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Soft delete with a purge period you set</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Recording retention in days, up to your plan's ceiling</span>
+            </div>
+            <div class="fact">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Raw PBX events and message payloads pruned separately</span>
+            </div>
+          </div>
+        </section>
+        <section class="band grid-2" data-reveal>
+          <figure class="fig">
+            <figcaption class="caption fig-label">
+              <span>Fig. 13 · Audit log</span><span>append-only at the database level</span>
+            </figcaption>
+            <div class="fig-frame">
+              <picture data-themed>
+                <source type="image/avif" srcset="/shots/settings-audit-dark.avif" />
+                <source type="image/webp" srcset="/shots/settings-audit-dark.webp" />
+                <img
+                  src="/shots/settings-audit-light.png"
+                  alt="The audit log with before and after values"
+                  width="1280"
+                  height="800"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </figure>
+          <figure class="fig">
+            <figcaption class="caption fig-label">
+              <span>Fig. 14 · Backups and retention</span><span>nightly, last fourteen kept</span>
+            </figcaption>
+            <div class="fig-frame">
+              <picture data-themed>
+                <source type="image/avif" srcset="/shots/settings-backups-dark.avif" />
+                <source type="image/webp" srcset="/shots/settings-backups-dark.webp" />
+                <img
+                  src="/shots/settings-backups-light.png"
+                  alt="Backups and retention settings"
+                  width="1280"
+                  height="800"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </figure>
+        </section>
+
+        <section class="band split-even" style="display: grid; gap: 48px" data-reveal>
+          <div class="stack">
+            <h2 class="h2">What we can and cannot do inside your installation</h2>
+            <p class="muted">
+              When you ask for help we can do three things and no more. Each is written into your
+              own audit log the moment it happens, naming us and the reason given.
+            </p>
+          </div>
+          <div class="rows">
+            <div class="row can">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>List who is able to sign in</span>
+            </div>
+            <div class="row can">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>Clear one person's second factor so they can set up a new authenticator</span>
+            </div>
+            <div class="row can">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+              ><span>End one person's sessions</span>
+            </div>
+            <div class="row cannot">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x" /></svg
+              ><span>Read your contacts, calls, messages or deals</span>
+            </div>
+            <div class="row cannot">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x" /></svg
+              ><span>Create accounts or change what anybody is allowed to do</span>
+            </div>
+            <div class="row cannot">
+              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x" /></svg
+              ><span>Delete anything, remotely or otherwise</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="closing">
+          <img src="/brand/mark.svg" alt="" width="36" height="36" />
+          <h2>Ask us the hard questions on the call.</h2>
+          <p>We would rather answer them before you buy than after.</p>
+          <a class="btn btn-primary btn-lg" href="/contact">Book a demo</a>
+        </section>
+      </div>
+    </main>
+    <footer class="site-footer">
+      <div class="wrap">
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="/product">Product</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/security">Security</a>
+          <a href="/setup">Setup</a>
+          <a href="/contact">Contact</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <a href="/data-deletion">Deleting your data</a>
+          <a href="#signin" data-signin-open>Sign in</a>
+        </nav>
+        <p>
+          Flare CRM, Upperhill, Nairobi, 24770-00100, Kenya.
+          <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>
+        </p>
+      </div>
+    </footer>
+    <script src="/assets/site.js" defer></script>
+  </body>
+</html>

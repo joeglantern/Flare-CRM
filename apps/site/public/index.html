@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flare CRM · Calls, WhatsApp and deals on one timeline</title>
+    <meta
+      name="description"
+      content="Calls, WhatsApp, deals and notes for one customer, on one timeline, on your own server in Kenya."
+    />
+    <link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />
+    <link rel="canonical" href="https://flarehub.co.ke/" />
+    <meta property="og:title" content="Flare CRM" />
+    <meta
+      property="og:description"
+      content="The phone rings and the customer is already on screen."
+    />
+    <meta property="og:image" content="https://flarehub.co.ke/brand/og.png" />
+    <meta property="og:url" content="https://flarehub.co.ke/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="/assets/base.css" />
+    <link rel="stylesheet" href="/assets/site.css" />
+    <link
+      rel="preload"
+      href="/fonts/inter-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="/"
+          ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b
+          ><span>CRM</span></a
+        >
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/product">Product</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/security">Security</a>
+          <a href="/setup">Setup</a>
+        </nav>
+        <div class="header-actions">
+          <button class="btn btn-icon" type="button" data-theme-toggle aria-label="Switch theme">
+            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#sun" /></svg>
+          </button>
+          <a class="btn btn-signin" href="#signin" data-signin-open>Sign in</a>
+          <a class="btn btn-primary" href="/contact">Book a demo</a>
+        </div>
+      </div>
+    </header>
+
+    <dialog class="signin" id="signin">
+      <form method="dialog">
+        <div class="signin-title">
+          <img src="/brand/mark.svg" alt="" width="20" height="20" />Find your Flare
+        </div>
+        <p class="muted">
+          Every company has its own installation at its own address, so there is no single sign-in
+          page. Type your company name and we will send you to the right one.
+        </p>
+        <label class="field" for="company"
+          ><span>Company name</span>
+          <input
+            id="company"
+            name="company"
+            type="text"
+            autocomplete="organization"
+            placeholder="Kilimani Auto Parts"
+          />
+        </label>
+        <p class="signin-preview">
+          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right" /></svg>
+          <span class="mono" id="company-address">yourcompany.flarehub.co.ke</span>
+        </p>
+        <a class="btn btn-primary btn-lg" id="company-go" href="#">Go to sign in</a>
+        <p class="muted" style="font-size: 13px">
+          Your administrator can tell you the address. It is also in the welcome email you were
+          sent.
+        </p>
+        <button class="btn" type="submit" value="close">Close</button>
+      </form>
+    </dialog>
+
+    <main>
+      <div class="wrap">
+        <!-- hero, and the rail begins -->
+        <section class="rail-grid hero">
+          <div class="hero-copy">
+            <h1>The phone rings and the customer is already on screen.</h1>
+            <p class="lede">
+              Calls, WhatsApp, deals and notes for one customer, on one timeline, on your own server
+              in Kenya.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary btn-lg" href="/contact">Book a demo</a>
+              <a class="btn btn-lg" href="/product"
+                >See the product
+                <svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#arrow-down" /></svg
+              ></a>
+            </div>
+          </div>
+          <div class="rail rail-start"><span class="rail-dot"></span></div>
+          <figure class="hero-shot fig">
+            <figcaption class="caption fig-label">
+              <span>Fig. 1 · Home, manager view</span><span>1280 × 800</span>
+            </figcaption>
+            <div class="fig-frame">
+              <picture data-themed>
+                <source type="image/avif" srcset="/shots/home-manager-dark.avif" />
+                <source type="image/webp" srcset="/shots/home-manager-dark.webp" />
+                <img
+                  src="/shots/home-manager-light.png"
+                  alt="Flare CRM home screen showing today's calls, live calls and the pipeline"
+                  width="1280"
+                  height="800"
+                />
+              </picture>
+            </div>
+          </figure>
+        </section>
+
+        <section class="rail-grid timeline-head">
+          <div>
+            <div class="caption">Kilimani Auto Parts · Wanjiru Kamau</div>
+            <div class="muted" style="margin-top: 4px; font-size: 14px">
+              One afternoon, as the software saw it.
+            </div>
+          </div>
+          <div class="rail"></div>
+          <div></div>
+        </section>
+
+        <!-- 14:02 -->
+        <section class="rail-grid entry" data-reveal>
+          <div class="entry-copy">
+            <div class="eyebrow">14:02</div>
+            <h2>The phone rings and the customer is already on screen.</h2>
+            <p>
+              Wanjiru Kamau calls the main line. Before anyone lifts the handset, the screen shows
+              her name, her company, who looks after her, her two open deals and the last three
+              things that happened. The agent answers knowing what the call is about.
+            </p>
+            <p class="detail">
+              Works with a Yeastar PBX. Click any number in the product to dial it from your own
+              extension.
+            </p>
+          </div>
+          <div class="rail rail-lit">
+            <span class="rail-node"
+              ><svg class="icon" aria-hidden="true">
+                <use href="/assets/icons.svg#phone-incoming" /></svg
+            ></span>
+          </div>
+          <figure class="entry-shot fig">
+            <figcaption class="caption fig-label">
+              <span>Fig. 2 · Screen pop on an incoming call</span><span>Call detail</span>
+            </figcaption>
+            <div class="fig-frame">
+              <picture data-themed>
+                <source type="image/avif" srcset="/shots/call-detail-dark.avif" />
+                <source type="image/webp" srcset="/shots/call-detail-dark.webp" />
+                <img
+                  src="/shots/call-detail-light.png"
+                  alt="Call detail screen with caller, contact, disposition and recording"
+                  width="1280"
+                  height="800"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </figure>
+        </section>
+
+        <!-- 14:06 -->
+        <section class="rail-grid entry entry--flip" data-reveal>
+          <div class="entry-copy">
+            <div class="eyebrow">14:06</div>
+            <h2>One WhatsApp thread the whole team can see.</h2>
+            <p>
+              She follows up on WhatsApp with a photo of the part. It lands in the same inbox
+              everyone shares, filed under her name, next to the call that just ended. Whoever picks
+              it up sees the whole thread, not their own phone's half of it.
+            </p>
+            <p class="detail">
+              Reply window, templates and delivery ticks are all shown, because Meta enforces them
+              whether you can see them or not.
+            </p>
+          </div>
+          <div class="rail rail-lit">
+            <span class="rail-node"
+              ><svg class="icon" aria-hidden="true">
+                <use href="/assets/icons.svg#message-circle" /></svg
+            ></span>
+          </div>
+          <figure class="entry-shot fig">
+            <figcaption class="caption fig-label">
+              <span>Fig. 3 · Shared inbox</span><span>Inbox</span>
+            </figcaption>
+            <div class="fig-frame">
+              <picture data-themed>
+                <source type="image/avif" srcset="/shots/inbox-dark.avif" />
+                <source type="image/webp" srcset="/shots/inbox-dark.webp" />
+                <img
+                  src="/shots/inbox-light.png"
+                  alt="Shared WhatsApp inbox with conversations and a message thread"
+                  width="1280"
+                  height="800"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </figure>
+        </section>
+
+        <!-- 14:11 -->
+        <section class="rail-grid entry" data-reveal>
+          <div class="entry-copy">
+            <div class="eyebrow">14:11</div>
+            <h2>Every call, message and note against one customer, in one place.</h2>
+            <p>
+              The agent writes a two line note and it sits on the timeline between the call and the
+              message. Six weeks later, when a different person picks up her next call, the note is
+              still there, in order, with the name of who wrote it.
+            </p>
+            <p class="detail">
+              Contacts, companies, leads, deals, tasks, notes and files. One record per customer,
+              however many people touch it.
+            </p>
+          </div>
+          <div class="rail rail-lit">
+            <span class="rail-node"
+              ><svg class="icon" aria-hidden="true">
+                <use href="/assets/icons.svg#sticky-note" /></svg
+            ></span>
+          </div>
+          <figure class="entry-shot fig">
+            <figcaption class="caption fig-label">
+              <span>Fig. 4 · Contact timeline</span><span>Contact detail</span>
+            </figcaption>
+            <div class="fig-frame">
+              <picture data-themed>
+                <source type="image/avif" srcset="/shots/contact-detail-dark.avif" />
+                <source type="image/webp" srcset="/shots/contact-detail-dark.webp" />
+                <img
+                  src="/shots/contact-detail-light.png"
+                  alt="Contact page with the activity timeline"
+                  width="1280"
+                  height="800"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </figure>
+        </section>
+
+        <!-- 14:20 -->
+        <section class="rail-grid entry entry--flip" data-reveal>
+          <div class="entry-copy">
+            <div class="eyebrow">14:20</div>
+            <h2>The deal moves, and the board says so.</h2>
+            <p>
+              Her quote goes from Proposal to Negotiation. The board updates for everyone watching
+              it, the value rolls into the forecast, and the stage change is on her timeline with a
+              time and a name.
+            </p>
+            <p class="detail">
+              Pipelines and stages are yours to define. Won and lost each carry a reason.
+            </p>
+          </div>
+          <div class="rail rail-lit">
+            <span class="rail-node"
+              ><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#kanban" /></svg
+            ></span>
+          </div>
+          <figure class="entry-shot fig">
+            <figcaption class="caption fig-label">
+              <span>Fig. 5 · Deals board</span><span>Deals</span>
+            </figcaption>
+            <div class="fig-frame">
+              <picture data-themed>
+                <source type="image/avif" srcset="/shots/deals-board-dark.avif" />
+                <source type="image/webp" srcset="/shots/deals-board-dark.webp" />
+                <img
+                  src="/shots/deals-board-light.png"
+                  alt="Deals kanban board with stage totals"
+                  width="1280"
+                  height="800"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </figure>
+        </section>
+
+        <!-- 17:04 -->
+        <section class="rail-grid entry" data-reveal>
+          <div class="entry-copy">
+            <div class="eyebrow">17:04</div>
+            <h2>At the end of the shift, the numbers are already there.</h2>
+            <p>
+              Calls, answered, missed, talk time, per agent and for the team. The missed calls that
+              nobody called back are a list, not a guess. Everything exports to CSV.
+            </p>
+            <p class="detail">
+              Live calls board for managers while the shift is on. Reports when it is over.
+            </p>
+          </div>
+          <div class="rail rail-lit rail-end">
+            <span class="rail-node"
+              ><svg class="icon" aria-hidden="true">
+                <use href="/assets/icons.svg#bar-chart-3" /></svg
+            ></span>
+          </div>
+          <figure class="entry-shot fig">
+            <figcaption class="caption fig-label">
+              <span>Fig. 6 · Calls summary</span><span>Reports</span>
+            </figcaption>
+            <div class="fig-frame">
+              <picture data-themed>
+                <source type="image/avif" srcset="/shots/report-calls-summary-dark.avif" />
+                <source type="image/webp" srcset="/shots/report-calls-summary-dark.webp" />
+                <img
+                  src="/shots/report-calls-summary-light.png"
+                  alt="Calls summary report with daily totals"
+                  width="1280"
+                  height="800"
+                  loading="lazy"
+                />
+              </picture>
+            </div>
+          </figure>
+        </section>
+
+        <!-- three truths -->
+        <section class="band grid-3" data-reveal>
+          <div class="truth">
+            <img
+              class="object"
+              src="/objects/sim.png"
+              alt=""
+              width="56"
+              height="56"
+              loading="lazy"
+            />
+            <h2 class="h3">Your own server, your own address</h2>
+            <p class="muted">
+              Each company gets its own installation and its own database at
+              yourcompany.flarehub.co.ke, or your own domain. Nobody else's data is in the same
+              table.
+            </p>
+          </div>
+          <div class="truth">
+            <img
+              class="object"
+              src="/objects/shield.png"
+              alt=""
+              width="56"
+              height="56"
+              loading="lazy"
+            />
+            <h2 class="h3">An audit log nobody can edit</h2>
+            <p class="muted">
+              Every consequential action, including refusals and our own support actions, is written
+              to a log that no administrator can change or delete.
+            </p>
+          </div>
+          <div class="truth">
+            <img
+              class="object"
+              src="/objects/cassette.png"
+              alt=""
+              width="56"
+              height="56"
+              loading="lazy"
+            />
+            <h2 class="h3">Backups and retention you set</h2>
+            <p class="muted">
+              Nightly backups, the last fourteen kept. Recordings and records are deleted on the
+              schedule you choose, by a job that runs whether anyone remembers or not.
+            </p>
+          </div>
+        </section>
+
+        <!-- what a plan is -->
+        <section class="band" data-reveal>
+          <div class="card split-even" style="display: grid; align-items: center; gap: 40px">
+            <div class="stack">
+              <h2 class="h2">Priced per month, in shillings, per company.</h2>
+              <p class="muted" style="max-width: 44ch">
+                A plan is a list of features switched on and a set of limits: people, storage, how
+                long recordings are kept. We agree it with you on a call, then it is signed and
+                enforced on your server.
+              </p>
+              <a href="/pricing" style="color: var(--flare-link); font-weight: 500"
+                >How plans work
+                <svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#arrow-right" /></svg
+              ></a>
+            </div>
+            <div class="chips">
+              <span class="chip"
+                ><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+                >Telephony and screen pops</span
+              >
+              <span class="chip"
+                ><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+                >Call recordings</span
+              >
+              <span class="chip"
+                ><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+                >WhatsApp inbox</span
+              >
+              <span class="chip"
+                ><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+                >Deals and pipelines</span
+              >
+              <span class="chip"
+                ><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+                >Team reports</span
+              >
+              <span class="chip"
+                ><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
+                >CSV import and export</span
+              >
+            </div>
+          </div>
+        </section>
+
+        <section class="closing">
+          <img src="/brand/mark.svg" alt="" width="36" height="36" />
+          <h2>Show us the spreadsheet holding the parts that never worked.</h2>
+          <p>A 45 minute call, then a demo on your data. Nothing to install to see it.</p>
+          <a class="btn btn-primary btn-lg" href="/contact">Book a demo</a>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="/product">Product</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/security">Security</a>
+          <a href="/setup">Setup</a>
+          <a href="/contact">Contact</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <a href="/data-deletion">Deleting your data</a>
+          <a href="#signin" data-signin-open>Sign in</a>
+        </nav>
+        <p>
+          Flare CRM, Upperhill, Nairobi, 24770-00100, Kenya.
+          <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>
+        </p>
+      </div>
+    </footer>
+    <script src="/assets/site.js" defer></script>
+  </body>
+</html>

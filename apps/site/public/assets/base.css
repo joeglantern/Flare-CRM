@@ -55,7 +55,12 @@
   --warning: #f5b940;
   --danger: #f0564d;
   --info: #5ca8ff;
+  --success-subtle: rgba(61, 214, 140, 0.12);
+  --warning-subtle: rgba(245, 185, 64, 0.12);
+  --danger-subtle: rgba(240, 86, 77, 0.12);
+  --info-subtle: rgba(92, 168, 255, 0.12);
 
+  --shadow: none;
   --on-flare: #17171a;
   /* The object illustrations carry a baked black backdrop; screen drops it on dark. */
   --object-blend: screen;
@@ -83,10 +88,15 @@
 
   --success: #1e9e5e;
   --warning: #b7791f;
-  --danger: #c0362e;
+  --danger: #c8322b;
   --info: #2f6fd6;
+  --success-subtle: rgba(30, 158, 94, 0.1);
+  --warning-subtle: rgba(183, 121, 31, 0.12);
+  --danger-subtle: rgba(200, 50, 43, 0.1);
+  --info-subtle: rgba(47, 111, 214, 0.1);
 
-  --on-flare: #17171a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06);
+  --on-flare: #ffffff;
   --object-blend: multiply;
 }
 
@@ -102,6 +112,13 @@
 
   --font-sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, Menlo, Consolas, monospace;
+
+  /*
+   * Ink for a filled flare button, in both themes. The product's --on-flare turns white in light,
+   * which on #FF6A3D is 2.6:1 and fails; the orange does not change between themes, so the ink
+   * that reads on it does not either.
+   */
+  --on-flare-ink: #17171a;
 }
 
 *,

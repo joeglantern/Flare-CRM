@@ -1,0 +1,1316 @@
+/*
+ * flarehub.co.ke, built from docs/design/Marketing Site.dc.html.
+ *
+ * One idea carried through: a 1px rail down the page. Each entry on the home page and each step on
+ * the setup page is a node on it, and the rail lights to flare for the height of the entry as it
+ * scrolls into view. Everything else is type, whitespace and real screenshots.
+ *
+ * Layout is a three column grid, text and screenshot either side of the rail, alternating. Below
+ * the breakpoint that becomes one column and the rail steps aside rather than being faked.
+ */
+
+/* ── page frame ─────────────────────────────────────────────────────────────────────── */
+
+.wrap {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 48px;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header > .wrap {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.brand img {
+  height: 22px;
+  width: 22px;
+}
+
+.brand b {
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.brand span {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
+
+.site-nav {
+  display: flex;
+  gap: 28px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.site-nav a {
+  text-decoration: none;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current='page'] {
+  color: var(--text);
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── buttons ────────────────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-hover) var(--ease-out);
+}
+
+.btn:hover {
+  background: var(--surface-hover);
+}
+
+.btn-primary {
+  border-color: var(--flare);
+  background: var(--flare);
+  color: var(--on-flare-ink);
+}
+
+.btn-primary:hover {
+  background: var(--flare-hover);
+  color: var(--on-flare-ink);
+}
+
+.btn-lg {
+  height: 48px;
+  padding: 0 22px;
+  font-size: 16px;
+}
+
+.btn-icon {
+  width: 36px;
+  padding: 0;
+}
+
+.icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+/*
+ * ── type ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Nothing here uses --text-faint. Measured against these backgrounds it is 3.83:1 on dark and
+ * 2.76:1 on light, and every place the design reached for it is small text: figure captions, the
+ * "needs telephony" notes, the price line. Those are read, not decoration, so they take --muted,
+ * which is 8.14:1 and 6.21:1. The token stays in base.css because the product uses it where it
+ * belongs, behind larger type.
+ */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--flare-link);
+}
+
+.page-head {
+  padding: 96px 0 64px;
+  max-width: 820px;
+}
+
+.page-head h1 {
+  margin: 18px 0 0;
+  font-size: 56px;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+}
+
+.page-head p {
+  margin: 22px 0 0;
+  font-size: 19px;
+  color: var(--text-muted);
+  max-width: 46ch;
+}
+
+.lede {
+  font-size: 20px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  max-width: 34ch;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.caption {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── the rail ───────────────────────────────────────────────────────────────────────── */
+
+.rail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
+  gap: 0 24px;
+}
+
+.rail {
+  grid-column: 2;
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.rail::before {
+  content: '';
+  width: 1px;
+  background: var(--border);
+}
+
+.rail-start::before {
+  background: linear-gradient(to bottom, transparent, var(--border) 40%, var(--border));
+}
+
+.rail-end::before {
+  background: linear-gradient(to bottom, var(--border), transparent 70%);
+}
+
+/* The lit length: one segment per entry, coloured as the entry arrives. */
+.rail-lit::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  background: var(--flare);
+  animation: rail-light 1ms linear both;
+  animation-timeline: view();
+  animation-range: entry 20% entry 60%;
+}
+
+@keyframes rail-light {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.rail-node {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--flare);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.rail-node .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.rail-dot {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--flare);
+  box-shadow: 0 0 0 4px var(--flare-subtle);
+}
+
+/* ── home ───────────────────────────────────────────────────────────────────────────── */
+
+.hero {
+  padding: 112px 0 72px;
+  align-items: end;
+}
+
+.hero h1 {
+  font-size: 64px;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+  max-width: 11ch;
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hero-shot {
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timeline-head {
+  padding: 48px 0 0;
+}
+
+.timeline-head > div:first-child {
+  text-align: right;
+  padding-top: 6px;
+}
+
+.entry {
+  min-height: 520px;
+}
+
+.entry-copy {
+  padding: 64px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  text-align: right;
+  align-items: flex-end;
+}
+
+.entry-copy h2 {
+  font-size: 36px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  max-width: 16ch;
+}
+
+.entry-copy p {
+  font-size: 17px;
+  color: var(--text-muted);
+  max-width: 40ch;
+  line-height: 1.55;
+}
+
+.entry-copy .detail {
+  font-size: 15px;
+}
+
+.entry-shot {
+  padding: 64px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Flipped: the screenshot takes the first column and the words the third. */
+.entry--flip .entry-copy {
+  grid-column: 3;
+  text-align: left;
+  align-items: flex-start;
+}
+
+.entry--flip .entry-shot {
+  grid-column: 1;
+}
+
+/* ── figures ────────────────────────────────────────────────────────────────────────── */
+
+.fig {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fig-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.fig-frame {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.fig-frame img {
+  width: 100%;
+  height: auto;
+}
+
+/* ── blocks ─────────────────────────────────────────────────────────────────────────── */
+
+.band {
+  padding: 64px 0;
+  border-top: 1px solid var(--border);
+}
+
+.band-tight {
+  padding: 48px 0;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: 48px;
+}
+
+.split-even {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 40px;
+}
+
+.h2 {
+  font-size: 32px;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.h3 {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.truth {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.truth img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.ticks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 15px;
+}
+
+.ticks li {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 10px;
+  color: var(--text-muted);
+}
+
+.ticks .icon {
+  width: 14px;
+  height: 14px;
+  margin-top: 5px;
+  color: var(--flare);
+}
+
+.chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.chip .icon {
+  width: 13px;
+  height: 13px;
+  color: var(--success);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.row .icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.row-state {
+  margin-left: auto;
+  font-weight: 500;
+}
+
+.ok {
+  color: var(--success);
+}
+
+.paused {
+  color: var(--warning);
+}
+
+.no {
+  color: var(--danger);
+}
+
+.closing {
+  padding: 96px 0 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 22px;
+}
+
+.closing h2 {
+  font-size: 44px;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  line-height: 1.05;
+  max-width: 18ch;
+}
+
+.closing p {
+  font-size: 17px;
+  color: var(--text-muted);
+  max-width: 40ch;
+}
+
+/* ── product ────────────────────────────────────────────────────────────────────────── */
+
+.product-section {
+  padding: 64px 0;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.product-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 88px;
+}
+
+.product-copy img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.product-copy h2 {
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+.product-copy > p {
+  font-size: 17px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.product-figs {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── pricing ────────────────────────────────────────────────────────────────────────── */
+
+.tier {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tier--pick {
+  border-color: var(--flare);
+}
+
+.tier h2 {
+  margin: 6px 0 0;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+.price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.price .cur {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  color: var(--text-muted);
+}
+
+.price .rule {
+  height: 34px;
+  flex: 1;
+  border-bottom: 1px dashed var(--border-strong);
+}
+
+.price .per {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.tier .btn {
+  margin-top: auto;
+  height: 42px;
+  font-size: 15px;
+}
+
+.switches {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.switch i {
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--flare);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.switch i::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 14px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.switch .needs {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.limits {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.limit {
+  padding: 16px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.limit .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--flare);
+}
+
+.limit b {
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.limit span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.lapse {
+  border: 1px solid var(--flare);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 40px;
+  background: var(--flare-subtle);
+}
+
+.lapse .row {
+  border-color: var(--border-strong);
+  background: var(--bg);
+}
+
+/* ── security ───────────────────────────────────────────────────────────────────────── */
+
+.security-section {
+  padding: 56px 0;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+
+.security-section img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--surface);
+}
+
+.fact .icon {
+  width: 14px;
+  height: 14px;
+  margin-top: 4px;
+  color: var(--success);
+}
+
+.can .icon {
+  color: var(--success);
+}
+
+.cannot {
+  color: var(--text-muted);
+}
+
+.cannot .icon {
+  color: var(--danger);
+}
+
+/* ── setup ──────────────────────────────────────────────────────────────────────────── */
+
+.step-copy {
+  padding: 40px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: right;
+  align-items: flex-end;
+}
+
+.step-copy h2 {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.step-copy p {
+  font-size: 16px;
+  color: var(--text-muted);
+  max-width: 44ch;
+  line-height: 1.55;
+}
+
+.step-note {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--flare);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 44ch;
+  text-align: left;
+}
+
+.step--flip .step-copy {
+  grid-column: 3;
+  text-align: left;
+  align-items: flex-start;
+}
+
+/* ── contact ────────────────────────────────────────────────────────────────────────── */
+
+.contact {
+  padding: 96px 0 112px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 64px;
+  align-items: start;
+}
+
+.contact h1 {
+  font-size: 52px;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+}
+
+.contact-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+  font-size: 15px;
+}
+
+.contact-line {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 12px;
+}
+
+.contact-line .icon {
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  color: var(--flare);
+}
+
+.contact-line dt {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.contact-line dd {
+  margin: 0;
+}
+
+.form {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.field > span {
+  font-weight: 500;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 0 14px;
+  height: 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+}
+
+.field textarea {
+  height: 96px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--flare);
+  background: var(--flare-subtle);
+  color: var(--flare-on-subtle);
+}
+
+.choice:has(input:focus-visible) {
+  outline: 2px solid var(--flare);
+  outline-offset: 2px;
+}
+
+/* ── legal ──────────────────────────────────────────────────────────────────────────── */
+
+.prose {
+  max-width: 72ch;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-bottom: 96px;
+}
+
+.prose section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.prose h2 {
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.prose p {
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.prose ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.prose a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--border-strong);
+}
+
+/* ── 404 ────────────────────────────────────────────────────────────────────────────── */
+
+.notfound {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+  padding: 120px 0;
+}
+
+.notfound img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.notfound h1 {
+  font-size: 44px;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+}
+
+/* ── sign in dialog ─────────────────────────────────────────────────────────────────── */
+
+.signin {
+  width: min(440px, calc(100vw - 32px));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  color: var(--text);
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+
+.signin::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/*
+ * With script, the button calls showModal. Without it, the link is an ordinary jump to #signin and
+ * this is what makes that jump land on something: a dialog is display:none until it is opened, so
+ * :target opens it. No backdrop, no focus trap, but the words and the address are there.
+ */
+.signin:target {
+  display: block;
+  position: fixed;
+  top: 10vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.signin form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.signin-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.signin-preview {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.signin-preview .icon {
+  width: 15px;
+  height: 15px;
+  color: var(--flare);
+}
+
+/* ── footer ─────────────────────────────────────────────────────────────────────────── */
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 48px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.site-footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  justify-content: space-between;
+}
+
+.footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.site-footer a {
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── motion ─────────────────────────────────────────────────────────────────────────── */
+
+[data-reveal] {
+  animation: site-reveal 0.6s var(--ease-out) both;
+  animation-timeline: view();
+  animation-range: entry 0% entry 40%;
+}
+
+@keyframes site-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A browser without scroll-driven animations gets the finished page, not a blank one. */
+@supports not (animation-timeline: view()) {
+  [data-reveal] {
+    animation: none;
+  }
+
+  .rail-lit::after {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .rail-lit::after {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ── narrow ─────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * The header runs out of room before anything else does. The secondary action steps aside first,
+ * and it is still in the footer of every page, so nobody loses the way in.
+ */
+@media (max-width: 700px) {
+  .btn-signin {
+    display: none;
+  }
+
+  .brand span {
+    display: none;
+  }
+}
+
+@media (max-width: 1000px) {
+  .wrap {
+    padding: 0 24px;
+  }
+
+  .site-nav {
+    display: none;
+  }
+
+  .rail-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  /* The rail is the spine of a two column layout; in one column there is no spine to draw. */
+  .rail {
+    display: none;
+  }
+
+  .hero {
+    padding: 64px 0 48px;
+  }
+
+  .hero h1 {
+    font-size: 40px;
+    max-width: none;
+  }
+
+  .page-head {
+    padding: 64px 0 40px;
+  }
+
+  .page-head h1,
+  .contact h1 {
+    font-size: 38px;
+  }
+
+  .entry,
+  .step {
+    min-height: 0;
+  }
+
+  .entry-copy,
+  .entry-shot,
+  .step-copy {
+    grid-column: 1 !important;
+    text-align: left;
+    align-items: flex-start;
+    padding: 32px 0;
+  }
+
+  .entry-copy h2 {
+    font-size: 28px;
+    max-width: none;
+  }
+
+  .timeline-head > div:first-child {
+    text-align: left;
+  }
+
+  .split,
+  .split-even,
+  .contact,
+  .lapse,
+  .grid-2,
+  .grid-3,
+  .product-section {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .security-section {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .security-section .facts {
+    grid-column: 1 / -1;
+  }
+
+  .limits,
+  .switches,
+  .chips {
+    grid-template-columns: 1fr;
+  }
+
+  .product-copy {
+    position: static;
+  }
+
+  .closing h2 {
+    font-size: 32px;
+  }
+
+  .card,
+  .lapse {
+    padding: 24px;
+  }
+}
