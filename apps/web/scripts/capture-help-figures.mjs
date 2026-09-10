@@ -64,10 +64,13 @@ async function capture(context, figure, theme) {
   const viewport = VIEWPORTS[figure.viewport ?? 'desktop'];
   const page = await context.newPage();
   await page.setViewportSize(viewport);
-  // Runs inside the page, before any of the app does, so the theme is set on first paint.
+  // Runs inside the page, before any of the app does, so the theme is set on first paint. The
+  // second key switches the router and query devtools off: these figures are photographed against
+  // the dev server, where they mount, and a customer should never see our toolchain in the manual.
   await page.addInitScript(
     ([key, value]) => {
       globalThis.localStorage.setItem(key, value);
+      globalThis.localStorage.setItem('flare-devtools-hidden', '1');
     },
     [THEME_KEY, theme],
   );
