@@ -14,8 +14,13 @@
 #      customers; it does not need more.
 services:
   api:
+    # Two host-local bindings and no more. The loopback one is for a person on the box; the bridge
+    # gateway one is what the customer stack's Caddy reaches, because a container cannot get to the
+    # host's loopback. Neither is reachable from outside the machine, which a plain `4100:4100`
+    # would be: Docker writes its own iptables rules and a host firewall does not stop it.
     ports:
       - '127.0.0.1:4100:4100'
+      - '${CONSOLE_BRIDGE_ADDR:-172.17.0.1}:4100:4100'
     deploy:
       resources: { limits: { memory: 384m } }
 

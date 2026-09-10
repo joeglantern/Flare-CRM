@@ -3,9 +3,10 @@
 # Copy this into infra/docker/caddy/conf.d/ on a host that runs both, and set CONSOLE_DOMAIN in
 # infra/docker/.env. On a host that runs only a customer stack, this file does not exist.
 #
-# The console's own containers are not on this Caddy's network: its api publishes on the host's
-# loopback instead, which keeps the two compose projects independent and avoids two services
-# called "api" answering to the same name.
+# The console's own containers are not on this Caddy's network: its api publishes on the Docker
+# bridge gateway instead, which keeps the two compose projects independent and avoids two services
+# called "api" answering to the same name. host.docker.internal is that gateway, supplied by the
+# extra_hosts entry in same-host/crm-caddy.yml.
 
 {$CONSOLE_DOMAIN} {
 	encode zstd gzip
