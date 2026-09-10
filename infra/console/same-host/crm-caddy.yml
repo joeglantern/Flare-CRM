@@ -1,5 +1,5 @@
 # Overlay for the CUSTOMER stack's compose project on a host that also runs the owner console
-# (docs/21 §7). It teaches that stack's Caddy two things: where the console's client files are, and
+# (docs/21 §11). It teaches that stack's Caddy two things: where the console's client files are, and
 # how to reach the console's api.
 #
 #   cd ~/flare-crm/infra/docker

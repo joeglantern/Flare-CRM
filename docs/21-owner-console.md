@@ -32,7 +32,14 @@ CRM's, so a browser open on both never confuses the two.
   stack credentials, shown once; entitlements; announcements; and the history of every document
   issued.
 - **Plans.** The shapes a customer can be sold, so a per-customer override is the exception.
-- **Owners.** Invite, deactivate. An invitation emails a link; nobody sets anyone else's password.
+- **Owners.** Invite, deactivate, reactivate, end somebody's sessions, and clear somebody's second
+  factor. An invitation emails a link; nobody sets anyone else's password. The reset exists because
+  there is nobody above an owner here: without it, an owner who loses their phone and their backup
+  codes is locked out for good. It clears the second factor and their sessions together, since an
+  account that can no longer prove a second factor should not keep the sessions that already did.
+- **Overview.** The fleet as numbers over time: how many customers are live, seats and storage used
+  against sold, monthly revenue, plan mix, versions in the field, what expires soon, and whatever is
+  currently worth looking at (§8).
 - **Audit.** Everything anyone did here, append-only at the database level.
 - **Settings.** The support contact carried inside every document, the brand domain, and the
   signing key's fingerprint and public half.
@@ -52,8 +59,11 @@ shut, and it is why the console learns how a stack is doing only because the sta
 - **Stack to console:** `hello` (version, domain, uptime, the document it holds), `heartbeat` every
   thirty seconds (readiness, usage, last backup, the document it holds), `ack` (applied or
   rejected, with a reason).
-- **Console to stack:** `entitlements` (envelope and issue id), `announce`, `ping`.
-- **Console to owner browsers**, on the default namespace: `fleet:stack` and `issue:status`.
+- **Console to stack:** `entitlements` (envelope and issue id), `announce`, `ping`, and `command`
+  (a support action, §9).
+- **Stack to console, answering that:** `commandResult`.
+- **Console to owner browsers**, on the default namespace: `fleet:stack`, `issue:status` and
+  `alert:changed`.
 - **Rate:** five events a second per stack; a stack that exceeds it is disconnected.
 - **Staleness:** a stack that has not been heard from in ninety seconds is marked disconnected by a
   sweeper, so a process that died without a clean disconnect does not sit there looking healthy.
@@ -82,7 +92,21 @@ The secret is stored only as a hash. Rotating issues a new secret for the same i
 live connection; revoking refuses the stack altogether. Neither touches the customer's data: a
 revoked stack keeps running on whatever document it last applied.
 
-## 5. Domains
+## 5. Suspension, and what it actually does
+
+A status column tells the provider something. It tells the customer's own server nothing, and the
+customer's server is where the writing happens.
+
+So setting a customer to anything other than active does two things: it records the status, and it
+reissues their document with an expiry of now. An expired document is already understood by every
+stack as read only (docs/20 §5): everything can be read, nothing can be written, and the person
+using it is told why rather than shown a broken screen. Nothing is deleted and nothing is hidden.
+
+Whatever the expiry was before is kept, so lifting the suspension gives back exactly that date
+rather than an unlimited one. Suspending twice keeps the first record. If the stack is offline when
+this happens, it collects the document the moment it comes back, the same way it collects any other.
+
+## 6. Domains
 
 Every customer gets `<slug>.<brand domain>`. A customer who wants their own domain publishes two
 records:
@@ -95,7 +119,70 @@ verified, one command is re-run on the customer's server with the domain in `--e
 Caddy asks for that certificate. That last step is a command rather than a button because a
 container cannot rewrite the web server in front of it (docs/08 §N).
 
-## 6. Deployment
+## 7. Prices, and what the console counts as revenue
+
+A plan carries `priceMonthlyMinor` and a currency, and a customer may carry an override when what
+they actually pay differs from the shelf price. Both are minor units, integers, never floats: a
+price is money, and money in a float is a rounding error waiting for a quarterly report.
+
+Monthly recurring revenue is the sum of what active, unexpired customers pay. There is no billing
+here and no invoices: the console records what was agreed so it can say what is at risk when a plan
+is about to expire, and nothing more.
+
+## 8. What is recorded, what is charted, and what is watched
+
+A heartbeat used to overwrite one row per stack, which meant the console could say how things were
+and never how they had been. Three tables fix that, each one cheaper than the last:
+
+| Table           | One row per         | Written by                    | Kept     |
+| --------------- | ------------------- | ----------------------------- | -------- |
+| `stack_samples` | stack, five minutes | the heartbeat handler         | 30 days  |
+| `stack_days`    | stack, day          | the rollup, every ten minutes | 400 days |
+| `fleet_days`    | day                 | the same rollup               | forever  |
+
+Beats arrive every thirty seconds; one in ten is kept, gated by a Valkey `SET NX PX 300000` so the
+decision costs one Valkey write rather than a query. Days are bucketed in `Africa/Nairobi`, so a
+day means what the owner means by it. `connected_minutes` is inferred from how many samples arrived
+rather than from connection events, because a stack that reported in was, by definition, up.
+
+The fleet row is a snapshot, not a recomputation: seats sold and revenue are written as they stand
+that day and never backfilled, so changing a price tomorrow does not quietly rewrite last month.
+
+Three endpoints read them, all `analytics:read`, all returning dense series with every day present:
+`/analytics/overview`, `/analytics/customers/:id` and `/analytics/revenue`. A projection is only
+returned when there are at least seven points, growth is positive and a cap exists; otherwise it is
+null, because a straight line through two points is a guess wearing a chart's clothes.
+
+**Alerts.** A sweep every five minutes opens one row per finding and closes it when the finding goes
+away. One open row per kind per customer is the deduplication, so a stack that is offline all day is
+one alert and not two thousand emails. The kinds are stack offline (10 minutes), stack unhealthy
+(15), storage or seats past 80 percent and at 100, plan expiring within 14 days, plan expired, a
+backup older than 48 hours, and a document a stack refused. The row is the record; the email is a
+consequence of it, and a mail server that is down does not lose the alert.
+
+All of this runs on one interval behind a Valkey leader lock (`console:scheduler`), not a queue: the
+console is one process doing a few things on a schedule, and BullMQ would be a second system to run.
+
+## 9. Support: reaching into a customer's CRM
+
+A customer's only administrator loses their phone. Nobody inside their company can help them, and
+the provider is the only one who can. This is the channel for that, and it is deliberately narrow.
+
+Three actions, and the list is closed: list who can sign in there, clear one person's second factor,
+end one person's sessions. Nothing reads a contact, a call, a message or a deal. Nothing creates an
+account or changes what anybody may do.
+
+- The console audits the request before it is sent and the answer when it comes back. The listing
+  itself is not stored, only how many people were in it: they are the customer's staff, and we only
+  needed to look.
+- The stack audits it again in the customer's own log, as a system action naming the provider and
+  the reason given, so their administrator sees what we did without having to ask us.
+- A command only reaches a stack that is connected right now, and times out in ten seconds. There is
+  no queue: a support action that lands an hour later, after the conversation has moved on, is worse
+  than one that fails.
+- A stack that was never given the support wiring refuses every command, whatever the console says.
+
+## 10. Deployment
 
 `infra/console/` holds the compose stack: Caddy, the api, Postgres, Valkey, a client publisher and
 a nightly `pg_dump`. Same hardening rules as a customer stack (docs/12 §1): read-only containers,
@@ -112,7 +199,7 @@ to be issued a document signed by a new key before they trust anything from the 
 fleet screen shows who has not applied one yet. Back up `/opt/flare-console/.env` with the database
 (docs/13).
 
-## 7. On the same host as a customer stack
+## 11. On the same host as a customer stack
 
 For a first console, before it earns a machine of its own, it can share one with a customer stack.
 Two containers more, about 300 MB, and no second web server.
@@ -178,7 +265,7 @@ console is the thing you would use to see why. Both are reasons to move it to it
 there is more than one customer; the compose stack is the same either way, and moving is the volume
 and the `.env`.
 
-## 8. Local development
+## 12. Local development
 
 ```
 pnpm dev:console         # api on 4100

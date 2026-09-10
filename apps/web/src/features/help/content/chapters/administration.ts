@@ -233,6 +233,25 @@ export const security: Chapter = {
       ],
     },
     {
+      id: 'provider-support',
+      heading: 'What the people who run this software can do',
+      blocks: [
+        {
+          type: 'p',
+          text: 'If your only administrator is locked out, whoever provides your CRM can help: they can list who is able to sign in here, clear one person’s two-factor so that person can set an authenticator up again, and end one person’s sessions. That list is the whole list.',
+        },
+        {
+          type: 'p',
+          text: 'They cannot read your contacts, calls, messages or deals through it, cannot create an account, and cannot change what anybody is allowed to do.',
+        },
+        {
+          type: 'callout',
+          tone: 'info',
+          text: 'Every one of those actions is written into your own audit log, naming the provider and the reason given, at the moment it happens. If it is not in your audit log, it did not happen.',
+        },
+      ],
+    },
+    {
       id: 'what-is-recorded',
       heading: 'What is recorded about you',
       blocks: [

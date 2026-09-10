@@ -1,4 +1,4 @@
-# Reaching the console before it has a hostname of its own (docs/21 §7).
+# Reaching the console before it has a hostname of its own (docs/21 §11).
 #
 # Plain HTTP on port 8081, published only on the host's loopback by same-host/console-tunnel.yml,
 # so the only way to it is an SSH tunnel:

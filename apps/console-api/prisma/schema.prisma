@@ -126,6 +126,8 @@ model Customer {
   customDomain           String?   @unique @map("custom_domain")
   customDomainToken      String?   @map("custom_domain_token")
   customDomainVerifiedAt DateTime? @map("custom_domain_verified_at") @db.Timestamptz(3)
+  /// Set while the provider is holding this customer read only, and cleared when it is lifted.
+  suspendedAt  DateTime? @map("suspended_at") @db.Timestamptz(3)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -165,6 +167,8 @@ model CustomerEntitlement {
   featureOverrides Json      @default("{}") @map("feature_overrides")
   limitOverrides   Json      @default("{}") @map("limit_overrides")
   expiresAt        DateTime? @map("expires_at") @db.Timestamptz(3)
+  /// What the expiry was before a suspension, so lifting one restores it rather than granting forever.
+  expiresAtBeforeSuspension DateTime? @map("expires_at_before_suspension") @db.Timestamptz(3)
   /// What this customer actually pays, when it differs from the plan.
   priceMonthlyMinorOverride Int? @map("price_monthly_minor_override")
   agreementNotes   String    @default("") @map("agreement_notes")

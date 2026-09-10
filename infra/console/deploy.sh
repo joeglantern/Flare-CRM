@@ -6,7 +6,7 @@
 # `docker compose down -v` here.
 #
 # On a host that also runs a customer stack, pass --shared-caddy: that stack's Caddy serves the
-# console as an extra site, so this one has no web server of its own (docs/21 §7).
+# console as an extra site, so this one has no web server of its own (docs/21 §11).
 set -euo pipefail
 cd "$(dirname "$0")"
 # The shell wins, then .env, then latest. Compose gives the shell precedence over the file, so

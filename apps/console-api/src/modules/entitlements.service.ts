@@ -160,6 +160,47 @@ export class ConsoleEntitlementsService {
     }
     return issued;
   }
+
+  /**
+   * Suspension with teeth (docs/21 §5). A status column tells the provider something; an expiry of
+   * now tells the customer's own server something, because an expired document is already what
+   * makes that server refuse every write while leaving everything readable.
+   *
+   * Whatever the expiry was before is kept, so lifting a suspension puts the customer back where
+   * they were rather than handing them an unlimited one. Suspending twice keeps the first record.
+   * The caller reissues: this only decides what the next document will say.
+   */
+  async hold(customerId: string, now = new Date()): Promise<boolean> {
+    return this.db.$transaction(async (tx) => {
+      const customer = await tx.customer.findUniqueOrThrow({ where: { id: customerId } });
+      if (customer.suspendedAt !== null) return false;
+      const before = await tx.customerEntitlement.findUnique({ where: { customerId } });
+      await tx.customerEntitlement.upsert({
+        where: { customerId },
+        create: { customerId, expiresAt: now },
+        update: { expiresAt: now, expiresAtBeforeSuspension: before?.expiresAt ?? null },
+      });
+      await tx.customer.update({ where: { id: customerId }, data: { suspendedAt: now } });
+      return true;
+    });
+  }
+
+  /** Gives back exactly the expiry the customer had before, which may itself be in the past. */
+  async release(customerId: string): Promise<boolean> {
+    return this.db.$transaction(async (tx) => {
+      const customer = await tx.customer.findUniqueOrThrow({ where: { id: customerId } });
+      if (customer.suspendedAt === null) return false;
+      const row = await tx.customerEntitlement.findUnique({ where: { customerId } });
+      if (row) {
+        await tx.customerEntitlement.update({
+          where: { customerId },
+          data: { expiresAt: row.expiresAtBeforeSuspension, expiresAtBeforeSuspension: null },
+        });
+      }
+      await tx.customer.update({ where: { id: customerId }, data: { suspendedAt: null } });
+      return true;
+    });
+  }
 }
 
 export type { FeatureKey, LimitKey };

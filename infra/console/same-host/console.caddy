@@ -1,4 +1,4 @@
-# The owner console, served by the customer stack's Caddy (docs/21 §7).
+# The owner console, served by the customer stack's Caddy (docs/21 §11).
 #
 # Copy this into infra/docker/caddy/conf.d/ on a host that runs both, and set CONSOLE_DOMAIN in
 # infra/docker/.env. On a host that runs only a customer stack, this file does not exist.

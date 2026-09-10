@@ -60,6 +60,8 @@ const customerDto = z.object({
   primaryDomain: z.string(),
   customDomain: z.string().nullable(),
   customDomainVerifiedAt: z.string().nullable(),
+  /** Set while the provider is holding this customer read only (docs/21 §5). */
+  suspendedAt: z.string().nullable(),
   createdAt: z.string(),
 });
 
@@ -155,10 +157,12 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     primaryDomain: string;
     customDomain: string | null;
     customDomainVerifiedAt: Date | null;
+    suspendedAt: Date | null;
     createdAt: Date;
   }) => ({
     ...c,
     customDomainVerifiedAt: c.customDomainVerifiedAt?.toISOString() ?? null,
+    suspendedAt: c.suspendedAt?.toISOString() ?? null,
     createdAt: c.createdAt.toISOString(),
   });
 
@@ -336,13 +340,36 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
       const data = Object.fromEntries(
         Object.entries(request.body).filter(([, v]) => v !== undefined),
       );
-      const after = await app.db.customer.update({ where: { id: request.params.id }, data });
+      await app.db.customer.update({ where: { id: request.params.id }, data });
+
+      // A status is only a word until the customer's own server hears about it. Anything other
+      // than active is held read only by an expiry of now, and coming back to active gives back
+      // the expiry they had before.
+      const status = request.body.status;
+      let enforcement: { held: boolean; issues: number } | null = null;
+      if (status !== undefined && status !== before.status) {
+        const changed =
+          status === 'active'
+            ? await app.entitlements.release(before.id)
+            : await app.entitlements.hold(before.id);
+        if (changed) {
+          const issued = await app.entitlements.issue(
+            before.id,
+            requireUser(request).id,
+            await ownerContact(),
+          );
+          await app.link.deliver(issued);
+          enforcement = { held: status !== 'active', issues: issued.length };
+        }
+      }
+
+      const after = await app.db.customer.findUniqueOrThrow({ where: { id: request.params.id } });
       await app.audit.write(auditContext(request), {
         action: 'customer.update',
         entity: 'customer',
         entityId: after.id,
         before: { name: before.name, status: before.status, contactEmail: before.contactEmail },
-        after: request.body,
+        after: { ...request.body, ...(enforcement === null ? {} : { enforcement }) },
       });
       return { data: toCustomer(after) };
     },

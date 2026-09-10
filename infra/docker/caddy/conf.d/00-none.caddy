@@ -1,5 +1,5 @@
 # Extra sites this host serves besides the customer's CRM.
 #
 # Empty on an ordinary customer stack. When the owner console shares a machine with one, its site
-# block is dropped in here as console.caddy (docs/21 §7). This file exists so the import glob in
+# block is dropped in here as console.caddy (docs/21 §11). This file exists so the import glob in
 # the Caddyfile always matches something; a file of comments is a valid Caddyfile fragment.

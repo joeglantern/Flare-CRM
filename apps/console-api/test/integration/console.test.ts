@@ -219,6 +219,73 @@ describe('console: customers, plans and what they are entitled to', () => {
     expect(effective.features.telephony).toBe(true);
   });
 
+  it('suspends a customer by expiring what their server is holding, and gives it back', async () => {
+    const customer = await newCustomer();
+    await newStack(customer.id);
+    // A month left on the clock, which is what a suspension has to give back afterwards.
+    const until = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await ctx.as(owner, {
+      method: 'PUT',
+      url: `/api/v1/customers/${customer.id}/entitlements`,
+      payload: { expiresAt: until.toISOString() },
+    });
+
+    const suspended = await ctx.as(owner, {
+      method: 'PATCH',
+      url: `/api/v1/customers/${customer.id}`,
+      payload: { status: 'suspended' },
+    });
+    expect(suspended.statusCode, suspended.body).toBe(200);
+    expect(
+      suspended.json<Envelope<{ suspendedAt: string | null }>>().data.suspendedAt,
+    ).not.toBeNull();
+
+    // The document, not the column, is what the customer's own server obeys.
+    const issued = await ctx.app.db.entitlementIssue.findFirstOrThrow({
+      where: { customerId: customer.id },
+      orderBy: { issuedAt: 'desc' },
+    });
+    const payload = issued.payload as { expiresAt: string | null };
+    expect(payload.expiresAt).not.toBeNull();
+    expect(new Date(payload.expiresAt ?? '').getTime()).toBeLessThanOrEqual(Date.now());
+
+    const lifted = await ctx.as(owner, {
+      method: 'PATCH',
+      url: `/api/v1/customers/${customer.id}`,
+      payload: { status: 'active' },
+    });
+    expect(lifted.statusCode, lifted.body).toBe(200);
+    expect(lifted.json<Envelope<{ suspendedAt: string | null }>>().data.suspendedAt).toBeNull();
+    const back = await ctx.app.db.entitlementIssue.findFirstOrThrow({
+      where: { customerId: customer.id },
+      orderBy: { issuedAt: 'desc' },
+    });
+    // Exactly what they had before, not an unlimited one.
+    expect((back.payload as { expiresAt: string }).expiresAt).toBe(until.toISOString());
+    const row = await ctx.app.db.customerEntitlement.findUniqueOrThrow({
+      where: { customerId: customer.id },
+    });
+    expect(row.expiresAtBeforeSuspension).toBeNull();
+  });
+
+  it('leaves a suspended customer suspended when the same status is sent twice', async () => {
+    const customer = await newCustomer();
+    await newStack(customer.id);
+    await ctx.as(owner, {
+      method: 'PATCH',
+      url: `/api/v1/customers/${customer.id}`,
+      payload: { status: 'suspended' },
+    });
+    const first = await ctx.app.db.customer.findUniqueOrThrow({ where: { id: customer.id } });
+    await ctx.as(owner, {
+      method: 'PATCH',
+      url: `/api/v1/customers/${customer.id}`,
+      payload: { status: 'suspended', notes: 'still not paid' },
+    });
+    const second = await ctx.app.db.customer.findUniqueOrThrow({ where: { id: customer.id } });
+    expect(second.suspendedAt?.toISOString()).toBe(first.suspendedAt?.toISOString());
+  });
+
   it('refuses a slug that is already taken', async () => {
     await newCustomer('acme');
     const again = await ctx.as(owner, {

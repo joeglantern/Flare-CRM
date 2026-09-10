@@ -123,6 +123,9 @@ config: { auth: { permission: 'call:read', feature: 'telephony' } }
 
 All three are audited as `access.denied`. Permission denials are audited the same way.
 
+A suspension arrives as this and nothing more: the console reissues the document with an expiry of
+now (docs/21 §5), so the customer keeps every record and loses only the ability to add to them.
+
 The web app reads `GET /entitlements` once, subscribes to `entitlements:changed`, and hides what is
 not included: navigation items, buttons, whole screens. Hiding is a courtesy; the server is what
 decides.

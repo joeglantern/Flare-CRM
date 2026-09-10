@@ -38,6 +38,10 @@ recordings, live calls, inbox, reports, import and export, notifications, web fo
 users and roles, security, backups and retention, the audit log, your plan, search and shortcuts,
 troubleshooting, glossary.
 
+The security chapter says plainly what the provider can do from the owner console and what they
+cannot (docs/21 §9), because a customer reading their audit log should already know why a system
+action with our name on it is in there.
+
 Chapters for features that can be switched off carry the feature key, so with telephony off the
 calls, recordings and live calls chapters are absent from the navigation, from search and from the
 printed manual. A direct link to a hidden chapter shows the locked state, naming the feature and

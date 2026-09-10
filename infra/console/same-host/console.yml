@@ -1,5 +1,5 @@
 # Overlay for the CONSOLE's compose project when it shares a machine with a customer stack
-# (docs/21 §7).
+# (docs/21 §11).
 #
 #   cd ~/flare-crm/infra/console
 #   docker compose -f compose.yml -f same-host/console.yml up -d postgres valkey api backup
