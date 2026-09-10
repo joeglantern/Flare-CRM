@@ -4,7 +4,7 @@
  * adding it there and nowhere else.
  */
 import type { FeatureKey, FeatureMap, LimitKey, LimitMap, OwnerContact } from '@crm/shared';
-import type { IssueStatus, StackUsage } from '@crm/shared';
+import type { IssueStatus, StackUsage, SupportUser } from '@crm/shared';
 
 export interface Me {
   id: string;
@@ -36,6 +36,9 @@ export interface Plan {
   description: string;
   features: FeatureMap;
   limits: LimitMap;
+  /** Minor units of `currency`, so 1,500 KES is 150000. Null means the plan is not sold. */
+  priceMonthlyMinor: number | null;
+  currency: string;
   isDefault: boolean;
 }
 
@@ -87,6 +90,9 @@ export interface EffectiveEntitlements {
   features: FeatureMap;
   limits: LimitMap;
   expiresAt: string | null;
+  /** What this customer is actually billed: their override, or the plan's price. */
+  priceMonthlyMinor: number | null;
+  currency: string;
 }
 
 export interface CustomerEntitlements {
@@ -94,6 +100,8 @@ export interface CustomerEntitlements {
   featureOverrides: Partial<Record<FeatureKey, boolean>>;
   limitOverrides: Partial<Record<LimitKey, number | null>>;
   expiresAt: string | null;
+  /** Minor units, and null to charge whatever the plan charges. */
+  priceMonthlyMinorOverride: number | null;
   agreementNotes: string;
   effective: EffectiveEntitlements;
 }
@@ -116,6 +124,31 @@ export interface DomainCheck {
   cname: { ok: boolean; found: string[] };
   txt: { ok: boolean };
   primaryResolves: { ok: boolean; addresses: string[] };
+}
+
+/**
+ * What the support endpoints answer with. A refusal from the customer's own stack arrives as a 409
+ * carrying that stack's own words, not as an `ok: false` body, so there is no failure shape here.
+ */
+export interface SupportListing {
+  stackId: string;
+  users: SupportUser[];
+}
+
+export interface SupportOutcome {
+  ok: true;
+  message: string;
+}
+
+/** One announcement that was pushed to this customer's stacks, newest first on screen. */
+export interface Announcement {
+  id: string;
+  message: string;
+  level: 'info' | 'warning' | 'error';
+  /** How many stacks had it delivered to them at the moment it was sent. */
+  delivered: number;
+  sentByName: string | null;
+  sentAt: string;
 }
 
 export interface Owner {

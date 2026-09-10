@@ -20,6 +20,8 @@ const plan: Plan = {
   description: '',
   features: { ...DEFAULT_ENTITLEMENTS.features, softphone: false, api_docs: false },
   limits: { ...DEFAULT_ENTITLEMENTS.limits, seats: 10, storage_gb: 20 },
+  priceMonthlyMinor: 150000,
+  currency: 'KES',
   isDefault: true,
 };
 
@@ -28,6 +30,7 @@ const empty: EditorState = {
   featureOverrides: {},
   limitOverrides: {},
   expiryDay: '',
+  priceMajor: '',
   agreementNotes: '',
 };
 
@@ -89,13 +92,16 @@ describe('the entitlements editor rules', () => {
       featureOverrides: { telephony: false },
       limitOverrides: { seats: 3 },
       expiryDay: '2026-12-31',
+      priceMajor: '1200.50',
       agreementNotes: 'Two year deal, invoiced yearly.',
     };
-    const payload = savePayload(state);
+    const payload = savePayload(state, plan.currency);
     expect(payload.planId).toBe(plan.id);
     expect(payload.featureOverrides).toEqual({ telephony: false });
     expect(payload.limitOverrides).toEqual({ seats: 3 });
     expect(payload.agreementNotes).toBe('Two year deal, invoiced yearly.');
+    // Minor units and an integer, not 1200.5 and not 120050.00000000001.
+    expect(payload.priceMonthlyMinorOverride).toBe(120050);
     // The end of the chosen day, not its start: a plan bought until the 31st works on the 31st.
     expect(payload.expiresAt).not.toBeNull();
     const expiry = new Date(payload.expiresAt ?? '');
@@ -104,7 +110,11 @@ describe('the entitlements editor rules', () => {
   });
 
   it('sends no expiry as null rather than as an empty string', () => {
-    expect(savePayload(empty).expiresAt).toBeNull();
+    expect(savePayload(empty, plan.currency).expiresAt).toBeNull();
+  });
+
+  it('sends no price override as null rather than as zero', () => {
+    expect(savePayload(empty, plan.currency).priceMonthlyMinorOverride).toBeNull();
   });
 
   it('reads what the server stored without changing it', () => {
@@ -113,12 +123,15 @@ describe('the entitlements editor rules', () => {
       featureOverrides: { exports: false },
       limitOverrides: { seats: 5 },
       expiresAt: '2026-12-31T23:59:59.000Z',
+      priceMonthlyMinorOverride: null,
       agreementNotes: 'notes',
       effective: {
         plan: { id: plan.id, name: plan.name },
         features: plan.features,
         limits: plan.limits,
         expiresAt: '2026-12-31T23:59:59.000Z',
+        priceMonthlyMinor: plan.priceMonthlyMinor,
+        currency: plan.currency,
       },
     });
     expect(state.expiryDay).toBe('2026-12-31');

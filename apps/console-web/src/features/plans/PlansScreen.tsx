@@ -24,7 +24,7 @@ import { Badge, Button, ConfirmDialog, Input, Sheet, Switch, Textarea, toast } f
 import { Table, type Column } from '@/components/Bits';
 import { EmptyState, PageHeader, StateSlot, Section } from '@/components/Page';
 import { http } from '@/lib/api';
-import { limitLabel } from '@/lib/format';
+import { fromMinor, isCurrency, limitLabel, money, toMinor } from '@/lib/format';
 import { qk } from '@/lib/query';
 import type { Plan } from '@/lib/types';
 
@@ -82,6 +82,11 @@ export function PlansScreen() {
           </span>
         );
       },
+    },
+    {
+      key: 'price',
+      header: 'Price',
+      cell: (plan) => <span className="tnum">{money(plan.priceMonthlyMinor, plan.currency)}</span>,
     },
     {
       key: 'seats',
@@ -208,6 +213,12 @@ function PlanForm({ plan, onClose }: { plan: Plan | 'new'; onClose: () => void }
   const [name, setName] = useState(isNew ? '' : plan.name);
   const [description, setDescription] = useState(isNew ? '' : plan.description);
   const [isDefault, setIsDefault] = useState(isNew ? false : plan.isDefault);
+  const [currency, setCurrency] = useState(isNew ? 'KES' : plan.currency);
+  // Held as what a person types, in whole currency, and converted on the way out. Keeping minor
+  // units in the field would make "1500" mean fifteen shillings to everyone except the database.
+  const [price, setPrice] = useState(() =>
+    isNew ? '' : fromMinor(plan.priceMonthlyMinor, plan.currency),
+  );
   const [features, setFeatures] = useState<FeatureMap>(
     isNew ? DEFAULT_ENTITLEMENTS.features : plan.features,
   );
@@ -220,6 +231,8 @@ function PlanForm({ plan, onClose }: { plan: Plan | 'new'; onClose: () => void }
         description: description.trim(),
         features,
         limits,
+        priceMonthlyMinor: toMinor(price, currency),
+        currency,
         isDefault,
       };
       return plan === 'new'
@@ -246,6 +259,14 @@ function PlanForm({ plan, onClose }: { plan: Plan | 'new'; onClose: () => void }
     setLimits({ ...limits, [key]: next });
   };
 
+  const currencyError = isCurrency(currency)
+    ? undefined
+    : 'Not a currency code. Three letters, like KES.';
+  const priceError =
+    price.trim() === '' || toMinor(price, currency) !== null
+      ? undefined
+      : 'A price is a number, and it cannot be negative.';
+
   return (
     <Sheet
       open
@@ -259,7 +280,7 @@ function PlanForm({ plan, onClose }: { plan: Plan | 'new'; onClose: () => void }
           <Button
             variant="primary"
             loading={save.isPending}
-            disabled={name.trim() === ''}
+            disabled={name.trim() === '' || currencyError !== undefined || priceError !== undefined}
             onClick={() => {
               save.mutate();
             }}
@@ -290,6 +311,34 @@ function PlanForm({ plan, onClose }: { plan: Plan | 'new'; onClose: () => void }
             setDescription(e.target.value);
           }}
         />
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem]">
+          <Input
+            label="Price a month"
+            description={
+              priceError === undefined && price.trim() !== ''
+                ? `Stored as ${String(toMinor(price, currency) ?? 0)} minor units, and shown as ${money(toMinor(price, currency), currency)}.`
+                : 'Leave it empty for a plan that is not sold, such as an internal one.'
+            }
+            placeholder="1500.00"
+            inputMode="decimal"
+            error={priceError}
+            value={price}
+            onChange={(e) => {
+              setPrice(e.target.value);
+            }}
+          />
+          <Input
+            label="Currency"
+            mono
+            maxLength={3}
+            error={currencyError}
+            value={currency}
+            onChange={(e) => {
+              setCurrency(e.target.value.toUpperCase());
+            }}
+          />
+        </div>
+
         <Switch
           checked={isDefault}
           onChange={setIsDefault}

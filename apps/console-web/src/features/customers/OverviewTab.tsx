@@ -7,9 +7,9 @@
  * checklist reflects real state only: a tick means the console has seen it happen.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Circle, RefreshCw, Server, ShieldOff, X } from 'lucide-react';
+import { Check, Circle, Pencil, Radio, RefreshCw, Server, ShieldOff, X } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, ConfirmDialog, Input, toast } from '@crm/ui';
+import { Badge, Button, ConfirmDialog, Dialog, Input, Segmented, Textarea, toast } from '@crm/ui';
 import { CopyLine, Field, Fields, StatusDot } from '@/components/Bits';
 import { Section } from '@/components/Page';
 import { http } from '@/lib/api';
@@ -17,17 +17,30 @@ import { ago, bytes, dateTime } from '@/lib/format';
 import { qk } from '@/lib/query';
 import type {
   ConsoleSettings,
+  Customer,
   CustomerDetail,
   DomainCheck,
   DomainRecords,
+  Issue,
   NewStackCredentials,
+  Stack,
 } from '@/lib/types';
+import {
+  CUSTOMER_STATUSES,
+  draftFrom,
+  editPayload,
+  hasChanges,
+  STATUSES,
+  type CustomerDraft,
+  type CustomerStatus,
+} from './customer-edit';
 
 export function OverviewTab({ detail }: { detail: CustomerDetail }) {
   const { customer, stacks } = detail;
   const queryClient = useQueryClient();
   const [credentials, setCredentials] = useState<NewStackCredentials | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const settings = useQuery({
     queryKey: qk.settings(),
@@ -64,6 +77,25 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
     },
   });
 
+  /**
+   * A stack heartbeats every thirty seconds, which is a long time to stand over a server you have
+   * just restarted. The answer comes back as a `fleet:stack` event, so nothing is refetched here.
+   */
+  const ping = useMutation({
+    mutationFn: (stackId: string) => http.post(`/api/v1/stacks/${stackId}/ping`),
+    onSuccess: () => {
+      toast({
+        tone: 'success',
+        title: 'Asked it to report in',
+        description: 'This screen updates itself when it answers.',
+        key: 'ping',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'Could not reach that stack', description: error.message });
+    },
+  });
+
   const revoke = useMutation({
     mutationFn: (stackId: string) => http.del(`/api/v1/stacks/${stackId}`),
     onSuccess: async () => {
@@ -89,7 +121,19 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <Section title="Contact">
+      <Section
+        title="Contact"
+        actions={
+          <Button
+            icon={Pencil}
+            onClick={() => {
+              setEditing(true);
+            }}
+          >
+            Edit
+          </Button>
+        }
+      >
         <Fields columns={3}>
           <Field label="Business">{customer.name}</Field>
           <Field label="Person">{customer.contactName}</Field>
@@ -104,7 +148,6 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
             )}
           </Field>
           <Field label="Added">{dateTime(customer.createdAt)}</Field>
-          <Field label="Status">{customer.status}</Field>
         </Fields>
         {customer.notes !== '' && (
           <p className="mt-4 rounded-sm border border-border bg-bg p-3 text-base whitespace-pre-wrap">
@@ -112,6 +155,8 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
           </p>
         )}
       </Section>
+
+      <StatusSection customer={customer} stacks={stacks} />
 
       <DomainSection customer={customer} />
 
@@ -146,6 +191,20 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
                     {stack.version !== null && <Badge tone="neutral">{stack.version}</Badge>}
                   </span>
                   <span className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      icon={Radio}
+                      disabled={!stack.connected}
+                      title={
+                        stack.connected ? undefined : 'It is offline, so there is nothing to ask'
+                      }
+                      loading={ping.isPending && ping.variables === stack.id}
+                      onClick={() => {
+                        ping.mutate(stack.id);
+                      }}
+                    >
+                      Refresh now
+                    </Button>
                     <Button
                       size="sm"
                       icon={RefreshCw}
@@ -217,6 +276,8 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
           <CopyLine value={provisionCommand} what="command" />
         </div>
       </Section>
+
+      <EditCustomerDialog customer={customer} open={editing} onOpenChange={setEditing} />
 
       <StackCredentials
         credentials={credentials}
@@ -452,5 +513,256 @@ function StackCredentials({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The status control, kept apart from the read-only contact block because it is the one thing on
+ * this screen that changes what a customer's own people can do.
+ *
+ * Changing it here records the decision. It reaches their stack when the entitlements are issued,
+ * which is why suspending offers to issue straight away: a suspension nobody has been told about is
+ * not a suspension.
+ */
+function StatusSection({ customer, stacks }: { customer: Customer; stacks: Stack[] }) {
+  const queryClient = useQueryClient();
+  const [choosing, setChoosing] = useState<CustomerStatus | null>(null);
+  const [offerIssue, setOfferIssue] = useState(false);
+
+  const current = (CUSTOMER_STATUSES as readonly string[]).includes(customer.status)
+    ? (customer.status as CustomerStatus)
+    : 'active';
+  const live = stacks.filter((s) => s.revokedAt === null);
+  const connected = live.some((s) => s.connected);
+
+  const change = useMutation({
+    mutationFn: (status: CustomerStatus) =>
+      http.patch<Customer>(`/api/v1/customers/${customer.id}`, { status }),
+    onSuccess: async (_data, status) => {
+      await queryClient.invalidateQueries({ queryKey: qk.customer(customer.id) });
+      await queryClient.invalidateQueries({ queryKey: qk.fleet() });
+      toast({ tone: 'success', title: `Marked ${STATUSES[status].label.toLowerCase()}` });
+      if (status === 'suspended') setOfferIssue(true);
+    },
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'Could not change that status', description: error.message });
+    },
+  });
+
+  const issue = useMutation({
+    mutationFn: () => http.post<{ issues: Issue[] }>(`/api/v1/customers/${customer.id}/issue`),
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: qk.customer(customer.id) });
+      toast({
+        tone: 'success',
+        title: connected
+          ? `Sent to ${String(data.issues.length)} stack${data.issues.length === 1 ? '' : 's'}`
+          : 'Signed and waiting',
+        description: connected
+          ? undefined
+          : 'That stack is offline. It will pick this up the moment it reconnects.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'Could not issue that', description: error.message });
+    },
+  });
+
+  return (
+    <Section title="Status" description="What this customer's own people can do right now.">
+      <div className="flex flex-col gap-3">
+        <Segmented<CustomerStatus>
+          ariaLabel="Customer status"
+          value={current}
+          onChange={(next) => {
+            if (next !== current) setChoosing(next);
+          }}
+          options={CUSTOMER_STATUSES.map((status) => ({
+            value: status,
+            label: STATUSES[status].label,
+          }))}
+        />
+        <p className="text-base text-muted">{STATUSES[current].short}</p>
+        {current !== 'active' && live.length > 0 && (
+          <p className="text-base text-muted">
+            This takes effect on their stack when the entitlements are issued, on the Entitlements
+            tab.
+          </p>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={choosing !== null}
+        onOpenChange={(v) => {
+          if (!v) setChoosing(null);
+        }}
+        title={
+          choosing === null
+            ? ''
+            : `Mark ${customer.name} ${STATUSES[choosing].label.toLowerCase()}?`
+        }
+        description={choosing === null ? '' : STATUSES[choosing].short}
+        consequences={choosing === null ? [] : STATUSES[choosing].consequences}
+        confirmLabel={choosing === null ? 'Confirm' : STATUSES[choosing].label}
+        tone={choosing === 'active' ? 'primary' : 'danger'}
+        loading={change.isPending}
+        onConfirm={() => {
+          if (choosing !== null) change.mutate(choosing);
+          setChoosing(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={offerIssue}
+        onOpenChange={setOfferIssue}
+        title="Send the suspension to their stack now?"
+        description={
+          live.length === 0
+            ? 'This customer has no stack yet, so there is nothing to send it to. The suspension is recorded and will be in the first document their stack is issued.'
+            : connected
+              ? 'Their stack is still running on the document it last applied, so their people can still change things until it receives this one.'
+              : 'Their stack is offline. Issuing now signs the document, and the stack applies it the moment it reconnects.'
+        }
+        consequences={[
+          'Every change their people attempt is refused from the moment it applies',
+          'Reading is untouched, and nothing of theirs is deleted',
+        ]}
+        confirmLabel="Issue now"
+        cancelLabel="Later"
+        tone="primary"
+        loading={issue.isPending}
+        onConfirm={() => {
+          if (live.length > 0) issue.mutate();
+          setOfferIssue(false);
+        }}
+      />
+    </Section>
+  );
+}
+
+/**
+ * Mounted only while it is open, so the form always starts from what the server last said rather
+ * than from whatever was typed and abandoned last time.
+ */
+function EditCustomerDialog({
+  customer,
+  open,
+  onOpenChange,
+}: {
+  customer: Customer;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  if (!open) return null;
+  return (
+    <EditCustomerForm
+      customer={customer}
+      onClose={() => {
+        onOpenChange(false);
+      }}
+    />
+  );
+}
+
+function EditCustomerForm({ customer, onClose }: { customer: Customer; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState<CustomerDraft>(() => draftFrom(customer));
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const save = useMutation({
+    mutationFn: () =>
+      http.patch<Customer>(`/api/v1/customers/${customer.id}`, editPayload(customer, draft)),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: qk.customer(customer.id) });
+      await queryClient.invalidateQueries({ queryKey: qk.fleet() });
+      toast({ tone: 'success', title: 'Saved' });
+      onClose();
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
+  const set = (patch: Partial<CustomerDraft>) => {
+    setDraft({ ...draft, ...patch });
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+      title={`Edit ${customer.name}`}
+      description="Who we bill and who we call. The subdomain and the status are changed elsewhere, because both of those reach into a running CRM."
+      width={560}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            loading={save.isPending}
+            disabled={
+              !hasChanges(customer, draft) ||
+              draft.name.trim() === '' ||
+              draft.contactName.trim() === '' ||
+              draft.contactEmail.trim() === ''
+            }
+            onClick={() => {
+              setError(undefined);
+              save.mutate();
+            }}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Input
+          autoFocus
+          label="Business"
+          value={draft.name}
+          onChange={(e) => {
+            set({ name: e.target.value });
+          }}
+        />
+        <Input
+          label="Person"
+          description="Whoever we speak to about this account."
+          value={draft.contactName}
+          onChange={(e) => {
+            set({ contactName: e.target.value });
+          }}
+        />
+        <Input
+          label="Email"
+          type="email"
+          error={error}
+          value={draft.contactEmail}
+          onChange={(e) => {
+            set({ contactEmail: e.target.value });
+          }}
+        />
+        <Input
+          label="Phone"
+          description="Leave it empty if we do not have one."
+          value={draft.contactPhone}
+          onChange={(e) => {
+            set({ contactPhone: e.target.value });
+          }}
+        />
+        <Textarea
+          label="Notes"
+          rows={4}
+          maxLength={4000}
+          description="For us, not for them. Nobody at that business ever sees this."
+          value={draft.notes}
+          onChange={(e) => {
+            set({ notes: e.target.value });
+          }}
+        />
+      </div>
+    </Dialog>
   );
 }

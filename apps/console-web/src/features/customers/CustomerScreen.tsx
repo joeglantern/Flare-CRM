@@ -1,7 +1,7 @@
 /**
- * One customer: who they are, what their stack is doing, what they are entitled to, and what we
- * have sent them. Four tabs because those are four different jobs, and an owner is usually doing
- * exactly one of them.
+ * One customer: who they are, how their stack has been behaving, what they are entitled to, what we
+ * have told them, and how to unlock one of their people. Six tabs because those are six different
+ * jobs, and an owner is usually doing exactly one of them.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
@@ -10,7 +10,7 @@ import { useCallback, useState } from 'react';
 import type { ConsoleServerPayload } from '@crm/shared';
 import { Badge, Tabs, toast } from '@crm/ui';
 import { StatusDot } from '@/components/Bits';
-import { PageHeader, StateSlot } from '@/components/Page';
+import { EmptyState, PageHeader, StateSlot } from '@/components/Page';
 import { customerRoute } from '@/app/router';
 import { http } from '@/lib/api';
 import { qk } from '@/lib/query';
@@ -20,8 +20,22 @@ import { AnnounceTab } from './AnnounceTab';
 import { EntitlementsTab } from './EntitlementsTab';
 import { HistoryTab } from './HistoryTab';
 import { OverviewTab } from './OverviewTab';
+import { SupportTab } from './SupportTab';
 
-type TabId = 'overview' | 'entitlements' | 'announce' | 'history';
+type TabId = 'overview' | 'insights' | 'entitlements' | 'announce' | 'support' | 'history';
+
+/**
+ * Stands in for `features/analytics/CustomerInsights` until it lands, so the tab exists and the
+ * screen already has its shape. Replace the function with the import; nothing else moves.
+ */
+function CustomerInsights(_props: { customerId: string }) {
+  return (
+    <EmptyState
+      title="Insights are not built yet"
+      description="What this customer's stack has been doing will appear here."
+    />
+  );
+}
 
 export function CustomerScreen() {
   const { customerId } = customerRoute.useParams();
@@ -76,7 +90,7 @@ export function CustomerScreen() {
       <PageHeader
         back={
           <Link
-            to="/"
+            to="/fleet"
             className="inline-flex items-center gap-1 text-muted no-underline hover:underline"
           >
             <ArrowLeft size={13} aria-hidden />
@@ -115,13 +129,16 @@ export function CustomerScreen() {
               }}
               tabs={[
                 { id: 'overview', label: 'Overview' },
+                { id: 'insights', label: 'Insights' },
                 { id: 'entitlements', label: 'Entitlements' },
                 { id: 'announce', label: 'Announce' },
+                { id: 'support', label: 'Support' },
                 { id: 'history', label: 'History', count: detail.data.issues.length },
               ]}
             />
 
             {tab === 'overview' && <OverviewTab detail={detail.data} />}
+            {tab === 'insights' && <CustomerInsights customerId={customerId} />}
             {tab === 'entitlements' && (
               <EntitlementsTab
                 customerId={customerId}
@@ -132,6 +149,13 @@ export function CustomerScreen() {
             )}
             {tab === 'announce' && (
               <AnnounceTab customerId={customerId} connected={liveStack !== undefined} />
+            )}
+            {tab === 'support' && (
+              <SupportTab
+                customerId={customerId}
+                customerName={detail.data.customer.name}
+                connected={liveStack !== undefined}
+              />
             )}
             {tab === 'history' && <HistoryTab issues={detail.data.issues} />}
           </>

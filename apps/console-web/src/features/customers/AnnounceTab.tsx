@@ -5,21 +5,39 @@
  *
  * It needs a live connection: there is no queue for announcements, because an outage notice arriving
  * two days late is worse than none.
+ *
+ * The history is read from the server rather than kept in this window, because the question an owner
+ * actually has is "what have we already told them", and the answer to that does not reset when a tab
+ * is closed or when the other owner is the one who sent it.
  */
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Megaphone } from 'lucide-react';
 import { useState } from 'react';
-import { Banner, Button, Segmented, Textarea, toast } from '@crm/ui';
-import { Section } from '@/components/Page';
+import { Badge, Banner, Button, Segmented, Textarea, toast } from '@crm/ui';
+import { EmptyState, Section, StateSlot } from '@/components/Page';
 import { http } from '@/lib/api';
-import { dateTime } from '@/lib/format';
+import { count, dateTime } from '@/lib/format';
+import { qk } from '@/lib/query';
+import type { Announcement } from '@/lib/types';
 
 type Level = 'info' | 'warning' | 'error';
 
+const LEVELS: Record<Level, { label: string; tone: 'neutral' | 'warning' | 'danger' }> = {
+  info: { label: 'Information', tone: 'neutral' },
+  warning: { label: 'Warning', tone: 'warning' },
+  error: { label: 'Serious', tone: 'danger' },
+};
+
 export function AnnounceTab({ customerId, connected }: { customerId: string; connected: boolean }) {
+  const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
   const [level, setLevel] = useState<Level>('info');
-  const [sent, setSent] = useState<{ at: string; message: string; level: Level }[]>([]);
+
+  const history = useQuery({
+    queryKey: qk.announcements(customerId),
+    queryFn: async () =>
+      (await http.list<Announcement>(`/api/v1/customers/${customerId}/announcements`)).data,
+  });
 
   const send = useMutation({
     mutationFn: () =>
@@ -27,15 +45,12 @@ export function AnnounceTab({ customerId, connected }: { customerId: string; con
         message: message.trim(),
         level,
       }),
-    onSuccess: (data) => {
-      setSent((previous) => [
-        { at: new Date().toISOString(), message: message.trim(), level },
-        ...previous,
-      ]);
+    onSuccess: async (data) => {
       setMessage('');
+      await queryClient.invalidateQueries({ queryKey: qk.announcements(customerId) });
       toast({
         tone: 'success',
-        title: `Delivered to ${String(data.delivered)} stack${data.delivered === 1 ? '' : 's'}`,
+        title: `Delivered to ${count(data.delivered, 'stack')}`,
       });
     },
     onError: (error: Error) => {
@@ -72,11 +87,10 @@ export function AnnounceTab({ customerId, connected }: { customerId: string; con
               ariaLabel="Level"
               value={level}
               onChange={setLevel}
-              options={[
-                { value: 'info', label: 'Information' },
-                { value: 'warning', label: 'Warning' },
-                { value: 'error', label: 'Serious' },
-              ]}
+              options={(Object.keys(LEVELS) as Level[]).map((value) => ({
+                value,
+                label: LEVELS[value].label,
+              }))}
             />
             <Button
               variant="primary"
@@ -93,20 +107,46 @@ export function AnnounceTab({ customerId, connected }: { customerId: string; con
         </div>
       </Section>
 
-      {sent.length > 0 && (
-        <Section title="Sent from this window">
+      <Section
+        title="Already sent"
+        description="Every announcement this customer has been given, whoever sent it."
+      >
+        <StateSlot
+          isPending={history.isPending}
+          error={history.error}
+          isEmpty={history.data?.length === 0}
+          empty={
+            <EmptyState
+              icon={Megaphone}
+              title="Nothing has been announced yet"
+              description="This customer has never had a banner from us."
+            />
+          }
+          onRetry={() => {
+            void history.refetch();
+          }}
+        >
           <ul className="flex flex-col gap-2">
-            {sent.map((item) => (
-              <li key={item.at} className="rounded-sm border border-border bg-bg p-3">
-                <p className="text-base">{item.message}</p>
+            {(history.data ?? []).map((item) => (
+              <li key={item.id} className="rounded-sm border border-border bg-bg p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="min-w-0 text-base break-words">{item.message}</p>
+                  <Badge tone={LEVELS[item.level].tone}>{LEVELS[item.level].label}</Badge>
+                </div>
                 <p className="mt-1 text-sm text-muted">
-                  {item.level} · {dateTime(item.at)}
+                  {dateTime(item.sentAt)}
+                  {item.sentByName !== null && ` · ${item.sentByName}`} ·{' '}
+                  {/* Delivery is counted at the moment it was sent: a stack that was offline then
+                      never received this one, and there is no queue that would fix it later. */}
+                  {item.delivered === 0
+                    ? 'reached no stack'
+                    : `reached ${count(item.delivered, 'stack')}`}
                 </p>
               </li>
             ))}
           </ul>
-        </Section>
-      )}
+        </StateSlot>
+      </Section>
     </div>
   );
 }

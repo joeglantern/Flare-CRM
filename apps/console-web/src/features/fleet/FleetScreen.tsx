@@ -4,21 +4,27 @@
  * Rows update from the socket rather than from polling, so a stack that comes back turns green
  * while the screen is open. The event carries the whole row's worth of state, so the cache is
  * patched in place instead of refetching the list on every heartbeat.
+ *
+ * A stack heartbeats every thirty seconds, which is the wrong cadence for someone standing over a
+ * server they have just restarted, so each one can be asked to report in now.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
-import { Plus, Server } from 'lucide-react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { Plus, RefreshCw, Server, TriangleAlert } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import type { ConsoleServerPayload } from '@crm/shared';
-import { Badge, Button, Input, toast } from '@crm/ui';
+import { ALERTS, type ConsoleOverviewDto, type ConsoleServerPayload } from '@crm/shared';
+import { Badge, Button, IconButton, Input, toast } from '@crm/ui';
 import { CopyLine, StatusDot, Table, UsageBar, type Column } from '@/components/Bits';
-import { EmptyState, PageHeader, StateSlot } from '@/components/Page';
+import { EmptyState, PageHeader, Section, StateSlot } from '@/components/Page';
 import { http } from '@/lib/api';
 import { ago, bytes, day, daysUntil } from '@/lib/format';
 import { qk } from '@/lib/query';
 import { useConsoleEvent } from '@/lib/socket';
-import type { Customer, FleetRow, NewStackCredentials } from '@/lib/types';
+import type { Customer, FleetRow, NewStackCredentials, Stack } from '@/lib/types';
 import { NewCustomerDialog } from '@/features/customers/NewCustomerDialog';
+
+/** The same window the dashboard asks for, so both screens share one cached overview payload. */
+const OVERVIEW_DAYS = 30;
 
 export function FleetScreen() {
   const navigate = useNavigate();
@@ -78,6 +84,26 @@ export function FleetScreen() {
     },
     onError: (error: Error) => {
       toast({ tone: 'danger', title: 'Could not create a stack', description: error.message });
+    },
+  });
+
+  /**
+   * Asks one stack to heartbeat now. Nothing is refetched here on purpose: the answer arrives as a
+   * `fleet:stack` event and patches the row through the handler above, which is the same path a
+   * spontaneous heartbeat takes.
+   */
+  const ping = useMutation({
+    mutationFn: (stack: Stack) => http.post(`/api/v1/stacks/${stack.id}/ping`),
+    onSuccess: () => {
+      toast({
+        tone: 'success',
+        title: 'Asked it to report in',
+        description: 'The row updates itself when it answers.',
+        key: 'ping',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'Could not reach that stack', description: error.message });
     },
   });
 
@@ -159,6 +185,34 @@ export function FleetScreen() {
       cell: (row) => <span className="text-sm text-muted">{ago(row.lastBackupAt)}</span>,
     },
     { key: 'expiry', header: 'Expires', cell: (row) => <Expiry expiresAt={row.expiresAt} /> },
+    {
+      key: 'refresh',
+      header: '',
+      align: 'end',
+      cell: (row) => (
+        <span className="flex justify-end gap-1">
+          {row.stacks
+            .filter((stack) => stack.revokedAt === null)
+            .map((stack) => (
+              <IconButton
+                key={stack.id}
+                icon={RefreshCw}
+                variant="ghost"
+                label={
+                  stack.connected
+                    ? `Ask ${stack.id} to report in now`
+                    : `${stack.id} is offline, so there is nothing to ask`
+                }
+                disabled={!stack.connected || (ping.isPending && ping.variables.id === stack.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  ping.mutate(stack);
+                }}
+              />
+            ))}
+        </span>
+      ),
+    },
   ];
 
   return (
@@ -188,6 +242,8 @@ export function FleetScreen() {
           </>
         }
       />
+
+      <AttentionStrip />
 
       <StateSlot
         isPending={fleet.isPending}
@@ -311,5 +367,73 @@ function StackCredentialsDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Open alerts, above the table, so the reason to be on this screen is the first thing on it.
+ *
+ * The wording comes from ALERTS in the shared contract rather than from here, so the strip, the
+ * dashboard and the emails describe the same alert the same way.
+ *
+ * It shares the dashboard's overview query. If that request fails, the strip renders nothing at all
+ * rather than an error: the fleet table underneath is the point of this screen, and a broken
+ * dashboard should not be allowed to look like a broken fleet.
+ */
+function AttentionStrip() {
+  const queryClient = useQueryClient();
+
+  const overview = useQuery({
+    queryKey: qk.overview(OVERVIEW_DAYS),
+    queryFn: () =>
+      http.get<ConsoleOverviewDto>('/api/v1/analytics/overview', { days: OVERVIEW_DAYS }),
+  });
+
+  /** An alert opened or closed while the screen is open: ask for the payload again. */
+  const onAlert = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: qk.overview(OVERVIEW_DAYS) });
+  }, [queryClient]);
+  useConsoleEvent('alert:changed', onAlert);
+
+  const open = (overview.data?.alerts ?? []).filter((alert) => alert.resolvedAt === null);
+  if (open.length === 0) return null;
+
+  const worst = open.some((a) => a.level === 'danger') ? 'danger' : 'warning';
+
+  return (
+    <Section
+      title={
+        <span className="flex items-center gap-2">
+          <TriangleAlert
+            size={15}
+            className={worst === 'danger' ? 'text-danger' : 'text-warning'}
+            aria-hidden
+          />
+          Needs attention
+        </span>
+      }
+      description="Open alerts across every customer. Each one closes itself when whatever it is about stops being true."
+    >
+      <ul className="flex flex-col divide-y divide-border">
+        {open.map((alert) => (
+          <li key={alert.id} className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2.5">
+            <Badge tone={alert.level === 'danger' ? 'danger' : 'warning'}>
+              {ALERTS[alert.kind].label}
+            </Badge>
+            <Link
+              to="/customers/$customerId"
+              params={{ customerId: alert.customerId }}
+              className="font-medium no-underline hover:underline"
+            >
+              {alert.customerName}
+            </Link>
+            <span className="min-w-0 flex-1 text-base text-muted">
+              {ALERTS[alert.kind].description}
+            </span>
+            <span className="shrink-0 text-sm text-muted">{ago(alert.openedAt)}</span>
+          </li>
+        ))}
+      </ul>
+    </Section>
   );
 }

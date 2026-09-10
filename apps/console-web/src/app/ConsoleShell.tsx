@@ -8,6 +8,7 @@
  */
 import {
   Building2,
+  Gauge,
   KeyRound,
   LayoutGrid,
   LogOut,
@@ -27,7 +28,8 @@ import { useTheme } from '@/lib/theme';
 import type { Me } from '@/lib/types';
 
 const NAV = [
-  { to: '/', label: 'Fleet', icon: LayoutGrid, exact: true },
+  { to: '/', label: 'Overview', icon: Gauge, exact: true },
+  { to: '/fleet', label: 'Fleet', icon: LayoutGrid, exact: false },
   { to: '/plans', label: 'Plans', icon: Building2, exact: false },
   { to: '/owners', label: 'Owners', icon: Users, exact: false },
   { to: '/audit', label: 'Audit', icon: ScrollText, exact: false },

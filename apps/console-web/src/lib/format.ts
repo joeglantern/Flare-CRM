@@ -64,3 +64,51 @@ export function limitLabel(value: number | null | undefined, unit: string): stri
 export function count(value: number, singular: string, plural = `${singular}s`): string {
   return `${String(value)} ${value === 1 ? singular : plural}`;
 }
+
+/**
+ * Money crosses the wire in minor units and is never a float there, so these three are the only
+ * place the decimal point is put in or taken out.
+ */
+/** Whether Intl recognises the code, which is the only currency check worth making on a form. */
+export function isCurrency(code: string): boolean {
+  try {
+    new Intl.NumberFormat(undefined, { style: 'currency', currency: code });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function currencyDigits(currency: string): number {
+  // Two is the right fallback: every currency the console sells in has two, and an unknown code
+  // being off by a factor of ten in a label is better than a crash on the fleet screen.
+  if (!isCurrency(currency)) return 2;
+  return (
+    new Intl.NumberFormat(undefined, { style: 'currency', currency }).resolvedOptions()
+      .maximumFractionDigits ?? 2
+  );
+}
+
+export function money(minor: number | null | undefined, currency: string): string {
+  if (minor === null || minor === undefined) return 'Not sold';
+  const major = minor / 10 ** currencyDigits(currency);
+  if (!isCurrency(currency)) return `${major.toFixed(2)} ${currency}`;
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(major);
+}
+
+/** Minor units to what a person types into a price field. */
+export function fromMinor(minor: number | null | undefined, currency: string): string {
+  if (minor === null || minor === undefined) return '';
+  return (minor / 10 ** currencyDigits(currency)).toFixed(currencyDigits(currency));
+}
+
+/** What they typed back to minor units. Empty means "no price"; anything unparseable means the same. */
+export function toMinor(major: string, currency: string): number | null {
+  const trimmed = major.trim();
+  if (trimmed === '') return null;
+  const value = Number(trimmed);
+  if (!Number.isFinite(value) || value < 0) return null;
+  // Rounding here rather than truncating: 1500.55 * 100 is 150055.00000000003 in binary floating
+  // point, and a truncation would quietly bill a cent less.
+  return Math.round(value * 10 ** currencyDigits(currency));
+}

@@ -19,6 +19,8 @@ const plan: Plan = {
   description: 'Everything except the softphone.',
   features: { ...DEFAULT_ENTITLEMENTS.features, softphone: false },
   limits: { ...DEFAULT_ENTITLEMENTS.limits, seats: 10, storage_gb: 20 },
+  priceMonthlyMinor: 150000,
+  currency: 'KES',
   isDefault: true,
 };
 
@@ -27,12 +29,15 @@ const entitlements: CustomerEntitlements = {
   featureOverrides: {},
   limitOverrides: {},
   expiresAt: null,
+  priceMonthlyMinorOverride: null,
   agreementNotes: '',
   effective: {
     plan: { id: plan.id, name: plan.name },
     features: plan.features,
     limits: plan.limits,
     expiresAt: null,
+    priceMonthlyMinor: plan.priceMonthlyMinor,
+    currency: plan.currency,
   },
 };
 

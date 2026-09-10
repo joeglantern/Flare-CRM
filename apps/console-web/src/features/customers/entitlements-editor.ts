@@ -17,6 +17,7 @@ import {
   type LimitKey,
   type LimitMap,
 } from '@crm/shared';
+import { fromMinor, toMinor } from '@/lib/format';
 import type { CustomerEntitlements, Plan } from '@/lib/types';
 
 export interface EditorState {
@@ -25,6 +26,11 @@ export interface EditorState {
   limitOverrides: Partial<Record<LimitKey, number | null>>;
   /** `yyyy-MM-dd` as a date input gives it, or empty for no expiry. */
   expiryDay: string;
+  /**
+   * What this customer pays, as a person types it in whole currency, or empty to pay whatever the
+   * plan charges. Held as text so an empty field stays "no override" rather than becoming zero.
+   */
+  priceMajor: string;
   agreementNotes: string;
 }
 
@@ -98,6 +104,7 @@ export function fromServer(entitlements: CustomerEntitlements): EditorState {
     featureOverrides: { ...entitlements.featureOverrides },
     limitOverrides: { ...entitlements.limitOverrides },
     expiryDay: entitlements.expiresAt === null ? '' : entitlements.expiresAt.slice(0, 10),
+    priceMajor: fromMinor(entitlements.priceMonthlyMinorOverride, entitlements.effective.currency),
     agreementNotes: entitlements.agreementNotes,
   };
 }
@@ -107,6 +114,8 @@ export interface SavePayload {
   featureOverrides: Partial<Record<FeatureKey, boolean>>;
   limitOverrides: Partial<Record<LimitKey, number | null>>;
   expiresAt: string | null;
+  /** Minor units, never a float, and null to charge whatever the plan charges. */
+  priceMonthlyMinorOverride: number | null;
   agreementNotes: string;
 }
 
@@ -114,7 +123,7 @@ export interface SavePayload {
  * The body the console API expects. Expiry is sent as the end of the chosen day in this browser's
  * zone: a plan bought until the 30th should not stop working at midnight on the 29th.
  */
-export function savePayload(state: EditorState): SavePayload {
+export function savePayload(state: EditorState, currency: string): SavePayload {
   const expiresAt =
     state.expiryDay === '' ? null : new Date(`${state.expiryDay}T23:59:59`).toISOString();
   return {
@@ -122,6 +131,7 @@ export function savePayload(state: EditorState): SavePayload {
     featureOverrides: state.featureOverrides,
     limitOverrides: state.limitOverrides,
     expiresAt,
+    priceMonthlyMinorOverride: toMinor(state.priceMajor, currency),
     agreementNotes: state.agreementNotes,
   };
 }

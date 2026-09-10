@@ -10,7 +10,7 @@ const CONSOLE_ORIGIN = process.env.VITE_DEV_CONSOLE_ORIGIN ?? 'http://127.0.0.1:
  * The console client (docs/21). Same arrangement as the CRM's: the dev server proxies the API and
  * the socket so the browser only ever talks to one origin, cookies stay first-party, and no CORS
  * handling leaks into the app code. Routes are declared in code rather than generated from files;
- * this app has eight of them.
+ * this app has nine of them.
  */
 export default defineConfig({
   plugins: [react(), tailwindcss()],

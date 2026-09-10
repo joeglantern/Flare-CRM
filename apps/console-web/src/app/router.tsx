@@ -1,5 +1,5 @@
 /**
- * Routes, declared in code (docs/21). There are eight of them and no nested layouts beyond the
+ * Routes, declared in code (docs/21). There are nine of them and no nested layouts beyond the
  * shell, so file-based routing and its generated tree would be more machinery than this app needs.
  *
  * Three routes are reachable without a session: sign-in, the second factor, and setting the second
@@ -18,7 +18,7 @@ import {
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { ToastHost } from '@crm/ui';
 import { ConsoleShell } from '@/app/ConsoleShell';
-import { LoadingState, ErrorState } from '@/components/Page';
+import { EmptyState, LoadingState, ErrorState } from '@/components/Page';
 import { AuditScreen } from '@/features/audit/AuditScreen';
 import {
   ForgotPasswordScreen,
@@ -94,9 +94,32 @@ const appRoute = createRoute({
   ),
 });
 
-const fleetRoute = createRoute({
+/**
+ * Stands in for the dashboard while the analytics screens are built alongside this. The route, the
+ * navigation and every link to it are already right; only this function is replaced.
+ */
+function OverviewScreen() {
+  return (
+    <EmptyState
+      title="The dashboard is not built yet"
+      description="Until it is, the fleet table is the whole picture."
+    />
+  );
+}
+
+/**
+ * The landing screen is the fleet-wide dashboard rather than the fleet table: an owner opening the
+ * console wants to know whether anything needs them, not to read forty rows.
+ */
+const overviewRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/',
+  component: OverviewScreen,
+});
+
+const fleetRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/fleet',
   component: FleetScreen,
 });
 
@@ -257,6 +280,7 @@ function ResetPassword() {
 
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([
+    overviewRoute,
     fleetRoute,
     customerRoute,
     plansRoute,

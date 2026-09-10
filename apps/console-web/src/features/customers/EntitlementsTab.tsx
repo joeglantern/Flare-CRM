@@ -13,7 +13,7 @@ import { Badge, Button, Input, Select, Switch, Textarea, toast } from '@crm/ui';
 import { Field, Fields, IssueStatusBadge } from '@/components/Bits';
 import { Section } from '@/components/Page';
 import { http } from '@/lib/api';
-import { dateTime, daysUntil } from '@/lib/format';
+import { dateTime, daysUntil, fromMinor, money, toMinor } from '@/lib/format';
 import { qk } from '@/lib/query';
 import type { CustomerEntitlements, Issue, Plan, Stack } from '@/lib/types';
 import {
@@ -70,9 +70,17 @@ export function EntitlementsTab({
   const base = planFeatures(plan);
   const baseLimits = planLimits(plan);
   const dirty = isDirty(state, saved);
+  // A price override is charged in the plan's own currency: two prices in two currencies for one
+  // customer is a billing question this console does not answer.
+  const currency = plan?.currency ?? entitlements.effective.currency;
+  const priceError =
+    state.priceMajor.trim() === '' || toMinor(state.priceMajor, currency) !== null
+      ? undefined
+      : 'A price is a number, and it cannot be negative.';
 
   const save = useMutation({
-    mutationFn: () => http.put(`/api/v1/customers/${customerId}/entitlements`, savePayload(state)),
+    mutationFn: () =>
+      http.put(`/api/v1/customers/${customerId}/entitlements`, savePayload(state, currency)),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.entitlements(customerId) });
       await queryClient.invalidateQueries({ queryKey: qk.fleet() });
@@ -140,6 +148,23 @@ export function EntitlementsTab({
               {state.expiryDay === ''
                 ? 'No expiry. Their CRM keeps working until you say otherwise.'
                 : 'Reads keep working after this date; every change is refused.'}
+            </span>
+          </Field>
+          <Field label="Price a month">
+            <Input
+              aria-label="Price a month"
+              inputMode="decimal"
+              placeholder={fromMinor(plan?.priceMonthlyMinor ?? null, currency) || 'Not sold'}
+              error={priceError}
+              value={state.priceMajor}
+              onChange={(e) => {
+                setState({ ...state, priceMajor: e.target.value });
+              }}
+            />
+            <span className="mt-1 block text-sm text-muted">
+              {state.priceMajor.trim() === ''
+                ? `They pay what the plan charges, ${money(plan?.priceMonthlyMinor ?? null, currency)}.`
+                : `${money(toMinor(state.priceMajor, currency), currency)} a month, instead of the plan's ${money(plan?.priceMonthlyMinor ?? null, currency)}.`}
             </span>
           </Field>
           <Field label="Now">
