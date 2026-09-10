@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./styles.css": "./src/tokens.css",
+    "./charts": "./src/charts/index.ts",
     "./*": "./src/*.tsx",
     "./utils": "./src/utils.ts",
     "./hooks": "./src/hooks.ts"
@@ -19,6 +20,9 @@
   },
   "dependencies": {
     "clsx": "2.1.1",
+    "d3-array": "3.2.4",
+    "d3-scale": "4.0.2",
+    "d3-shape": "3.2.0",
     "lucide-react": "1.39.0",
     "tailwind-merge": "3.4.1",
     "zustand": "5.0.9"
@@ -28,6 +32,9 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/d3-array": "3.2.2",
+    "@types/d3-scale": "4.0.9",
+    "@types/d3-shape": "3.2.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
     "react": "19.2.8",
