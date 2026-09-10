@@ -77,14 +77,14 @@
     <main>
       <div class="wrap">
         <div class="page-head">
-          <div class="eyebrow">Security and data</div>
+          <p class="eyebrow">Security and data</p>
           <h1>Your data is on your server. Here is what that means in practice.</h1>
           <p>
             Not a shared database with a tenant column. One company, one installation, one database,
             one address. What follows is what is actually built, not a badge wall.
           </p>
         </div>
-        <section class="security-section" data-reveal>
+        <section class="security-section">
           <img class="object" src="/objects/sim.png" alt="" width="72" height="72" loading="lazy" />
           <div class="stack">
             <h2 class="h3">One company, one installation</h2>
@@ -109,7 +109,7 @@
             </div>
           </div>
         </section>
-        <section class="security-section" data-reveal>
+        <section class="security-section">
           <img class="object" src="/objects/key.png" alt="" width="72" height="72" loading="lazy" />
           <div class="stack">
             <h2 class="h3">Two-factor on every account</h2>
@@ -137,7 +137,7 @@
             </div>
           </div>
         </section>
-        <section class="security-section" data-reveal>
+        <section class="security-section">
           <img
             class="object"
             src="/objects/lock.png"
@@ -169,7 +169,7 @@
             </div>
           </div>
         </section>
-        <section class="security-section" data-reveal>
+        <section class="security-section">
           <img
             class="object"
             src="/objects/shield.png"
@@ -201,7 +201,7 @@
             </div>
           </div>
         </section>
-        <section class="security-section" data-reveal>
+        <section class="security-section">
           <img
             class="object"
             src="/objects/cassette.png"
@@ -232,7 +232,7 @@
             </div>
           </div>
         </section>
-        <section class="security-section" data-reveal>
+        <section class="security-section">
           <img
             class="object"
             src="/objects/hourglass.png"
@@ -264,12 +264,9 @@
             </div>
           </div>
         </section>
-        <section class="band grid-2" data-reveal>
+        <section class="band grid-2">
           <figure class="fig">
-            <figcaption class="caption fig-label">
-              <span>Fig. 13 · Audit log</span><span>append-only at the database level</span>
-            </figcaption>
-            <div class="fig-frame">
+            <div class="frame">
               <picture data-themed>
                 <source type="image/avif" srcset="/shots/settings-audit-dark.avif" />
                 <source type="image/webp" srcset="/shots/settings-audit-dark.webp" />
@@ -282,12 +279,12 @@
                 />
               </picture>
             </div>
+            <figcaption class="fig-note">
+              <span>Fig. 13 · Audit log</span><span>append-only at the database level</span>
+            </figcaption>
           </figure>
           <figure class="fig">
-            <figcaption class="caption fig-label">
-              <span>Fig. 14 · Backups and retention</span><span>nightly, last fourteen kept</span>
-            </figcaption>
-            <div class="fig-frame">
+            <div class="frame">
               <picture data-themed>
                 <source type="image/avif" srcset="/shots/settings-backups-dark.avif" />
                 <source type="image/webp" srcset="/shots/settings-backups-dark.webp" />
@@ -300,10 +297,13 @@
                 />
               </picture>
             </div>
+            <figcaption class="fig-note">
+              <span>Fig. 14 · Backups and retention</span><span>nightly, last fourteen kept</span>
+            </figcaption>
           </figure>
         </section>
 
-        <section class="band split-even" style="display: grid; gap: 48px" data-reveal>
+        <section class="band split-even" style="align-items: start; border-bottom: 0">
           <div class="stack">
             <h2 class="h2">What we can and cannot do inside your installation</h2>
             <p class="muted">
@@ -312,15 +312,15 @@
             </p>
           </div>
           <div class="rows">
-            <div class="row can">
+            <div class="row">
               <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
               ><span>List who is able to sign in</span>
             </div>
-            <div class="row can">
+            <div class="row">
               <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
               ><span>Clear one person's second factor so they can set up a new authenticator</span>
             </div>
-            <div class="row can">
+            <div class="row">
               <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
               ><span>End one person's sessions</span>
             </div>
@@ -337,13 +337,6 @@
               ><span>Delete anything, remotely or otherwise</span>
             </div>
           </div>
-        </section>
-
-        <section class="closing">
-          <img src="/brand/mark.svg" alt="" width="36" height="36" />
-          <h2>Ask us the hard questions on the call.</h2>
-          <p>We would rather answer them before you buy than after.</p>
-          <a class="btn btn-primary btn-lg" href="/contact">Book a demo</a>
         </section>
       </div>
     </main>

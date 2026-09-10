@@ -18,6 +18,18 @@ The design lives in `docs/design/Marketing Site.dc.html` and is the visual and c
 The three legal pages take their text verbatim from `apps/web/src/features/legal/`; that copy is
 published on every customer's CRM as well, and the two must not drift.
 
+## Checking it
+
+`apps/web/scripts/check-site.mjs` loads every page in a real browser at desktop and phone width and
+reports only what is wrong: horizontal overflow, a skipped heading level, a missing alt or missing
+dimensions, an image that failed to decode, and any request that came back 400 or worse. It lives
+in `apps/web` because that is where Playwright already is.
+
+```
+cd apps/site/public && python -m http.server 8099
+node apps/web/scripts/check-site.mjs [--shots]
+```
+
 ## Product shots
 
 `apps/web/public/help` holds every figure in both themes: light as AVIF, WebP and PNG, dark as AVIF

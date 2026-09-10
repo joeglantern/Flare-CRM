@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/assets/site.css" />
   </head>
   <body>
-    <header class="site-header">
+    <header class="site-header on-sky">
       <div class="wrap">
         <a class="brand" href="/"
           ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b
@@ -75,30 +75,62 @@
       </form>
     </dialog>
     <main>
-      <div class="wrap">
-        <div class="page-head">
-          <div class="eyebrow">Setup</div>
-          <h1>Between saying yes and going live.</h1>
+      <section class="sky hero" style="min-height: 0; padding: 150px 0 88px">
+        <img
+          class="plate"
+          data-layer="plate"
+          src="/plates/light-shaft.webp"
+          alt=""
+          width="828"
+          height="468"
+        />
+        <div class="grain"></div>
+        <p class="alt">ALT 900 m · on approach</p>
+        <div class="hero-copy">
+          <h1 style="font-size: clamp(34px, 5vw, 64px)">Between saying yes and going live.</h1>
           <p>
             About a week end to end. Inside a day if you keep the address we give you and leave
             WhatsApp for later. The slow part is not us, and we say which part it is.
           </p>
         </div>
-        <section class="rail-grid step" data-reveal>
-          <div class="step-copy">
-            <div class="eyebrow">About 45 minutes</div>
+        <div class="bloom" data-layer="bloom"></div>
+        <img
+          class="dive screen"
+          data-layer="dive"
+          src="/mascot/flying.webp"
+          alt=""
+          width="384"
+          height="256"
+          style="left: 8%; top: 55%; width: clamp(120px, 16vw, 200px)"
+        />
+      </section>
+
+      <div class="wrap">
+        <section class="step">
+          <div class="step-when">
+            <span class="n">1</span><span class="time">About 45 minutes</span>
+          </div>
+          <div>
             <h2>Discovery call</h2>
             <p>
               What your team does now, how many people, which phone system, whether WhatsApp is
               involved. We show the product on something close to your data.
             </p>
           </div>
-          <div class="rail rail-lit rail-start"><span class="rail-node">1</span></div>
-          <div></div>
+          <div class="step-mascot">
+            <img
+              class="screen"
+              src="/mascot/reading.webp"
+              alt=""
+              width="384"
+              height="256"
+              loading="lazy"
+            />
+          </div>
         </section>
-        <section class="rail-grid step step--flip" data-reveal>
-          <div class="step-copy">
-            <div class="eyebrow">Same day</div>
+        <section class="step">
+          <div class="step-when"><span class="n">2</span><span class="time">Same day</span></div>
+          <div>
             <h2>Your installation</h2>
             <p>
               Your own server, your own database, your own address at yourcompany.flarehub.co.ke.
@@ -106,12 +138,11 @@
               them.
             </p>
           </div>
-          <div class="rail rail-lit"><span class="rail-node">2</span></div>
           <div></div>
         </section>
-        <section class="rail-grid step" data-reveal>
-          <div class="step-copy">
-            <div class="eyebrow">1 day</div>
+        <section class="step">
+          <div class="step-when"><span class="n">3</span><span class="time">1 day</span></div>
+          <div>
             <h2>Your own domain</h2>
             <p>
               If you want crm.yourcompany.co.ke, you publish two DNS records and we verify both. The
@@ -121,12 +152,11 @@
               Most of the day is DNS propagating. Skip this step and you are live the same day.
             </p>
           </div>
-          <div class="rail rail-lit"><span class="rail-node">3</span></div>
           <div></div>
         </section>
-        <section class="rail-grid step step--flip" data-reveal>
-          <div class="step-copy">
-            <div class="eyebrow">Half a day</div>
+        <section class="step">
+          <div class="step-when"><span class="n">4</span><span class="time">Half a day</span></div>
+          <div>
             <h2>Phone system</h2>
             <p>
               Your Yeastar PBX is connected and each person is mapped to their extension. Usually
@@ -137,12 +167,20 @@
               others. We check this on the discovery call.
             </p>
           </div>
-          <div class="rail rail-lit"><span class="rail-node">4</span></div>
-          <div></div>
+          <div class="step-mascot">
+            <img
+              class="screen"
+              src="/mascot/headset.webp"
+              alt=""
+              width="384"
+              height="256"
+              loading="lazy"
+            />
+          </div>
         </section>
-        <section class="rail-grid step" data-reveal>
-          <div class="step-copy">
-            <div class="eyebrow">2 to 5 days</div>
+        <section class="step">
+          <div class="step-when"><span class="n">5</span><span class="time">2 to 5 days</span></div>
+          <div>
             <h2>WhatsApp</h2>
             <p>
               Meta reviews the business account. We connect it the day they approve. This is the
@@ -150,35 +188,52 @@
             </p>
             <p class="step-note">Leave it for later and it does not hold up going live.</p>
           </div>
-          <div class="rail rail-lit"><span class="rail-node">5</span></div>
           <div></div>
         </section>
-        <section class="rail-grid step step--flip" data-reveal>
-          <div class="step-copy">
-            <div class="eyebrow">Half a day</div>
+        <section class="step">
+          <div class="step-when"><span class="n">6</span><span class="time">Half a day</span></div>
+          <div>
             <h2>Your data</h2>
             <p>
               Contacts and companies imported from CSV with your own column names mapped to ours,
               and a dry run you approve before anything is written.
             </p>
           </div>
-          <div class="rail rail-lit"><span class="rail-node">6</span></div>
-          <div></div>
+          <div class="step-mascot">
+            <img
+              class="screen"
+              src="/mascot/folders.webp"
+              alt=""
+              width="384"
+              height="256"
+              loading="lazy"
+            />
+          </div>
         </section>
-        <section class="rail-grid step" data-reveal>
-          <div class="step-copy">
-            <div class="eyebrow">2 hours, then 1 hour</div>
+        <section class="step">
+          <div class="step-when">
+            <span class="n">7</span><span class="time">2 hours, then 1 hour</span>
+          </div>
+          <div>
             <h2>Training</h2>
             <p>
               Two hours for the team on the phone, the inbox and the timeline. One hour for
               administrators on users, roles, retention and the audit log.
             </p>
           </div>
-          <div class="rail rail-lit rail-end"><span class="rail-node">7</span></div>
-          <div></div>
+          <div class="step-mascot">
+            <img
+              class="screen"
+              src="/mascot/celebrating.webp"
+              alt=""
+              width="384"
+              height="256"
+              loading="lazy"
+            />
+          </div>
         </section>
-        <section class="band" data-reveal>
-          <div class="card split-even" style="display: grid; gap: 40px">
+        <section class="band" style="border-bottom: 0">
+          <div class="card split-even" style="align-items: start">
             <h2 class="h3">What we need from you before day one</h2>
             <ul class="ticks">
               <li>
@@ -205,13 +260,6 @@
               </li>
             </ul>
           </div>
-        </section>
-
-        <section class="closing">
-          <img src="/brand/mark.svg" alt="" width="36" height="36" />
-          <h2>Start with the 45 minutes.</h2>
-          <p>Everything after that is us doing the work.</p>
-          <a class="btn btn-primary btn-lg" href="/contact">Book a demo</a>
         </section>
       </div>
     </main>

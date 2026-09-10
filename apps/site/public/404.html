@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="/assets/site.css" />
   </head>
   <body>
-    <header class="site-header">
+    <header class="site-header on-sky">
       <div class="wrap">
         <a class="brand" href="/"
           ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b
@@ -69,20 +69,35 @@
       </form>
     </dialog>
     <main>
-      <div class="wrap">
-        <section class="notfound">
-          <img class="object" src="/objects/folder.png" alt="" width="96" height="96" />
-          <h1>That page is not here.</h1>
-          <p class="lede" style="max-width: 44ch">
-            The link may be old, or we may have moved something. The product, the pricing and the
-            setup steps are all one click away.
-          </p>
-          <div class="hero-actions" style="justify-content: center">
-            <a class="btn btn-primary btn-lg" href="/">Back to the start</a>
-            <a class="btn btn-lg" href="/contact">Talk to us</a>
-          </div>
-        </section>
-      </div>
+      <section class="sky notfound">
+        <img
+          class="plate"
+          data-layer="plate"
+          src="/plates/cloud-layers.webp"
+          alt=""
+          width="828"
+          height="466"
+          style="opacity: 0.7"
+        />
+        <div class="grain"></div>
+        <img
+          class="screen"
+          src="/mascot/tangled.webp"
+          alt=""
+          width="384"
+          height="256"
+          style="position: relative; z-index: 3"
+        />
+        <h1 style="position: relative; z-index: 3">That page is not here.</h1>
+        <p class="muted" style="position: relative; z-index: 3; max-width: 44ch; color: #a3a19c">
+          The link may be old, or we may have moved something. The product, the pricing and the
+          setup steps are all one click away.
+        </p>
+        <div class="hero-actions" style="position: relative; z-index: 3">
+          <a class="btn btn-primary btn-lg" href="/">Back to the start</a>
+          <a class="btn btn-lg" href="/contact">Talk to us</a>
+        </div>
+      </section>
     </main>
     <footer class="site-footer">
       <div class="wrap">

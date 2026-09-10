@@ -1,9 +1,10 @@
 /*
- * The three things on this site that need script, and nothing else.
+ * The four things on this site that need script, and nothing else.
  *
- * Every page reads and works with this file blocked: it is dark, the screenshots are dark, and the
- * sign-in control is an ordinary link. What is added here is the ability to change any of that,
- * which by definition cannot be done in CSS alone.
+ * Every page reads and works with this file blocked: it is dark, the screenshots are dark, the
+ * layers sit on their final frame because the stylesheet says so, and the sign-in control is an
+ * ordinary link to a dialog that :target opens. What is added here is the ability to change the
+ * theme, to load a recording only when it is reached, and to turn a company name into an address.
  */
 (function () {
   var STORE = 'flarehub-theme';
@@ -19,14 +20,14 @@
   }
 
   /*
-   * The markup carries the dark screenshots, matching the page's own default. Choosing the light
-   * ones is only possible once somebody has chosen the light theme, and choosing is what script is
-   * for. Nothing here runs unless the visitor presses the toggle.
+   * The markup carries the dark screenshots, matching the page's own default, except inside a
+   * black panel where the dark shot is the only correct one in either theme. Those are marked
+   * data-fixed and left alone.
    */
   function swapShots(theme) {
     var from = theme === 'light' ? '-dark.' : '-light.';
     var to = theme === 'light' ? '-light.' : '-dark.';
-    var shots = document.querySelectorAll('picture[data-themed]');
+    var shots = document.querySelectorAll('picture[data-themed]:not([data-fixed])');
     for (var i = 0; i < shots.length; i++) {
       var kids = shots[i].children;
       for (var k = 0; k < kids.length; k++) {
@@ -69,11 +70,66 @@
   }
   if (saved === 'light' || saved === 'dark') apply(saved, false);
 
+  /*
+   * One flag for "do not move", set from the system preference and from the absence of
+   * scroll-driven animation. The stylesheet already covers both on its own; this makes the state
+   * visible to the parts that are not CSS, which is the recordings.
+   */
+  var still =
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
+    !(window.CSS && CSS.supports && CSS.supports('animation-timeline: view()'));
+  if (still) root.setAttribute('data-rm', '1');
+
+  /*
+   * Recordings load when they are reached and not before: preload="none" plus a source that is
+   * only attached on intersection. Under reduced motion nothing loads until the visitor presses
+   * play, and until then the poster is the same frame the recording opens on.
+   */
+  var clips = document.querySelectorAll('video[data-src]');
+  function load(video) {
+    if (video.dataset.loaded === '1') return;
+    video.dataset.loaded = '1';
+    var src = document.createElement('source');
+    src.src = video.dataset.src;
+    src.type = 'video/mp4';
+    video.appendChild(src);
+    video.load();
+  }
+  function playable(video) {
+    load(video);
+    var playing = video.play();
+    if (playing && playing.catch) playing.catch(function () {});
+  }
+  if (clips.length > 0 && !still && 'IntersectionObserver' in window) {
+    var watcher = new IntersectionObserver(
+      function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          if (!entries[i].isIntersecting) continue;
+          playable(entries[i].target);
+          watcher.unobserve(entries[i].target);
+        }
+      },
+      { rootMargin: '200px' },
+    );
+    for (var c = 0; c < clips.length; c++) watcher.observe(clips[c]);
+  }
+
   document.addEventListener('click', function (event) {
     var toggle = event.target.closest('[data-theme-toggle]');
     if (toggle) {
       event.preventDefault();
       apply(current() === 'light' ? 'dark' : 'light', true);
+      return;
+    }
+    var play = event.target.closest('.clip-play');
+    if (play) {
+      event.preventDefault();
+      var clip = play.closest('.clip');
+      var video = clip && clip.querySelector('video');
+      if (video) {
+        play.style.display = 'none';
+        playable(video);
+      }
       return;
     }
     var open = event.target.closest('[data-signin-open]');

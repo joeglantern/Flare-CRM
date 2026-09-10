@@ -78,9 +78,9 @@
       <div class="wrap">
         <section class="contact">
           <div class="stack" style="gap: 22px">
-            <div class="eyebrow">Book a demo</div>
+            <p class="eyebrow">Book a demo</p>
             <h1>Forty-five minutes. Bring the spreadsheet.</h1>
-            <p class="lede" style="max-width: 40ch">
+            <p class="muted" style="font-size: 18px; max-width: 40ch; line-height: 1.5">
               We ask what your team does now, how many people, which phone system, and whether
               WhatsApp is involved. Then we show you the product on something close to your data.
             </p>
@@ -107,6 +107,22 @@
                 </div>
               </div>
             </dl>
+            <div class="reply">
+              <div class="reply-face">
+                <img
+                  class="screen"
+                  src="/mascot/face-headset.webp"
+                  alt=""
+                  width="483"
+                  height="334"
+                  loading="lazy"
+                />
+              </div>
+              <p class="muted" style="font-size: 15px; margin: 0">
+                Somebody reads this, not a queue. You will hear back inside one working day, and it
+                will be a person who can answer the technical questions.
+              </p>
+            </div>
           </div>
 
           <form
@@ -120,38 +136,38 @@
               <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a> instead and say the
               same things.
             </p>
-            <label class="field" for="name"
+            <label class="field" for="f-name"
               ><span>Your name</span>
-              <input id="name" name="name" type="text" placeholder="Wanjiru Kamau" required />
+              <input id="f-name" name="name" type="text" placeholder="Wanjiru Kamau" required />
             </label>
-            <label class="field" for="email"
+            <label class="field" for="f-email"
               ><span>Work email</span>
               <input
-                id="email"
+                id="f-email"
                 name="email"
                 type="text"
                 placeholder="you@yourcompany.co.ke"
                 required
               />
             </label>
-            <label class="field" for="company"
+            <label class="field" for="f-company"
               ><span>Company</span>
               <input
-                id="company"
+                id="f-company"
                 name="company"
                 type="text"
                 placeholder="Kilimani Auto Parts"
                 required
               />
             </label>
-            <label class="field" for="people"
+            <label class="field" for="f-people"
               ><span>How many people would use it</span>
-              <input id="people" name="people" type="text" placeholder="12" />
+              <input id="f-people" name="people" type="text" placeholder="12" />
             </label>
-            <label class="field" for="problem"
+            <label class="field" for="f-problem"
               ><span>What is not working today</span>
               <textarea
-                id="problem"
+                id="f-problem"
                 name="problem"
                 placeholder="Missed calls go nowhere. WhatsApp lives on three phones."
               ></textarea>

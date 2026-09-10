@@ -74,24 +74,23 @@
     <main>
       <div class="wrap">
         <div class="page-head">
-          <div class="eyebrow">Product</div>
+          <p class="eyebrow">Product</p>
           <h1>Five things it does, shown at the size you will use them.</h1>
           <p>
             Every screenshot on this page is the real product. Figure numbers so you can ask about
             one on the call.
           </p>
         </div>
-        <section class="product-section" data-reveal>
+        <nav class="product-nav" aria-label="On this page">
+          <a href="#s01">01 Calls</a>
+          <a href="#s02">02 WhatsApp</a>
+          <a href="#s03">03 The timeline</a>
+          <a href="#s04">04 Deals</a>
+          <a href="#s05">05 Reports</a>
+        </nav>
+        <section class="product-section" id="s01">
           <div class="product-copy">
-            <div class="caption">01</div>
-            <img
-              class="object"
-              src="/objects/handset.png"
-              alt=""
-              width="64"
-              height="64"
-              loading="lazy"
-            />
+            <p class="caption">01</p>
             <h2>Calls</h2>
             <p>
               Connected to your Yeastar PBX. The product knows who is calling before you answer,
@@ -126,28 +125,38 @@
           </div>
           <div class="product-figs">
             <figure class="fig">
-              <figcaption class="caption fig-label">
-                <span>Fig. 7 · Live calls board</span><span>updates every 5 s</span>
-              </figcaption>
-              <div class="fig-frame">
-                <picture data-themed>
+              <div class="clip">
+                <picture data-themed data-fixed>
                   <source type="image/avif" srcset="/shots/live-calls-dark.avif" />
                   <source type="image/webp" srcset="/shots/live-calls-dark.webp" />
                   <img
                     src="/shots/live-calls-light.png"
-                    alt="Live calls board"
+                    alt=""
                     width="1280"
                     height="800"
                     loading="lazy"
                   />
                 </picture>
+                <video
+                  data-src="/video/live-calls.mp4"
+                  poster="/shots/live-calls-dark.webp"
+                  muted
+                  playsinline
+                  loop
+                  preload="none"
+                  aria-label="The live calls board updating"
+                ></video>
+                <button class="clip-play" type="button" aria-label="Play the recording">
+                  <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#play" /></svg>
+                </button>
+                <span class="clip-chip"><i></i>The live calls board updating</span>
               </div>
+              <figcaption class="fig-note">
+                <span>Fig. 7 · Live calls board, live</span><span>updates every 5 s</span>
+              </figcaption>
             </figure>
             <figure class="fig">
-              <figcaption class="caption fig-label">
-                <span>Fig. 8 · Call detail and recording</span><span>playback is audited</span>
-              </figcaption>
-              <div class="fig-frame">
+              <div class="frame">
                 <picture data-themed>
                   <source type="image/avif" srcset="/shots/call-detail-dark.avif" />
                   <source type="image/webp" srcset="/shots/call-detail-dark.webp" />
@@ -160,20 +169,15 @@
                   />
                 </picture>
               </div>
+              <figcaption class="fig-note">
+                <span>Fig. 8 · Call detail and recording</span><span>playback is audited</span>
+              </figcaption>
             </figure>
           </div>
         </section>
-        <section class="product-section" data-reveal>
+        <section class="product-section" id="s02">
           <div class="product-copy">
-            <div class="caption">02</div>
-            <img
-              class="object"
-              src="/objects/chat-bubble.png"
-              alt=""
-              width="64"
-              height="64"
-              loading="lazy"
-            />
+            <p class="caption">02</p>
             <h2>WhatsApp</h2>
             <p>
               One WhatsApp Business number, one inbox, one thread per customer. Unassigned messages
@@ -206,10 +210,7 @@
           </div>
           <div class="product-figs">
             <figure class="fig">
-              <figcaption class="caption fig-label">
-                <span>Fig. 9 · Inbox</span><span>WhatsApp Business Cloud API</span>
-              </figcaption>
-              <div class="fig-frame">
+              <div class="frame">
                 <picture data-themed>
                   <source type="image/avif" srcset="/shots/inbox-dark.avif" />
                   <source type="image/webp" srcset="/shots/inbox-dark.webp" />
@@ -222,20 +223,15 @@
                   />
                 </picture>
               </div>
+              <figcaption class="fig-note">
+                <span>Fig. 9 · Inbox</span><span>WhatsApp Business Cloud API</span>
+              </figcaption>
             </figure>
           </div>
         </section>
-        <section class="product-section" data-reveal>
+        <section class="product-section" id="s03">
           <div class="product-copy">
-            <div class="caption">03</div>
-            <img
-              class="object"
-              src="/objects/folder.png"
-              alt=""
-              width="64"
-              height="64"
-              loading="lazy"
-            />
+            <p class="caption">03</p>
             <h2>The timeline</h2>
             <p>
               Contacts, companies, leads and deals each have one. Calls, messages, notes, tasks,
@@ -266,10 +262,7 @@
           </div>
           <div class="product-figs">
             <figure class="fig">
-              <figcaption class="caption fig-label">
-                <span>Fig. 10 · Contact and timeline</span><span>every activity type</span>
-              </figcaption>
-              <div class="fig-frame">
+              <div class="frame">
                 <picture data-themed>
                   <source type="image/avif" srcset="/shots/contact-detail-dark.avif" />
                   <source type="image/webp" srcset="/shots/contact-detail-dark.webp" />
@@ -282,20 +275,15 @@
                   />
                 </picture>
               </div>
+              <figcaption class="fig-note">
+                <span>Fig. 10 · Contact and timeline</span><span>every activity type</span>
+              </figcaption>
             </figure>
           </div>
         </section>
-        <section class="product-section" data-reveal>
+        <section class="product-section" id="s04">
           <div class="product-copy">
-            <div class="caption">04</div>
-            <img
-              class="object"
-              src="/objects/pipeline.png"
-              alt=""
-              width="64"
-              height="64"
-              loading="lazy"
-            />
+            <p class="caption">04</p>
             <h2>Deals</h2>
             <p>
               A board per pipeline, stages you name with a probability each, and a forecast weighted
@@ -322,10 +310,7 @@
           </div>
           <div class="product-figs">
             <figure class="fig">
-              <figcaption class="caption fig-label">
-                <span>Fig. 11 · Deals board</span><span>KES, thousands separated</span>
-              </figcaption>
-              <div class="fig-frame">
+              <div class="frame">
                 <picture data-themed>
                   <source type="image/avif" srcset="/shots/deals-board-dark.avif" />
                   <source type="image/webp" srcset="/shots/deals-board-dark.webp" />
@@ -338,20 +323,15 @@
                   />
                 </picture>
               </div>
+              <figcaption class="fig-note">
+                <span>Fig. 11 · Deals board</span><span>KES, thousands separated</span>
+              </figcaption>
             </figure>
           </div>
         </section>
-        <section class="product-section" data-reveal>
+        <section class="product-section" id="s05">
           <div class="product-copy">
-            <div class="caption">05</div>
-            <img
-              class="object"
-              src="/objects/bar-chart.png"
-              alt=""
-              width="64"
-              height="64"
-              loading="lazy"
-            />
+            <p class="caption">05</p>
             <h2>Reports</h2>
             <p>
               Six reports, each a table you can export and a chart you can read. Agents see their
@@ -378,10 +358,7 @@
           </div>
           <div class="product-figs">
             <figure class="fig">
-              <figcaption class="caption fig-label">
-                <span>Fig. 12 · Calls summary</span><span>daily buckets, EAT</span>
-              </figcaption>
-              <div class="fig-frame">
+              <div class="frame">
                 <picture data-themed>
                   <source type="image/avif" srcset="/shots/report-calls-summary-dark.avif" />
                   <source type="image/webp" srcset="/shots/report-calls-summary-dark.webp" />
@@ -394,12 +371,15 @@
                   />
                 </picture>
               </div>
+              <figcaption class="fig-note">
+                <span>Fig. 12 · Calls summary</span><span>daily buckets, EAT</span>
+              </figcaption>
             </figure>
           </div>
         </section>
-        <section class="band split" data-reveal>
+        <section class="band split">
           <h2 class="h2">Also in the box, because a CRM without them is not one.</h2>
-          <div class="chips" style="grid-template-columns: 1fr 1fr">
+          <div class="chips">
             <span class="chip"
               ><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check" /></svg
               >Two-factor authentication</span
@@ -434,13 +414,24 @@
             >
           </div>
         </section>
-        <section class="closing">
-          <img src="/brand/mark.svg" alt="" width="36" height="36" />
+      </div>
+
+      <section class="sky closing">
+        <div class="grain"></div>
+        <div class="closing-copy">
           <h2>See it on your own data.</h2>
           <p>A 45 minute call, then a demo. Nothing to install to see it.</p>
           <a class="btn btn-primary btn-lg" href="/contact">Book a demo</a>
-        </section>
-      </div>
+        </div>
+        <img
+          class="closing-mascot screen"
+          src="/mascot/celebrating.webp"
+          alt=""
+          width="384"
+          height="256"
+          loading="lazy"
+        />
+      </section>
     </main>
     <footer class="site-footer">
       <div class="wrap">
