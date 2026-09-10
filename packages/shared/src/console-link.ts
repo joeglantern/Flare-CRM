@@ -103,6 +103,9 @@ export const consoleServerEvents = {
 export const linkEntitlementsResponse = z.object({ issueId, envelope: signedEnvelope }).nullable();
 export const linkAckBody = stackToConsoleEvents.ack;
 
+export type ReadinessSummary = z.infer<typeof readinessSummary>;
+export type StackUsage = z.infer<typeof stackUsage>;
+
 export type StackToConsoleEventName = keyof typeof stackToConsoleEvents;
 export type StackToConsolePayload<E extends StackToConsoleEventName> = z.infer<
   (typeof stackToConsoleEvents)[E]

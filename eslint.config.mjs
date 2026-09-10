@@ -115,7 +115,11 @@ export default tseslint.config(
     // web app: browser globals, React rules (docs/17)
     // React UI, wherever it lives: the app and the design system package it shares with the
     // owner console.
-    files: ['apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+    files: [
+      'apps/web/**/*.{ts,tsx}',
+      'apps/console-web/**/*.{ts,tsx}',
+      'packages/ui/**/*.{ts,tsx}',
+    ],
     plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh, 'jsx-a11y': jsxA11y },
     languageOptions: { globals: { ...globals.browser } },
     rules: {
@@ -143,7 +147,7 @@ export default tseslint.config(
     rules: { ...tseslint.configs.disableTypeChecked.rules, 'no-console': 'off' },
   },
   {
-    files: ['apps/web/src/routes/**/*.tsx'],
+    files: ['apps/web/src/routes/**/*.tsx', 'apps/console-web/src/app/router.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
       // TanStack Router: `throw redirect()` / `throw notFound()` are the documented control flow
@@ -151,7 +155,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/web/**/*.test.{ts,tsx}', 'apps/web/vitest.setup.ts'],
+    files: [
+      'apps/web/**/*.test.{ts,tsx}',
+      'apps/console-web/**/*.test.{ts,tsx}',
+      'apps/console-web/src/test/**/*.tsx',
+      'apps/*/vitest.setup.ts',
+    ],
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',

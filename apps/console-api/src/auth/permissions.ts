@@ -42,6 +42,17 @@ export const owner = ac.newRole({
 export const roles = { owner } as const;
 export type RoleName = keyof typeof roles;
 
+/** Every permission the console defines, in `resource:action` form. */
+export const allPermissions: Permission[] = Object.entries(statement).flatMap(
+  ([resource, actions]) =>
+    (actions as readonly string[]).map((a) => `${resource}:${a}` as Permission),
+);
+
+/** What a role may do, for a client that hides what it cannot use. The server still decides. */
+export function permissionsFor(role: string | null | undefined): Permission[] {
+  return allPermissions.filter((p) => roleHasPermission(role, p));
+}
+
 export function roleHasPermission(
   role: string | null | undefined,
   permission: Permission,

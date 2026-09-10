@@ -25,6 +25,10 @@
     "docker:dev:down": "docker compose -f infra/docker/compose.dev.yml down",
     "prepare": "lefthook install || true",
     "dev:web": "pnpm --filter @crm/web dev",
+    "dev:console": "pnpm --filter @crm/console-api dev",
+    "dev:console-web": "pnpm --filter @crm/console-web dev",
+    "db:migrate:console": "pnpm --filter @crm/console-api db:migrate",
+    "db:seed:console": "pnpm --filter @crm/console-api db:seed",
     "openapi:export": "pnpm --filter @crm/api openapi:export",
     "openapi:types": "pnpm --filter @crm/web openapi:types"
   },

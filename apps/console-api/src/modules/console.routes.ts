@@ -20,6 +20,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { ConflictError, NotFoundError } from '../lib/errors.js';
 import { newId } from '../lib/ids.js';
+import { permissionsFor } from '../auth/permissions.js';
 import { auditContext, requireUser } from '../lib/request.js';
 import { planMaps } from './entitlements.service.js';
 
@@ -883,6 +884,42 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         after: { ...request.body, delivered },
       });
       return { data: { delivered } };
+    },
+  });
+
+  // ── who am I ─────────────────────────────────────────────────────────────────────────
+  // Reachable before two-factor is set up: the console has to be able to tell a new owner that
+  // setting it up is the only thing they can do.
+  app.get('/me', {
+    config: { auth: { authenticated: true, allowWithout2FA: true } },
+    schema: {
+      tags: ['console'],
+      response: {
+        200: dataResponse(
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            email: z.string(),
+            role: z.string(),
+            twoFactorEnabled: z.boolean(),
+            permissions: z.array(z.string()),
+          }),
+        ),
+      },
+    },
+    handler: (request) => {
+      const user = requireUser(request);
+      const role = user.role ?? 'owner';
+      return Promise.resolve({
+        data: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role,
+          twoFactorEnabled: user.twoFactorEnabled === true,
+          permissions: permissionsFor(role),
+        },
+      });
     },
   });
 

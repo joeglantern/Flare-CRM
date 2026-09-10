@@ -183,6 +183,23 @@ describe('console: customers, plans and what they are entitled to', () => {
     expect((await ctx.as(null, { method: 'GET', url: '/api/v1/customers' })).statusCode).toBe(401);
   });
 
+  it('tells an owner who they are before they have set two-factor up', async () => {
+    const bare = await ctx.createOwner({ enrol: false, email: 'who@example.com' });
+    const before = await ctx.as(bare, { method: 'GET', url: '/api/v1/me' });
+    expect(before.statusCode, before.body).toBe(200);
+    const waiting =
+      before.json<Envelope<{ twoFactorEnabled: boolean; permissions: string[]; role: string }>>()
+        .data;
+    expect(waiting.twoFactorEnabled).toBe(false);
+    expect(waiting.role).toBe('owner');
+    expect(waiting.permissions).toEqual(
+      expect.arrayContaining(['customer:write', 'entitlement:issue']),
+    );
+
+    const after = await ctx.as(owner, { method: 'GET', url: '/api/v1/me' });
+    expect(after.json<Envelope<{ twoFactorEnabled: boolean }>>().data.twoFactorEnabled).toBe(true);
+  });
+
   it('gives a new customer their subdomain and the default plan', async () => {
     const customer = await newCustomer();
     expect(customer.primaryDomain).toBe('acme.flare.test');
