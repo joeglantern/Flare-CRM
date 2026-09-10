@@ -21,6 +21,31 @@ const csv = z
       .filter(Boolean),
   );
 
+/**
+ * A console on this machine, reached over the Docker bridge or loopback rather than the internet.
+ * The link carries a stack secret, so plain http is refused in production everywhere else; a hop
+ * that never leaves the host is the one case where there is nothing to intercept, and it is how a
+ * console shares a machine with its first customer stack (docs/21 §11).
+ */
+function isOnThisMachine(url: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]') {
+    return true;
+  }
+  if (host === 'host.docker.internal') return true;
+  const parts = host.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+    return false;
+  }
+  const [a, b] = parts as [number, number, number, number];
+  return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -135,12 +160,13 @@ const envSchema = z
       if (
         env.NODE_ENV === 'production' &&
         env.CONSOLE_URL &&
-        !env.CONSOLE_URL.startsWith('https://')
+        !env.CONSOLE_URL.startsWith('https://') &&
+        !isOnThisMachine(env.CONSOLE_URL)
       )
         ctx.addIssue({
           code: 'custom',
           path: ['CONSOLE_URL'],
-          message: 'CONSOLE_URL must be https in production',
+          message: 'CONSOLE_URL must be https in production, unless the console is on this machine',
         });
     }
     if (env.ENTITLEMENTS_FILE !== undefined && env.CONSOLE_PUBLIC_KEY.length === 0)

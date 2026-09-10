@@ -212,6 +212,12 @@ fleet screen shows who has not applied one yet. Back up `/opt/flare-console/.env
 For a first console, before it earns a machine of its own, it can share one with a customer stack.
 Two containers more, about 300 MB, and no second web server.
 
+That stack reaches the console the short way, over the Docker bridge: `CONSOLE_URL=http://<bridge
+address>:4100` rather than the public hostname. It is the one place plain http is accepted in
+production, because the link never leaves the machine, and it means the two do not depend on a DNS
+record or a certificate to talk to each other. Every other stack, on every other machine, still has
+to use https. Point it at the public hostname once there is one.
+
 Port 443 belongs to the customer stack's Caddy, so that Caddy serves the console as an extra site.
 Its Caddyfile ends with `import /etc/caddy/conf.d/*.caddy`, which is empty on an ordinary customer
 stack; here it holds `console.caddy`. The console's api publishes on the host's loopback and on the

@@ -33,6 +33,49 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...base, APP_URL: 'http://crm.example.com' })).toThrow(/https/);
   });
 
+  describe('the owner console link', () => {
+    const linked = {
+      ...base,
+      CONSOLE_STACK_ID: 'stk_abcdefghijklmnopqrst',
+      CONSOLE_STACK_SECRET: 'z'.repeat(43),
+      CONSOLE_PUBLIC_KEY: 'MCowBQYDK2VwAyEA' + 'a'.repeat(28) + '=',
+    };
+
+    it('takes the console over https', () => {
+      const env = loadEnv({ ...linked, CONSOLE_URL: 'https://console.example.com' });
+      expect(env.CONSOLE_URL).toBe('https://console.example.com');
+    });
+
+    it('refuses a console reached over the internet in the clear', () => {
+      expect(() => loadEnv({ ...linked, CONSOLE_URL: 'http://console.example.com' })).toThrow(
+        /https/,
+      );
+    });
+
+    it('allows plain http when the console is on this machine', () => {
+      // A console sharing a host with its first customer stack (docs/21 §11): the link never
+      // leaves the machine, so there is nothing on the wire to intercept.
+      for (const url of [
+        'http://172.17.0.1:4100',
+        'http://127.0.0.1:4100',
+        'http://localhost:4100',
+        'http://10.0.0.5:4100',
+        'http://192.168.1.20:4100',
+        'http://host.docker.internal:4100',
+      ]) {
+        expect(loadEnv({ ...linked, CONSOLE_URL: url }).CONSOLE_URL).toBe(url);
+      }
+      // 172.32 is outside the private range and is somebody else's address.
+      expect(() => loadEnv({ ...linked, CONSOLE_URL: 'http://172.32.0.1:4100' })).toThrow(/https/);
+    });
+
+    it('wants all of the credentials or none of them', () => {
+      expect(() => loadEnv({ ...base, CONSOLE_URL: 'https://console.example.com' })).toThrow(
+        /CONSOLE_STACK_ID/,
+      );
+    });
+  });
+
   it('requires PBX credentials and certificate pin when Yeastar is enabled in production', () => {
     expect(() => loadEnv({ ...base, YEASTAR_ENABLED: 'true' })).toThrow(/YEASTAR_BASE_URL/);
     expect(() =>
