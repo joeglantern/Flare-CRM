@@ -106,6 +106,51 @@ async function slice(file, names, { quality }) {
   }
 }
 
+/**
+ * The figure sheets have no gutters: the character is rendered against pure black so that
+ * mix-blend-mode: screen can drop the background out, hair and cape edges included. So the grid is
+ * divided evenly and each cell is then trimmed back to its own content.
+ */
+async function sliceFigures(file, rows, cols, names, { quality = 62 } = {}) {
+  const source = resolve(src, file);
+  const { width, height } = await sharp(source).metadata();
+  const cellWidth = Math.floor(width / cols);
+  const cellHeight = Math.floor(height / rows);
+  let i = 0;
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      const name = names[i];
+      i += 1;
+      if (!name) continue;
+      const target = resolve(pub, name);
+      await mkdir(dirname(target), { recursive: true });
+      // Cells are exported whole rather than trimmed to the figure. The black around each one is
+      // invisible once it is composited with screen, every pose comes out the same size, which
+      // makes them interchangeable in a layout, and trimming a near-black edge is guesswork.
+      const cell = sharp(source).extract({
+        left: col * cellWidth,
+        top: row * cellHeight,
+        width: cellWidth,
+        height: cellHeight,
+      });
+      const png = await cell.png().toBuffer();
+      await Promise.all([
+        sharp(png).avif({ quality, effort: 9 }).toFile(`${target}.avif`),
+        sharp(png)
+          .webp({ quality: quality + 10, effort: 6 })
+          .toFile(`${target}.webp`),
+      ]);
+      const written = await stat(`${target}.avif`);
+      const shape = await sharp(`${target}.avif`).metadata();
+      console.log(
+        `${name}.avif`,
+        `${String(shape.width)}x${String(shape.height)}`,
+        `${String(Math.round(written.size / 1024))} KB`,
+      );
+    }
+  }
+}
+
 await slice(
   'sheet-a-plates.png',
   ['plates/ember', 'plates/cloud-layers', 'plates/city-under-cloud', 'plates/light-shaft'],
@@ -126,3 +171,40 @@ await slice(
 );
 
 console.log('site assets written to', pub);
+
+await sliceFigures('mascot-poses.png', 4, 4, [
+  'mascot/arms-folded',
+  'mascot/flying',
+  'mascot/pointing',
+  'mascot/on-the-phone',
+  'mascot/headset',
+  'mascot/reading',
+  'mascot/shrug',
+  'mascot/asleep',
+  'mascot/paper-plane',
+  'mascot/shield',
+  'mascot/waving',
+  'mascot/magnifier',
+  'mascot/tangled',
+  'mascot/celebrating',
+  'mascot/folders',
+  'mascot/peeking',
+]);
+
+await sliceFigures('mascot-faces.png', 3, 3, [
+  'mascot/face-smiling',
+  'mascot/face-steady',
+  'mascot/face-sceptical',
+  'mascot/face-laughing',
+  'mascot/face-headset',
+  'mascot/face-thinking',
+  'mascot/hand-thumbs-up',
+  'mascot/hand-wave',
+  'mascot/emblem',
+]);
+
+await sliceFigures('spark-trio.png', 1, 3, ['spark/solid', 'spark/outline', 'spark/ash'], {
+  quality: 70,
+});
+
+await sliceFigures('mascot-dive.png', 1, 1, ['mascot/dive'], { quality: 66 });
