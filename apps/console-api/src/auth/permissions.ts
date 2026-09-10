@@ -17,6 +17,9 @@ export const statement = {
   owner: ['manage'],
   audit: ['read'],
   announce: ['send'],
+  analytics: ['read'],
+  /** Reaching into a customer's own CRM to unstick somebody, and nothing else (docs/21 §9). */
+  support: ['run'],
   settings: ['read', 'manage'],
 } as const;
 
@@ -36,6 +39,8 @@ export const owner = ac.newRole({
   owner: ['manage'],
   audit: ['read'],
   announce: ['send'],
+  analytics: ['read'],
+  support: ['run'],
   settings: ['read', 'manage'],
 });
 

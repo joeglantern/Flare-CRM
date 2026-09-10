@@ -15,6 +15,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { LINK_PROTOCOL, consoleToStackEvents, type StackToConsolePayload } from '@crm/shared';
+import { runSupportCommand, type SupportDeps } from './support.js';
 import type { Redis } from 'ioredis';
 import { io, type Socket } from 'socket.io-client';
 import type { EntitlementsService } from '../../modules/entitlements/entitlements.service.js';
@@ -49,6 +50,11 @@ export interface ConsoleLinkDeps {
   };
   /** Delivered to everyone signed in, and audited, by the caller. */
   onAnnounce: (message: { message: string; level: 'info' | 'warning' | 'error' }) => void;
+  /**
+   * What the provider is allowed to do to this stack when a customer asks for help. Absent means
+   * the door is shut: a stack that was not given this refuses every command.
+   */
+  support?: SupportDeps;
 }
 
 export class ConsoleLink {
@@ -164,6 +170,19 @@ export class ConsoleLink {
       this.deps.onAnnounce(parsed.data);
     });
 
+    // The console asking for a heartbeat now rather than at the next tick.
+    socket.on('ping', () => {
+      void this.beat().catch((err: unknown) => {
+        log.error({ err }, 'heartbeat on request failed');
+      });
+    });
+
+    socket.on('command', (raw: unknown) => {
+      void this.onCommand(raw).catch((err: unknown) => {
+        log.error({ err }, 'a support command failed');
+      });
+    });
+
     this.heartbeatTimer = setInterval(() => {
       void this.beat().catch((err: unknown) => {
         log.error({ err }, 'console heartbeat failed');
@@ -197,6 +216,32 @@ export class ConsoleLink {
     } else {
       this.deps.log.warn({ issueId, reason: outcome.reason }, 'entitlements rejected');
     }
+  }
+
+  /**
+   * A support action from the provider. Three are allowed and the rest are refused out of hand;
+   * the answer always goes back, because a console that hears nothing cannot tell a refusal from a
+   * stack that has gone away.
+   */
+  private async onCommand(raw: unknown): Promise<void> {
+    const parsed = consoleToStackEvents.command.safeParse(raw);
+    if (!parsed.success) {
+      this.deps.log.warn({ issues: parsed.error.issues }, 'console sent a malformed command');
+      return;
+    }
+    const command = parsed.data;
+    const support = this.deps.support;
+    if (support === undefined) {
+      await this.say('commandResult', {
+        commandId: command.commandId,
+        action: command.action,
+        ok: false,
+        message: 'This stack does not accept support commands.',
+      });
+      return;
+    }
+    const result = await runSupportCommand(support, command);
+    await this.say('commandResult', result);
   }
 
   private async hello(): Promise<StackToConsolePayload<'hello'>> {
@@ -262,7 +307,10 @@ export class ConsoleLink {
     }
   }
 
-  private say(event: 'hello' | 'heartbeat' | 'ack', payload: unknown): Promise<void> {
+  private say(
+    event: 'hello' | 'heartbeat' | 'ack' | 'commandResult',
+    payload: unknown,
+  ): Promise<void> {
     this.socket?.emit(event, payload);
     return Promise.resolve();
   }

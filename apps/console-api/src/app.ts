@@ -24,12 +24,15 @@ import authorizePlugin from './plugins/authorize.js';
 import configPlugin from './plugins/config.js';
 import healthPlugin from './plugins/health.js';
 import linkPlugin from './plugins/link.js';
+import operationsPlugin from './plugins/operations.js';
+import schedulerPlugin from './plugins/scheduler.js';
 import mailerPlugin from './plugins/mailer.js';
 import prismaPlugin from './plugins/prisma.js';
 import requestContextPlugin from './plugins/request-context.js';
 import securityPlugin from './plugins/security.js';
 import servicesPlugin from './plugins/services.js';
 import valkeyPlugin from './plugins/valkey.js';
+import analyticsRoutes from './modules/analytics.routes.js';
 import consoleRoutes from './modules/console.routes.js';
 import linkRoutes from './modules/link.routes.js';
 
@@ -82,8 +85,12 @@ export async function buildApp(options: BuildAppOptions): Promise<App> {
   await app.register(authPlugin);
   await app.register(authorizePlugin);
   await app.register(linkPlugin);
+  await app.register(operationsPlugin);
+  // Timers only outside tests: a suite should decide when a rollup runs, not a clock.
+  if (env.NODE_ENV !== 'test') await app.register(schedulerPlugin);
   await app.register(linkRoutes);
   await app.register(consoleRoutes, { prefix: API_PREFIX });
+  await app.register(analyticsRoutes, { prefix: API_PREFIX });
 
   app.readiness.register('signing', () =>
     Promise.resolve({ keyId: app.signer.keyId, algorithm: 'Ed25519' }),

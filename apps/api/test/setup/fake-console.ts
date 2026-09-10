@@ -8,7 +8,13 @@
  */
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { LINK_PROTOCOL, type SignedEnvelope, type StackToConsolePayload } from '@crm/shared';
+import {
+  LINK_PROTOCOL,
+  type SignedEnvelope,
+  type StackToConsolePayload,
+  type SupportCommand,
+  type SupportResult,
+} from '@crm/shared';
 import { Server as IoServer, type Socket } from 'socket.io';
 import { TEST_STACK_ID, TEST_STACK_SECRET } from './signing.js';
 
@@ -18,17 +24,21 @@ export interface FakeConsole {
   hellos: StackToConsolePayload<'hello'>[];
   heartbeats: StackToConsolePayload<'heartbeat'>[];
   acks: StackToConsolePayload<'ack'>[];
+  /** What the stack answered when the provider asked it to do something. */
+  commandResults: SupportResult[];
   /** Requests made to the two bearer endpoints, with the credential presented. */
   restCalls: { method: string; path: string; authorization: string | undefined }[];
   connectedStacks: () => string[];
   /** Hands a document to a connected stack, the way an owner pressing Issue does. */
   push: (envelope: SignedEnvelope, issueId: string) => boolean;
   announce: (message: { message: string; level: 'info' | 'warning' | 'error' }) => boolean;
+  /** Asks a connected stack to do one supported thing, the way a support action does. */
+  command: (command: SupportCommand) => boolean;
   /** What the REST catch-up will hand out, or null for "nothing waiting". */
   setWaiting: (waiting: { issueId: string; envelope: SignedEnvelope } | null) => void;
   /** Forgets what it has been told, so one test's history cannot satisfy the next test's wait. */
   reset: () => void;
-  waitFor: <E extends 'hello' | 'heartbeat' | 'ack'>(
+  waitFor: <E extends WaitableEvent>(
     event: E,
     predicate?: (payload: StackToConsolePayload<E>) => boolean,
     ms?: number,
@@ -36,10 +46,13 @@ export interface FakeConsole {
   close: () => Promise<void>;
 }
 
+type WaitableEvent = 'hello' | 'heartbeat' | 'ack' | 'commandResult';
+
 export async function startFakeConsole(): Promise<FakeConsole> {
   const hellos: StackToConsolePayload<'hello'>[] = [];
   const heartbeats: StackToConsolePayload<'heartbeat'>[] = [];
   const acks: StackToConsolePayload<'ack'>[] = [];
+  const commandResults: SupportResult[] = [];
   const restCalls: FakeConsole['restCalls'] = [];
   const listeners = new Set<(event: string, payload: unknown) => void>();
   let waiting: { issueId: string; envelope: SignedEnvelope } | null = null;
@@ -126,6 +139,10 @@ export async function startFakeConsole(): Promise<FakeConsole> {
       acks.push(raw as StackToConsolePayload<'ack'>);
       for (const l of listeners) l('ack', raw);
     });
+    socket.on('commandResult', (raw: unknown) => {
+      commandResults.push(raw as SupportResult);
+      for (const l of listeners) l('commandResult', raw);
+    });
     socket.on('disconnect', () => {
       if (live.get(stackId)?.id === socket.id) live.delete(stackId);
     });
@@ -141,6 +158,7 @@ export async function startFakeConsole(): Promise<FakeConsole> {
     hellos,
     heartbeats,
     acks,
+    commandResults,
     restCalls,
     connectedStacks: () => [...live.keys()],
     push: (envelope, issueId) => {
@@ -155,6 +173,12 @@ export async function startFakeConsole(): Promise<FakeConsole> {
       socket.emit('announce', message);
       return true;
     },
+    command: (command) => {
+      const socket = live.get(TEST_STACK_ID);
+      if (!socket) return false;
+      socket.emit('command', command);
+      return true;
+    },
     setWaiting: (next) => {
       waiting = next;
     },
@@ -162,18 +186,22 @@ export async function startFakeConsole(): Promise<FakeConsole> {
       hellos.length = 0;
       heartbeats.length = 0;
       acks.length = 0;
+      commandResults.length = 0;
       restCalls.length = 0;
       waiting = null;
     },
-    waitFor: <E extends 'hello' | 'heartbeat' | 'ack'>(
+    waitFor: <E extends WaitableEvent>(
       event: E,
       predicate?: (payload: StackToConsolePayload<E>) => boolean,
       ms = 8000,
     ) =>
       new Promise<StackToConsolePayload<E>>((resolve, reject) => {
-        const already = (
-          event === 'hello' ? hellos : event === 'heartbeat' ? heartbeats : acks
-        ) as StackToConsolePayload<E>[];
+        const already = {
+          hello: hellos,
+          heartbeat: heartbeats,
+          ack: acks,
+          commandResult: commandResults,
+        }[event] as StackToConsolePayload<E>[];
         const found = [...already].reverse().find((p) => predicate?.(p) ?? true);
         if (found !== undefined) {
           resolve(found);

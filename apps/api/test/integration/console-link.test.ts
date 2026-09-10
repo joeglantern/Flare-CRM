@@ -7,8 +7,11 @@
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { io as connect, type Socket } from 'socket.io-client';
+import type { SupportCommand } from '@crm/shared';
+import { newId } from '../../src/lib/ids.js';
 import { catchUp } from '../../src/integrations/console/catch-up.js';
 import { ConsoleLink, type ConsoleLinkDeps } from '../../src/integrations/console/link.js';
+import type { SupportDeps } from '../../src/integrations/console/support.js';
 import { startFakeConsole, type FakeConsole } from '../setup/fake-console.js';
 import {
   consoleEnv,
@@ -52,8 +55,16 @@ describe('the console link, from the stack side', () => {
     await ctx.close();
   });
 
+  /** The support deps the worker hands the link, so the provider may unstick a person here. */
+  function supportDeps(): SupportDeps {
+    return { db: ctx.app.db, valkey: ctx.app.valkey, audit: ctx.app.audit, log: ctx.app.log };
+  }
+
   /** The link as the worker builds it, minus the parts that belong to the worker. */
-  function buildLink(onAnnounce: ConsoleLinkDeps['onAnnounce'] = () => undefined): ConsoleLink {
+  function buildLink(
+    onAnnounce: ConsoleLinkDeps['onAnnounce'] = () => undefined,
+    support?: SupportDeps,
+  ): ConsoleLink {
     const link = new ConsoleLink({
       valkey: ctx.app.valkey,
       entitlements: ctx.app.entitlements,
@@ -68,6 +79,7 @@ describe('the console link, from the stack side', () => {
         APP_VERSION: 'abc1234',
       },
       onAnnounce,
+      ...(support === undefined ? {} : { support }),
     });
     links.push(link);
     link.start();
@@ -303,5 +315,133 @@ describe('the console link, from the stack side', () => {
       },
     });
     expect(outcome).toEqual({ result: 'unreachable', reason: 'console answered 401' });
+  });
+
+  describe('what the provider may do here, at a customer’s request', () => {
+    /** Somebody with a second factor set up, which is the thing support has to be able to clear. */
+    async function enrolled(): Promise<{ id: string; email: string }> {
+      const user = await ctx.createUser({ role: 'agent', twoFactorEnabled: true });
+      await ctx.app.db.twoFactor.create({
+        data: {
+          id: newId(),
+          userId: user.id,
+          secret: 'JBSWY3DPEHPK3PXP',
+          backupCodes: 'none',
+          verified: true,
+        },
+      });
+      return user;
+    }
+
+    it('clears one person’s second factor and writes it in this customer’s own audit log', async () => {
+      const user = await enrolled();
+      buildLink(() => undefined, supportDeps());
+      await fake.waitFor('hello');
+
+      const commandId = `cmd_${newId()}`;
+      expect(
+        fake.command({
+          commandId,
+          action: 'reset-two-factor',
+          email: user.email,
+          requestedBy: 'owner@flare.test',
+          reason: 'Lost her phone, confirmed by voice',
+        }),
+      ).toBe(true);
+
+      const result = await fake.waitFor('commandResult', (r) => r.commandId === commandId);
+      expect(result.ok).toBe(true);
+      expect(await ctx.app.db.twoFactor.count({ where: { userId: user.id } })).toBe(0);
+      expect(
+        (await ctx.app.db.user.findUniqueOrThrow({ where: { id: user.id } })).twoFactorEnabled,
+      ).toBe(false);
+      // Sessions go with it: they signed in during createUser, so there is one to lose.
+      expect(await ctx.app.db.session.count({ where: { userId: user.id } })).toBe(0);
+
+      // The customer's administrator can see who did it and why, without asking us.
+      const row = await ctx.app.db.auditLog.findFirstOrThrow({
+        where: { action: 'support.two_factor_reset', entityId: user.id },
+      });
+      expect(row.actorType).toBe('system');
+      expect(row.actorId).toBeNull();
+      expect(JSON.stringify(row.after)).toContain('owner@flare.test');
+      expect(JSON.stringify(row.after)).toContain('Lost her phone');
+    });
+
+    it('says so plainly when the email belongs to nobody here', async () => {
+      buildLink(() => undefined, supportDeps());
+      await fake.waitFor('hello');
+
+      const commandId = `cmd_${newId()}`;
+      fake.command({
+        commandId,
+        action: 'reset-two-factor',
+        email: 'stranger@example.com',
+        requestedBy: 'owner@flare.test',
+      });
+      const result = await fake.waitFor('commandResult', (r) => r.commandId === commandId);
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('Nobody here');
+    });
+
+    it('lists who can sign in, and nothing else about them', async () => {
+      const user = await enrolled();
+      buildLink(() => undefined, supportDeps());
+      await fake.waitFor('hello');
+
+      const commandId = `cmd_${newId()}`;
+      fake.command({ commandId, action: 'list-users', requestedBy: 'owner@flare.test' });
+      const result = await fake.waitFor('commandResult', (r) => r.commandId === commandId);
+      expect(result.ok).toBe(true);
+      const listed = result.users?.find((u) => u.email === user.email);
+      expect(listed?.twoFactorEnabled).toBe(true);
+      // A support listing carries no phone number, no extension, no team, no last login address.
+      expect(Object.keys(listed ?? {}).sort()).toEqual([
+        'email',
+        'id',
+        'isActive',
+        'lastSeenAt',
+        'name',
+        'role',
+        'twoFactorEnabled',
+      ]);
+      expect(await ctx.app.db.auditLog.count({ where: { action: 'support.users_listed' } })).toBe(
+        1,
+      );
+    });
+
+    it('refuses an action that is not one of the three', async () => {
+      buildLink(() => undefined, supportDeps());
+      await fake.waitFor('hello');
+      const before = await ctx.app.db.auditLog.count();
+
+      // Malformed on purpose: the console could only send this if it were compromised.
+      fake.command({
+        commandId: `cmd_${newId()}`,
+        action: 'export-contacts',
+        requestedBy: 'owner@flare.test',
+      } as unknown as SupportCommand);
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(fake.commandResults).toHaveLength(0);
+      expect(await ctx.app.db.auditLog.count()).toBe(before);
+    });
+
+    it('refuses every command when it was never given the support door', async () => {
+      const user = await enrolled();
+      buildLink();
+      await fake.waitFor('hello');
+
+      const commandId = `cmd_${newId()}`;
+      fake.command({
+        commandId,
+        action: 'reset-two-factor',
+        email: user.email,
+        requestedBy: 'owner@flare.test',
+      });
+      const result = await fake.waitFor('commandResult', (r) => r.commandId === commandId);
+      expect(result.ok).toBe(false);
+      expect(await ctx.app.db.twoFactor.count({ where: { userId: user.id } })).toBe(1);
+    });
   });
 });

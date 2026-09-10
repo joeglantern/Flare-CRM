@@ -5,8 +5,10 @@ import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { promises as dns } from 'node:dns';
 import { createSigner } from '../lib/signing.js';
+import { AnalyticsService } from '../modules/analytics.service.js';
 import { AuditService } from '../modules/audit.service.js';
 import { ConsoleEntitlementsService } from '../modules/entitlements.service.js';
+import { RollupService } from '../modules/rollup.service.js';
 import { StacksService } from '../modules/stacks.service.js';
 
 export default fp(
@@ -22,6 +24,8 @@ export default fp(
       'stacks',
       new StacksService(app.db, app.config.CONSOLE_URL, signer.publicKeySpkiBase64),
     );
+    app.decorate('analytics', new AnalyticsService(app.db));
+    app.decorate('rollup', new RollupService(app.db));
     // Injected so domain verification can be tested without touching real DNS.
     app.decorate('dnsResolver', {
       resolveCname: (h: string) => dns.resolveCname(h),

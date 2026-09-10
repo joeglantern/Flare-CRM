@@ -14,7 +14,9 @@ import {
   LINK_PROTOCOL,
   type ConsoleServerEventName,
   type ConsoleServerPayload,
+  type SupportCommand,
 } from '@crm/shared';
+import { newId } from '../lib/ids.js';
 import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { Server, type Socket } from 'socket.io';
@@ -25,6 +27,12 @@ const OWNERS_ROOM = 'owners';
 const STALE_AFTER_MS = 90_000;
 const SWEEP_EVERY_MS = 30_000;
 const EVENTS_PER_SECOND = 5;
+/**
+ * How often a heartbeat is kept as a sample. Beats arrive every thirty seconds; a row every five
+ * minutes is 288 a day per stack, which is enough to draw an honest line and little enough to keep
+ * for a month. The gate is one Valkey write, so a beat never costs a query to find out.
+ */
+const SAMPLE_EVERY_MS = 5 * 60_000;
 
 export interface ConsoleLink {
   /** Hands each issued document to its stack, if that stack is connected. */
@@ -32,6 +40,10 @@ export interface ConsoleLink {
   announce: (stackIds: string[], message: { message: string; level: string }) => number;
   disconnect: (stackId: string) => void;
   connectedStacks: () => string[];
+  /** Asks a connected stack to do one supported thing and waits for its answer. */
+  command: (stackId: string, command: SupportCommand, timeoutMs: number) => Promise<unknown>;
+  /** Asks for a heartbeat now rather than at the next tick. */
+  ping: (stackId: string) => boolean;
 }
 
 function nowIso(): string {
@@ -58,6 +70,8 @@ export default fp(
     const link = io.of('/link');
     /** stackId -> the socket currently speaking for it, in this process. */
     const live = new Map<string, Socket>();
+    /** commandId -> whoever is waiting for that stack to answer. */
+    const waiting = new Map<string, (answer: unknown) => void>();
 
     const toOwners = <E extends ConsoleServerEventName>(
       event: E,
@@ -214,6 +228,7 @@ export default fp(
               currentIssueId: h.entitlements.issueId,
             },
           });
+          await sample(stackId, customerId, h);
           await announceFleet();
         })().catch((err: unknown) => {
           app.log.error({ err, stackId }, 'heartbeat failed');
@@ -258,6 +273,18 @@ export default fp(
         });
       });
 
+      socket.on('commandResult', (raw: unknown) => {
+        const parsed = stackToConsoleEvents.commandResult.safeParse(raw);
+        if (!parsed.success) {
+          app.log.warn({ stackId }, 'a stack answered a support command with a bad shape');
+          return;
+        }
+        const settle = waiting.get(parsed.data.commandId);
+        if (!settle) return;
+        waiting.delete(parsed.data.commandId);
+        settle(parsed.data);
+      });
+
       socket.on('disconnect', () => {
         void (async () => {
           // Only if this socket is still the one on record: a replaced socket already handed over.
@@ -269,6 +296,54 @@ export default fp(
         })().catch(() => undefined);
       });
     });
+
+    /**
+     * Keeps one heartbeat in five minutes as a row, so the console can draw what a stack has been
+     * doing rather than only what it is doing. The Valkey key is the gate: whoever sets it first
+     * writes the sample, and everything in between is dropped on the floor deliberately.
+     */
+    async function sample(
+      stackId: string,
+      customerId: string,
+      h: {
+        at: string;
+        version: string;
+        ready: { ok: boolean };
+        usage: {
+          seatsActive: number;
+          storageBytes: number;
+          attachmentsBytes: number;
+          recordingsBytes: number;
+          backupsBytes: number;
+        };
+        lastBackupAt: string | null;
+      },
+    ): Promise<void> {
+      const first = await app.valkey.set(
+        `console:sample:${stackId}`,
+        '1',
+        'PX',
+        SAMPLE_EVERY_MS,
+        'NX',
+      );
+      if (first !== 'OK') return;
+      await app.db.stackSample.create({
+        data: {
+          id: newId(),
+          stackId,
+          customerId,
+          at: new Date(h.at),
+          seatsActive: h.usage.seatsActive,
+          storageBytes: BigInt(h.usage.storageBytes),
+          attachmentsBytes: BigInt(h.usage.attachmentsBytes),
+          recordingsBytes: BigInt(h.usage.recordingsBytes),
+          backupsBytes: BigInt(h.usage.backupsBytes),
+          readyOk: h.ready.ok,
+          version: h.version,
+          lastBackupAt: h.lastBackupAt === null ? null : new Date(h.lastBackupAt),
+        },
+      });
+    }
 
     /** Sends whatever is still outstanding for a stack, newest first. */
     async function deliverOutstanding(stackId: string): Promise<void> {
@@ -347,6 +422,27 @@ export default fp(
         live.get(stackId)?.disconnect(true);
       },
       connectedStacks: () => [...live.keys()],
+      command(stackId, payload, timeoutMs) {
+        const socket = live.get(stackId);
+        if (!socket) return Promise.resolve(null);
+        return new Promise<unknown>((resolve) => {
+          const timer = setTimeout(() => {
+            waiting.delete(payload.commandId);
+            resolve(null);
+          }, timeoutMs);
+          waiting.set(payload.commandId, (answer) => {
+            clearTimeout(timer);
+            resolve(answer);
+          });
+          socket.emit('command', payload);
+        });
+      },
+      ping(stackId) {
+        const socket = live.get(stackId);
+        if (!socket) return false;
+        socket.emit('ping', { at: nowIso() });
+        return true;
+      },
     };
 
     app.decorate('io', io);

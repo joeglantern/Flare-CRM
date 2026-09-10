@@ -66,6 +66,8 @@ async function main(): Promise<void> {
       storage: app.storage,
       log: app.log,
       config: consoleConfig,
+      // The provider may unstick a person here, and nothing else (docs/21 §9).
+      support: { db: app.db, valkey: app.valkey, audit: app.audit, log: app.log },
       onAnnounce: (announcement) => {
         app.realtime.to(rooms.all).emit('system:announce', {
           at: nowIso(),

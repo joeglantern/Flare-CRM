@@ -69,7 +69,31 @@ const planDto = z.object({
   description: z.string(),
   features: featureMapFull,
   limits: limitMapFull,
+  /** Minor units of `currency`, so 1,500 KES is 150000. Null means this plan is not sold. */
+  priceMonthlyMinor: z.number().int().nullable(),
+  currency: z.string(),
   isDefault: z.boolean(),
+});
+
+/** Money never crosses this boundary as a float. */
+const priceMinor = z.number().int().min(0).max(1_000_000_000).nullable();
+
+const ownerDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  isActive: z.boolean(),
+  twoFactorEnabled: z.boolean(),
+  lastSeenAt: z.string().nullable(),
+});
+
+const announcementDto = z.object({
+  id: z.string(),
+  message: z.string(),
+  level: z.enum(['info', 'warning', 'error']),
+  delivered: z.number().int(),
+  sentByName: z.string().nullable(),
+  sentAt: z.string(),
 });
 
 const stackDto = z.object({
@@ -401,6 +425,8 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         id: p.id,
         name: p.name,
         description: p.description,
+        priceMonthlyMinor: p.priceMonthlyMinor,
+        currency: p.currency,
         isDefault: p.isDefault,
         ...planMaps(p.features, p.limits),
       }));
@@ -418,6 +444,8 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           description: z.string().max(2000).default(''),
           features: featureOverrides.default({}),
           limits: limitOverrides.default({}),
+          priceMonthlyMinor: priceMinor.default(null),
+          currency: z.string().trim().length(3).toUpperCase().default('KES'),
           isDefault: z.boolean().default(false),
         })
         .strict(),
@@ -436,6 +464,8 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
             description: b.description,
             features: maps.features,
             limits: maps.limits,
+            priceMonthlyMinor: b.priceMonthlyMinor,
+            currency: b.currency,
             isDefault: b.isDefault,
           },
         });
@@ -444,13 +474,15 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         action: 'plan.create',
         entity: 'plan',
         entityId: created.id,
-        after: { name: created.name, ...maps },
+        after: { name: created.name, price: created.priceMonthlyMinor, ...maps },
       });
       return reply.status(201).send({
         data: {
           id: created.id,
           name: created.name,
           description: created.description,
+          priceMonthlyMinor: created.priceMonthlyMinor,
+          currency: created.currency,
           isDefault: created.isDefault,
           ...maps,
         },
@@ -469,6 +501,8 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           description: z.string().max(2000).optional(),
           features: featureOverrides.optional(),
           limits: limitOverrides.optional(),
+          priceMonthlyMinor: priceMinor.optional(),
+          currency: z.string().trim().length(3).toUpperCase().optional(),
           isDefault: z.boolean().optional(),
         })
         .strict(),
@@ -491,6 +525,10 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
             ...(b.name !== undefined ? { name: b.name } : {}),
             ...(b.description !== undefined ? { description: b.description } : {}),
             ...(b.isDefault !== undefined ? { isDefault: b.isDefault } : {}),
+            ...(b.priceMonthlyMinor !== undefined
+              ? { priceMonthlyMinor: b.priceMonthlyMinor }
+              : {}),
+            ...(b.currency !== undefined ? { currency: b.currency } : {}),
             features: maps.features,
             limits: maps.limits,
           },
@@ -500,14 +538,16 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         action: 'plan.update',
         entity: 'plan',
         entityId: updated.id,
-        before: { name: before.name, ...current },
-        after: { name: updated.name, ...maps },
+        before: { name: before.name, price: before.priceMonthlyMinor, ...current },
+        after: { name: updated.name, price: updated.priceMonthlyMinor, ...maps },
       });
       return {
         data: {
           id: updated.id,
           name: updated.name,
           description: updated.description,
+          priceMonthlyMinor: updated.priceMonthlyMinor,
+          currency: updated.currency,
           isDefault: updated.isDefault,
           ...maps,
         },
@@ -550,12 +590,16 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
             featureOverrides: z.record(z.string(), z.boolean()),
             limitOverrides: z.record(z.string(), z.number().nullable()),
             expiresAt: z.string().nullable(),
+            priceMonthlyMinorOverride: z.number().int().nullable(),
             agreementNotes: z.string(),
             effective: z.object({
               plan: z.object({ id: z.string(), name: z.string() }).nullable(),
               features: featureMapFull,
               limits: limitMapFull,
               expiresAt: z.string().nullable(),
+              /** What this customer is billed: their override, or the plan's price. */
+              priceMonthlyMinor: z.number().int().nullable(),
+              currency: z.string(),
             }),
           }),
         ),
@@ -572,6 +616,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           featureOverrides: (row.featureOverrides ?? {}) as Record<string, boolean>,
           limitOverrides: (row.limitOverrides ?? {}) as Record<string, number | null>,
           expiresAt: row.expiresAt?.toISOString() ?? null,
+          priceMonthlyMinorOverride: row.priceMonthlyMinorOverride,
           agreementNotes: row.agreementNotes,
           effective: await app.entitlements.effective(request.params.id),
         },
@@ -590,6 +635,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           featureOverrides: featureOverrides.optional(),
           limitOverrides: limitOverrides.optional(),
           expiresAt: z.iso.datetime({ offset: true }).nullable().optional(),
+          priceMonthlyMinorOverride: priceMinor.optional(),
           agreementNotes: z.string().max(4000).optional(),
         })
         .strict(),
@@ -609,6 +655,9 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           ...(b.limitOverrides !== undefined ? { limitOverrides: b.limitOverrides } : {}),
           ...(b.expiresAt !== undefined
             ? { expiresAt: b.expiresAt === null ? null : new Date(b.expiresAt) }
+            : {}),
+          ...(b.priceMonthlyMinorOverride !== undefined
+            ? { priceMonthlyMinorOverride: b.priceMonthlyMinorOverride }
             : {}),
           ...(b.agreementNotes !== undefined ? { agreementNotes: b.agreementNotes } : {}),
           updatedById: requireUser(request).id,
@@ -724,6 +773,19 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         entityId: stack.id,
       });
       return { data: rotated };
+    },
+  });
+
+  app.post('/stacks/:stackId/ping', {
+    config: { auth: { permission: 'stack:read' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ stackId: z.string().min(4).max(64) }),
+      response: { 200: dataResponse(z.object({ asked: z.boolean() })) },
+    },
+    handler: (request) => {
+      // No audit row: asking a stack to speak sooner changes nothing about it.
+      return Promise.resolve({ data: { asked: app.link.ping(request.params.stackId) } });
     },
   });
 
@@ -877,6 +939,16 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         stacks.map((s) => s.id),
         request.body,
       );
+      await app.db.announcement.create({
+        data: {
+          id: newId(),
+          customerId: request.params.id,
+          message: request.body.message,
+          level: request.body.level,
+          delivered,
+          sentById: requireUser(request).id,
+        },
+      });
       await app.audit.write(auditContext(request), {
         action: 'customer.announce',
         entity: 'customer',
@@ -884,6 +956,137 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         after: { ...request.body, delivered },
       });
       return { data: { delivered } };
+    },
+  });
+
+  app.get('/customers/:id/announcements', {
+    config: { auth: { permission: 'customer:read' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      response: { 200: offsetListResponse(announcementDto) },
+    },
+    handler: async (request) => {
+      const rows = await app.db.announcement.findMany({
+        where: { customerId: request.params.id },
+        orderBy: { sentAt: 'desc' },
+        take: 50,
+      });
+      const senders = await app.db.user.findMany({
+        where: { id: { in: [...new Set(rows.map((r) => r.sentById))] } },
+        select: { id: true, name: true },
+      });
+      const byId = new Map(senders.map((u) => [u.id, u.name]));
+      const data = rows.map((r) => ({
+        id: r.id,
+        message: r.message,
+        level: r.level as 'info' | 'warning' | 'error',
+        delivered: r.delivered,
+        sentByName: byId.get(r.sentById) ?? null,
+        sentAt: r.sentAt.toISOString(),
+      }));
+      return { data, page: { page: 1, pageSize: data.length, total: data.length } };
+    },
+  });
+
+  // ── support: reaching into a customer's own CRM, at their request (docs/21 §9) ────────
+  app.post('/customers/:id/support/list-users', {
+    config: { auth: { permission: 'support:run' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      response: {
+        200: dataResponse(
+          z.object({
+            stackId: z.string(),
+            users: z.array(
+              z.object({
+                id: z.string(),
+                name: z.string(),
+                email: z.string(),
+                role: z.string(),
+                isActive: z.boolean(),
+                twoFactorEnabled: z.boolean(),
+                lastSeenAt: z.string().nullable(),
+              }),
+            ),
+          }),
+        ),
+      },
+    },
+    handler: async (request) => {
+      const actor = requireUser(request);
+      const outcome = await app.support.run(
+        { customerId: request.params.id, action: 'list-users', requestedBy: actor.email },
+        auditContext(request),
+      );
+      if (!outcome.ok) throw new ConflictError(outcome.message ?? 'The stack could not answer');
+      return { data: { stackId: outcome.stackId, users: outcome.users } };
+    },
+  });
+
+  app.post('/customers/:id/support/reset-two-factor', {
+    config: { auth: { permission: 'support:run' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      body: z
+        .object({ email: z.email().max(254), reason: z.string().trim().max(300).optional() })
+        .strict(),
+      response: { 200: dataResponse(z.object({ ok: z.literal(true), message: z.string() })) },
+    },
+    handler: async (request) => {
+      const actor = requireUser(request);
+      const outcome = await app.support.run(
+        {
+          customerId: request.params.id,
+          action: 'reset-two-factor',
+          email: request.body.email,
+          ...(request.body.reason === undefined ? {} : { reason: request.body.reason }),
+          requestedBy: actor.email,
+        },
+        auditContext(request),
+      );
+      if (!outcome.ok) throw new ConflictError(outcome.message ?? 'The stack refused that');
+      return {
+        data: {
+          ok: true as const,
+          message:
+            outcome.message ?? 'They can set up an authenticator again at their next sign-in.',
+        },
+      };
+    },
+  });
+
+  app.post('/customers/:id/support/revoke-sessions', {
+    config: { auth: { permission: 'support:run' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      body: z
+        .object({ email: z.email().max(254), reason: z.string().trim().max(300).optional() })
+        .strict(),
+      response: { 200: dataResponse(z.object({ ok: z.literal(true), message: z.string() })) },
+    },
+    handler: async (request) => {
+      const actor = requireUser(request);
+      const outcome = await app.support.run(
+        {
+          customerId: request.params.id,
+          action: 'revoke-sessions',
+          email: request.body.email,
+          ...(request.body.reason === undefined ? {} : { reason: request.body.reason }),
+          requestedBy: actor.email,
+        },
+        auditContext(request),
+      );
+      if (!outcome.ok) throw new ConflictError(outcome.message ?? 'The stack refused that');
+      return {
+        data: {
+          ok: true as const,
+          message: outcome.message ?? 'They have been signed out everywhere.',
+        },
+      };
     },
   });
 
@@ -985,20 +1188,69 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     schema: {
       tags: ['console'],
       params: z.object({ id: uuid }),
-      response: { 200: dataResponse(z.object({ ok: z.literal(true) })) },
+      response: { 200: dataResponse(ownerDto) },
     },
-    handler: async (request) => {
-      if (request.params.id === requireUser(request).id) {
-        throw new ConflictError('You cannot deactivate your own account');
-      }
-      await app.db.user.update({ where: { id: request.params.id }, data: { isActive: false } });
-      await app.audit.write(auditContext(request), {
-        action: 'owner.deactivate',
-        entity: 'owner',
-        entityId: request.params.id,
-      });
-      return { data: { ok: true as const } };
+    handler: async (request) => ({
+      data: await app.owners.setActive(
+        request.params.id,
+        false,
+        requireUser(request).id,
+        auditContext(request),
+      ),
+    }),
+  });
+
+  app.post('/owners/:id/reactivate', {
+    config: { auth: { permission: 'owner:manage' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      response: { 200: dataResponse(ownerDto) },
     },
+    handler: async (request) => ({
+      data: await app.owners.setActive(
+        request.params.id,
+        true,
+        requireUser(request).id,
+        auditContext(request),
+      ),
+    }),
+  });
+
+  /**
+   * The way back in for an owner who has lost their phone and their backup codes. There is nobody
+   * above an owner here, so without this the account is gone for good.
+   */
+  app.post('/owners/:id/two-factor/reset', {
+    config: { auth: { permission: 'owner:manage' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      response: { 200: dataResponse(ownerDto) },
+    },
+    handler: async (request) => ({
+      data: await app.owners.resetTwoFactor(
+        request.params.id,
+        request.headers,
+        auditContext(request),
+      ),
+    }),
+  });
+
+  app.post('/owners/:id/revoke-sessions', {
+    config: { auth: { permission: 'owner:manage' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      response: { 200: dataResponse(ownerDto) },
+    },
+    handler: async (request) => ({
+      data: await app.owners.revokeSessions(
+        request.params.id,
+        request.headers,
+        auditContext(request),
+      ),
+    }),
   });
 
   // ── settings and audit ───────────────────────────────────────────────────────────────

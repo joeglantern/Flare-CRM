@@ -26,6 +26,9 @@ export interface EffectiveEntitlements {
   features: FeatureMap;
   limits: LimitMap;
   expiresAt: string | null;
+  /** Minor units: the customer's override where there is one, otherwise the plan's price. */
+  priceMonthlyMinor: number | null;
+  currency: string;
 }
 
 /** "iss_" plus a uuid, so a log line says what kind of id it is looking at. */
@@ -87,6 +90,8 @@ export class ConsoleEntitlementsService {
       features,
       limits,
       expiresAt: row?.expiresAt?.toISOString() ?? null,
+      priceMonthlyMinor: row?.priceMonthlyMinorOverride ?? row?.plan?.priceMonthlyMinor ?? null,
+      currency: row?.plan?.currency ?? 'KES',
     };
   }
 
