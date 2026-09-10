@@ -9,6 +9,9 @@ export default defineConfig({
     'entry/api': 'src/entry/api.ts',
     seed: 'prisma/seed.ts',
     'create-owner': 'src/scripts/create-owner.ts',
+    // register-customer ships for the same reason: the provider's own stack has to be registered
+    // on a console nobody can sign in to yet.
+    'register-customer': 'src/scripts/register-customer.ts',
   },
   format: ['esm'],
   target: 'node22',

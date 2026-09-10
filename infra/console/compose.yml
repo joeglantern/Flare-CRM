@@ -114,6 +114,22 @@ services:
     cap_drop: [ALL]
     logging: *logging
 
+  # registers a customer and their first stack, printing the four lines their server needs:
+  #   docker compose run --rm register-customer acme "Acme Ltd" "Jane Doe" jane@acme.example
+  register-customer:
+    image: ${CONSOLE_IMAGE:-ghcr.io/OWNER/crm-console-api}:${IMAGE_TAG:-latest}
+    profiles: [ops]
+    restart: 'no'
+    env_file: [.env]
+    entrypoint: ['node', 'dist/register-customer.js']
+    command: []
+    networks: [edge, internal]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+
   postgres:
     image: postgres:17.11-alpine
     restart: unless-stopped
