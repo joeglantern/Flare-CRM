@@ -106,9 +106,14 @@ const overviewRoute = createRoute({
   component: OverviewScreen,
 });
 
-const fleetRoute = createRoute({
+/**
+ * The list of customers and the state of each one's system. "Fleet" stays the internal word for
+ * every stack taken together, which is what the socket event and the analytics tables mean by it;
+ * what an owner opens is a list of customers, so that is what it is called here.
+ */
+const customersRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: '/fleet',
+  path: '/customers',
   component: FleetScreen,
 });
 
@@ -286,7 +291,7 @@ function ResetPassword() {
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([
     overviewRoute,
-    fleetRoute,
+    customersRoute,
     customerRoute,
     plansRoute,
     ownersRoute,

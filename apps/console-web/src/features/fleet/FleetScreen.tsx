@@ -1,5 +1,8 @@
 /**
- * The fleet: every customer, what they are on, and whether their stack is talking to us.
+ * Every customer, what they are on, and whether their system is talking to us.
+ *
+ * The endpoint and the socket event are still called "fleet", which is the right word for every
+ * stack taken together. What an owner opens is a list of customers, so the screen says that.
  *
  * Rows update from the socket rather than from polling, so a stack that comes back turns green
  * while the screen is open. The event carries the whole row's worth of state, so the cache is
@@ -218,7 +221,7 @@ export function FleetScreen() {
   return (
     <>
       <PageHeader
-        title="Fleet"
+        title="Customers"
         description="Every customer, their plan, and whether their stack is reporting in."
         actions={
           <>

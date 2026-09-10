@@ -125,7 +125,7 @@ function NothingReportedYet({ data }: { data: ConsoleOverviewDto }) {
             expire all appear here once the first samples arrive.
           </>
         }
-        action={<Link to="/fleet">Go to the fleet</Link>}
+        action={<Link to="/customers">See every customer</Link>}
       />
     </Section>
   );

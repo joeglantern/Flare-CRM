@@ -10,7 +10,7 @@ import {
   Building2,
   Gauge,
   KeyRound,
-  LayoutGrid,
+  Layers,
   LogOut,
   Moon,
   ScrollText,
@@ -29,8 +29,8 @@ import type { Me } from '@/lib/types';
 
 const NAV = [
   { to: '/', label: 'Overview', icon: Gauge, exact: true },
-  { to: '/fleet', label: 'Fleet', icon: LayoutGrid, exact: false },
-  { to: '/plans', label: 'Plans', icon: Building2, exact: false },
+  { to: '/customers', label: 'Customers', icon: Building2, exact: false },
+  { to: '/plans', label: 'Plans', icon: Layers, exact: false },
   { to: '/owners', label: 'Owners', icon: Users, exact: false },
   { to: '/audit', label: 'Audit', icon: ScrollText, exact: false },
   { to: '/settings', label: 'Settings', icon: Settings, exact: false },
@@ -53,9 +53,12 @@ export function ConsoleShell({ me, children }: { me: Me; children: ReactNode }) 
 
   return (
     <div className="grid min-h-dvh grid-cols-1 bg-bg text-text md:grid-cols-[200px_minmax(0,1fr)]">
+      {/* Sticky rather than part of the scrolling page: reading down a long customer list should
+          never scroll the navigation off the screen. The nav's own overflow is a fallback for a
+          short window, not the normal case. */}
       <nav
         aria-label="Console"
-        className="flex flex-col gap-1 border-b border-border bg-surface p-3 md:border-r md:border-b-0"
+        className="flex flex-col gap-1 border-b border-border bg-surface p-3 md:sticky md:top-0 md:h-dvh md:overflow-y-auto md:border-r md:border-b-0"
       >
         <div className="mb-3 flex items-center justify-between gap-2 px-1">
           <span className="flex items-center gap-2 text-md font-semibold tracking-tight">

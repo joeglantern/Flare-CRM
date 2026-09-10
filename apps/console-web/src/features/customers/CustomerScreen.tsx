@@ -78,11 +78,11 @@ export function CustomerScreen() {
       <PageHeader
         back={
           <Link
-            to="/fleet"
+            to="/customers"
             className="inline-flex items-center gap-1 text-muted no-underline hover:underline"
           >
             <ArrowLeft size={13} aria-hidden />
-            Fleet
+            Customers
           </Link>
         }
         title={customer?.name ?? 'Customer'}
