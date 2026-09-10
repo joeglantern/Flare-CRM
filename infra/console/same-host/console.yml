@@ -1,0 +1,47 @@
+# Overlay for the CONSOLE's compose project when it shares a machine with a customer stack
+# (docs/21 §7).
+#
+#   cd ~/flare-crm/infra/console
+#   docker compose -f compose.yml -f same-host/console.yml up -d postgres valkey api backup
+#
+# Two differences from a console on its own VPS:
+#
+#   1. No Caddy of its own. Port 443 belongs to the customer stack's Caddy, which serves the console
+#      as an extra site. The api publishes on the host's loopback for it to reach; the firewall and
+#      the bind address both keep that off the internet.
+#   2. Smaller. The customer's CRM is what people are using on this machine, so the console asks for
+#      a fraction of the memory and gives Postgres a small cache. It is one owner and a handful of
+#      customers; it does not need more.
+services:
+  api:
+    ports:
+      - '127.0.0.1:4100:4100'
+    deploy:
+      resources: { limits: { memory: 384m } }
+
+  postgres:
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - effective_cache_size=192MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - wal_level=replica
+      - -c
+      - log_min_duration_statement=500
+      - -c
+      - max_connections=30
+    shm_size: 64m
+    deploy:
+      resources: { limits: { memory: 512m } }
+
+  valkey:
+    command:
+      - sh
+      - -c
+      - exec valkey-server --appendonly yes --appendfsync everysec --maxmemory 64mb --maxmemory-policy noeviction --requirepass "$$(cat /run/secrets/valkey_password)" --protected-mode yes
+    deploy:
+      resources: { limits: { memory: 128m } }

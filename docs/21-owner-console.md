@@ -112,7 +112,42 @@ to be issued a document signed by a new key before they trust anything from the 
 fleet screen shows who has not applied one yet. Back up `/opt/flare-console/.env` with the database
 (docs/13).
 
-## 7. Local development
+## 7. On the same host as a customer stack
+
+For a first console, before it earns a machine of its own, it can share one with a customer stack.
+Two containers more, about 300 MB, and no second web server.
+
+Port 443 belongs to the customer stack's Caddy, so that Caddy serves the console as an extra site.
+Its Caddyfile ends with `import /etc/caddy/conf.d/*.caddy`, which is empty on an ordinary customer
+stack; here it holds `console.caddy`. The console's api publishes on the host's loopback rather
+than joining the customer stack's network: two compose projects both call their backend `api`, and
+one name answered by two containers is exactly the sort of fault that shows up at three in the
+morning.
+
+```
+# once: the console's own directory, secrets, and .env
+cd ~/flare-crm/infra/console
+cp .env.example .env            # CONSOLE_DOMAIN, the three keys, BUILD_LOCALLY=1
+cp same-host/console.caddy ../docker/caddy/conf.d/
+echo 'CONSOLE_DOMAIN=console.example.com' >> ../docker/.env
+
+# the console, without a Caddy of its own
+BUILD_LOCALLY=1 ./deploy.sh --shared-caddy
+
+# the customer stack's Caddy, now serving both sites
+cd ../docker
+docker compose -f compose.yml -f ../console/same-host/crm-caddy.yml up -d caddy
+```
+
+The console needs its own hostname pointed at that machine before a certificate can be issued.
+
+What this costs: the signing key sits on the same machine as a customer's data, so one compromise
+is two losses. It also means the console goes down when that machine does, including when the
+console is the thing you would use to see why. Both are reasons to move it to its own VPS once
+there is more than one customer; the compose stack is the same either way, and moving is the volume
+and the `.env`.
+
+## 8. Local development
 
 ```
 pnpm dev:console         # api on 4100

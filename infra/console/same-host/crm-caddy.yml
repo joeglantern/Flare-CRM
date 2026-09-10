@@ -1,0 +1,25 @@
+# Overlay for the CUSTOMER stack's compose project on a host that also runs the owner console
+# (docs/21 §7). It teaches that stack's Caddy two things: where the console's client files are, and
+# how to reach the console's api.
+#
+#   cd ~/flare-crm/infra/docker
+#   docker compose -f compose.yml -f ../console/same-host/crm-caddy.yml up -d caddy
+#
+# Nothing else about the customer stack changes. On a host that runs only a customer stack this
+# file is never used.
+services:
+  caddy:
+    environment:
+      CONSOLE_DOMAIN: ${CONSOLE_DOMAIN:?set CONSOLE_DOMAIN in .env when this host also runs the console}
+    # The console publishes its api on the host's loopback rather than joining this network, so the
+    # two compose projects stay independent and no name is served by two containers.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - console_dist:/srv/console:ro
+
+volumes:
+  # Written by the console project's client publisher; read-only here.
+  console_dist:
+    name: flare-console_console_dist
+    external: true

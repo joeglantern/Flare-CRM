@@ -32,6 +32,7 @@ services:
       CRM_EXTRA_CSP: ${CRM_EXTRA_CSP:-}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/conf.d:/etc/caddy/conf.d:ro
       - web_dist:/srv/web:ro
       - caddy_data:/data
       - caddy_config:/config

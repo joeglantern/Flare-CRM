@@ -4,9 +4,19 @@
 #
 # The console holds every customer's plan and an append-only record of who changed it. Never run
 # `docker compose down -v` here.
+#
+# On a host that also runs a customer stack, pass --shared-caddy: that stack's Caddy serves the
+# console as an extra site, so this one has no web server of its own (docs/21 §7).
 set -euo pipefail
 cd "$(dirname "$0")"
 export IMAGE_TAG=${IMAGE_TAG:-latest}
+
+COMPOSE=(docker compose)
+SHARED_CADDY=0
+if [ "${1:-}" = "--shared-caddy" ]; then
+  SHARED_CADDY=1
+  COMPOSE=(docker compose -f compose.yml -f same-host/console.yml)
+fi
 
 [ -f .env ] || {
   echo ".env missing (copy .env.example and fill it in)" >&2
@@ -25,30 +35,41 @@ grep -q '^CONSOLE_SIGNING_KEY=.\+' .env || {
   exit 1
 }
 
-echo "== pulling ${IMAGE_TAG}"
-docker compose pull api caddy postgres valkey web
+echo "== images"
+if [ "${BUILD_LOCALLY:-0}" = "1" ]; then
+  # Small hosts build here rather than pulling a registry they have no credentials for.
+  "${COMPOSE[@]}" build web
+  docker build -f ../../apps/console-api/Dockerfile -t "${CONSOLE_IMAGE:-crm-console-api}:${IMAGE_TAG}" ../..
+else
+  "${COMPOSE[@]}" pull api postgres valkey web
+fi
 
 echo "== starting data services"
-docker compose up -d postgres valkey
+"${COMPOSE[@]}" up -d postgres valkey
 
 echo "== migrations"
-docker compose run --rm migrate
+"${COMPOSE[@]}" run --rm migrate
 
 echo "== seed (starting plan and provider contact; idempotent)"
-docker compose run --rm seed
+"${COMPOSE[@]}" run --rm seed
 
 echo "== publishing the client and starting the console"
-docker compose up -d web
-docker compose up -d api caddy backup
-docker compose ps
+"${COMPOSE[@]}" up -d web
+if [ "$SHARED_CADDY" = "1" ]; then
+  "${COMPOSE[@]}" up -d api backup
+  echo "   (no Caddy here: the customer stack's Caddy serves this console)"
+else
+  "${COMPOSE[@]}" up -d api caddy backup
+fi
+"${COMPOSE[@]}" ps
 
 echo "== health"
 for _ in $(seq 1 20); do
-  if docker compose exec -T api curl -fsS http://127.0.0.1:4100/ready | grep -q '"ready"'; then
+  if "${COMPOSE[@]}" exec -T api curl -fsS http://127.0.0.1:4100/ready | grep -q '"ready"'; then
     echo "console ready"
     echo
     echo "Signing key fingerprint (customers trust this key):"
-    docker compose exec -T api curl -fsS http://127.0.0.1:4100/ready |
+    "${COMPOSE[@]}" exec -T api curl -fsS http://127.0.0.1:4100/ready |
       sed -n 's/.*"keyId":"\([0-9a-f]*\)".*/  \1/p'
     exit 0
   fi

@@ -53,3 +53,7 @@
 		format json
 	}
 }
+
+# Anything else this host serves. Empty on a customer stack; the owner console drops its site block
+# in here when the two share a machine (docs/21 §7).
+import /etc/caddy/conf.d/*.caddy
