@@ -108,6 +108,29 @@ this happens, it collects the document the moment it comes back, the same way it
 
 ## 6. Domains
 
+### The names the provider owns
+
+`flarehub.co.ke` is the provider's own domain and the brand domain the console hands out. The
+landing page is deliberately not on the same machine as the software: a marketing site on shared
+hosting stays up while a stack is being upgraded, and a customer looking for the status of their
+system should never find a 502 where the company's own home page ought to be.
+
+| Name                     | What it serves                       | Where it points      |
+| ------------------------ | ------------------------------------ | -------------------- |
+| `flarehub.co.ke`         | landing page                         | the cPanel host      |
+| `www.flarehub.co.ke`     | the same, redirected to the apex     | the cPanel host      |
+| `console.flarehub.co.ke` | the owner console                    | the stack host       |
+| `*.flarehub.co.ke`       | every customer's `<slug>` address    | the stack host       |
+| `mail.flarehub.co.ke`    | outbound mail, with SPF, DKIM, DMARC | the cPanel mail host |
+
+The wildcard is a DNS convenience only. Caddy still serves a named site per hostname and still gets
+a certificate per name over HTTP-01, so a name nobody has configured resolves and is then refused,
+which is the behaviour we want. There is deliberately no `api.` name: there is no central API, and
+a name implying one would be a promise the architecture does not keep. Every stack serves its own
+API on its own domain (docs/20 §7).
+
+### A customer's own domain
+
 Every customer gets `<slug>.<brand domain>`. A customer who wants their own domain publishes two
 records:
 
