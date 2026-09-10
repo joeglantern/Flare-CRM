@@ -119,10 +119,11 @@ Two containers more, about 300 MB, and no second web server.
 
 Port 443 belongs to the customer stack's Caddy, so that Caddy serves the console as an extra site.
 Its Caddyfile ends with `import /etc/caddy/conf.d/*.caddy`, which is empty on an ordinary customer
-stack; here it holds `console.caddy`. The console's api publishes on the host's loopback rather
-than joining the customer stack's network: two compose projects both call their backend `api`, and
-one name answered by two containers is exactly the sort of fault that shows up at three in the
-morning.
+stack; here it holds `console.caddy`. The console's api publishes on the host's loopback and on the
+Docker bridge gateway rather than joining the customer stack's network: two compose projects both
+call their backend `api`, and one name answered by two containers is exactly the sort of fault that
+shows up at three in the morning. Both bindings are host-local; a plain `4100:4100` would be open to
+the internet whatever the host firewall says, because Docker writes its own iptables rules.
 
 ```
 # once: the console's own directory, secrets, and .env
@@ -139,7 +140,9 @@ cd ../docker
 docker compose -f compose.yml -f ../console/same-host/crm-caddy.yml up -d caddy
 ```
 
-The console needs its own hostname pointed at that machine before a certificate can be issued.
+The console needs its own hostname pointed at that machine before a certificate can be issued. Until
+that record exists, Caddy retries and the customer's site is unaffected; the certificate appears on
+its own within a minute of the record resolving.
 
 What this costs: the signing key sits on the same machine as a customer's data, so one compromise
 is two losses. It also means the console goes down when that machine does, including when the
