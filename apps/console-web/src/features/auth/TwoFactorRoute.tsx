@@ -4,11 +4,11 @@
  * there is nothing else to do until it is finished.
  */
 import { useNavigate } from '@tanstack/react-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Button, Checkbox, Input, PasswordInput } from '@crm/ui';
-import { authClient } from '@/lib/auth';
+import { authClient, meQuery } from '@/lib/auth';
 import { qk } from '@/lib/query';
 import { twoFactorRoute } from '@/app/router';
 import { AuthLayout } from './AuthLayout';
@@ -17,6 +17,9 @@ export function TwoFactorRoute() {
   const { setup } = twoFactorRoute.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Reachable before the second factor exists, which is the whole point of it: the enrolment screen
+  // can then say whose password it is asking for.
+  const { data: me } = useQuery({ ...meQuery, enabled: setup === true });
 
   const done = async () => {
     // Refetch rather than invalidate: nothing is watching `me` on this screen, and an invalidated
@@ -31,7 +34,7 @@ export function TwoFactorRoute() {
   };
 
   return setup === true ? (
-    <EnrolScreen onFinished={done} onSignOut={signOutToStart} />
+    <EnrolScreen email={me?.email ?? null} onFinished={done} onSignOut={signOutToStart} />
   ) : (
     <VerifyScreen onFinished={done} onSignOut={signOutToStart} />
   );
@@ -133,9 +136,11 @@ function VerifyScreen({
 }
 
 function EnrolScreen({
+  email,
   onFinished,
   onSignOut,
 }: {
+  email: string | null;
   onFinished: () => Promise<void>;
   onSignOut: () => void;
 }) {
@@ -188,7 +193,13 @@ function EnrolScreen({
       .enable({ password })
       .then((res) => {
         if (res.error) {
-          setError(res.error.message ?? 'That password was not accepted.');
+          // A browser filling a saved password from somewhere else is the usual cause, and
+          // "Invalid password" on a screen titled "Set up two-factor" reads like the code failed.
+          setError(
+            res.error.code === 'INVALID_PASSWORD'
+              ? `That is not the password for ${email ?? 'this account'}. Clear the field and type it yourself: a browser may have filled in a saved one.`
+              : (res.error.message ?? 'That password was not accepted.'),
+          );
           return;
         }
         if (!('totpURI' in res.data)) {
@@ -227,7 +238,18 @@ function EnrolScreen({
     <AuthLayout
       wide
       title="Set up two-factor"
-      description="Every console account needs one. It takes about a minute, and it is the only thing this account can do until it is done."
+      description={
+        <>
+          Every console account needs one. It takes about a minute, and it is the only thing this
+          account can do until it is done.
+          {email !== null && (
+            <>
+              {' '}
+              You are signed in as <span className="font-medium text-text">{email}</span>.
+            </>
+          )}
+        </>
+      }
       footer={
         <button
           type="button"
@@ -251,6 +273,7 @@ function EnrolScreen({
             autoFocus
             name="password"
             label="Confirm your password"
+            description="The password for this console, not the one for a customer's CRM."
             autoComplete="current-password"
             value={password}
             {...(error !== null ? { error } : {})}
