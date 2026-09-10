@@ -27,6 +27,8 @@ export interface Customer {
   primaryDomain: string;
   customDomain: string | null;
   customDomainVerifiedAt: string | null;
+  /** Set while we are holding this customer read only, and null the rest of the time. */
+  suspendedAt: string | null;
   createdAt: string;
 }
 

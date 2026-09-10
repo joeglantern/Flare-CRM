@@ -14,7 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, LogOut, ShieldCheck, ShieldOff, Users } from 'lucide-react';
 import { useState } from 'react';
 import type { SupportUser } from '@crm/shared';
-import { Badge, Banner, Button, ConfirmDialog, toast } from '@crm/ui';
+import { Badge, Banner, Button, toast } from '@crm/ui';
 import { Table, type Column } from '@/components/Bits';
 import { EmptyState, Section, StateSlot } from '@/components/Page';
 import { http } from '@/lib/api';
@@ -22,6 +22,7 @@ import { errorMessage, isApiError } from '@/lib/errors';
 import { ago } from '@/lib/format';
 import { qk } from '@/lib/query';
 import type { SupportListing, SupportOutcome } from '@/lib/types';
+import { SupportActionDialog } from './SupportActionDialog';
 
 /** Shown wherever an action is offered but cannot be taken, so the reason is never a mystery. */
 const OFFLINE = 'Their stack is not connected, and these commands are not queued.';
@@ -47,7 +48,7 @@ const ACTIONS: Record<SupportAction, ActionCopy> = {
       'Their current authenticator and backup codes stop working',
       'They are signed out of every device immediately',
       `Anyone who already has ${user.name}'s password can enrol a new authenticator afterwards`,
-      "It is recorded in that customer's own audit log, naming us",
+      "It is recorded in that customer's own audit log, naming us and quoting your reason",
     ],
     confirmLabel: 'Reset their two-factor',
     success: (user) => `${user.name} can enrol again at their next sign-in`,
@@ -60,7 +61,7 @@ const ACTIONS: Record<SupportAction, ActionCopy> = {
     consequences: () => [
       'Every session on every device ends immediately, including work in progress',
       'Nothing else changes: their password, authenticator and access are untouched',
-      "It is recorded in that customer's own audit log, naming us",
+      "It is recorded in that customer's own audit log, naming us and quoting your reason",
     ],
     confirmLabel: 'Sign them out',
     success: (user) => `${user.name} was signed out everywhere`,
@@ -90,9 +91,18 @@ export function SupportTab({
   });
 
   const act = useMutation({
-    mutationFn: ({ user, action }: { user: SupportUser; action: SupportAction }) =>
+    mutationFn: ({
+      user,
+      action,
+      reason,
+    }: {
+      user: SupportUser;
+      action: SupportAction;
+      reason: string;
+    }) =>
       http.post<SupportOutcome>(`/api/v1/customers/${customerId}/support/${action}`, {
         email: user.email,
+        reason,
       }),
     onSuccess: async (result, variables) => {
       await queryClient.invalidateQueries({ queryKey: qk.supportUsers(customerId) });
@@ -203,8 +213,8 @@ export function SupportTab({
       <Banner tone="warning" icon={ShieldOff}>
         This reaches into {customerName}&rsquo;s own system. Listing their people, resetting an
         authenticator and ending a session each write a row in {customerName}&rsquo;s own audit log
-        that names us and says what we did. They can see all of it. Nothing here reads any of their
-        business data.
+        that names us, says what we did, and quotes the reason you give for it. They can see all of
+        it. Nothing here reads any of their business data.
       </Banner>
 
       {!connected && (
@@ -267,7 +277,7 @@ export function SupportTab({
         )}
       </Section>
 
-      <ConfirmDialog
+      <SupportActionDialog
         open={pending !== null}
         onOpenChange={(v) => {
           if (!v) setPending(null);
@@ -281,10 +291,9 @@ export function SupportTab({
         // person on the phone, on a screen where the wrong row is somebody else's account.
         typedConfirmation={pending?.user.email ?? ''}
         confirmLabel={copy?.confirmLabel ?? 'Confirm'}
-        tone="danger"
         loading={act.isPending}
-        onConfirm={() => {
-          if (pending !== null) act.mutate(pending);
+        onConfirm={(reason) => {
+          if (pending !== null) act.mutate({ ...pending, reason });
           setPending(null);
         }}
       />

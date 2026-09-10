@@ -21,7 +21,6 @@ import type {
   CustomerDetail,
   DomainCheck,
   DomainRecords,
-  Issue,
   NewStackCredentials,
   Stack,
 } from '@/lib/types';
@@ -527,7 +526,6 @@ function StackCredentials({
 function StatusSection({ customer, stacks }: { customer: Customer; stacks: Stack[] }) {
   const queryClient = useQueryClient();
   const [choosing, setChoosing] = useState<CustomerStatus | null>(null);
-  const [offerIssue, setOfferIssue] = useState(false);
 
   const current = (CUSTOMER_STATUSES as readonly string[]).includes(customer.status)
     ? (customer.status as CustomerStatus)
@@ -541,30 +539,19 @@ function StatusSection({ customer, stacks }: { customer: Customer; stacks: Stack
     onSuccess: async (_data, status) => {
       await queryClient.invalidateQueries({ queryKey: qk.customer(customer.id) });
       await queryClient.invalidateQueries({ queryKey: qk.fleet() });
-      toast({ tone: 'success', title: `Marked ${STATUSES[status].label.toLowerCase()}` });
-      if (status === 'suspended') setOfferIssue(true);
-    },
-    onError: (error: Error) => {
-      toast({ tone: 'danger', title: 'Could not change that status', description: error.message });
-    },
-  });
-
-  const issue = useMutation({
-    mutationFn: () => http.post<{ issues: Issue[] }>(`/api/v1/customers/${customer.id}/issue`),
-    onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: qk.customer(customer.id) });
       toast({
         tone: 'success',
-        title: connected
-          ? `Sent to ${String(data.issues.length)} stack${data.issues.length === 1 ? '' : 's'}`
-          : 'Signed and waiting',
-        description: connected
-          ? undefined
-          : 'That stack is offline. It will pick this up the moment it reconnects.',
+        title: `Marked ${STATUSES[status].label.toLowerCase()}`,
+        description:
+          live.length === 0
+            ? 'There is no stack to tell yet. The first document this customer is issued will carry it.'
+            : connected
+              ? 'A new document has already been sent to their stack.'
+              : 'Their stack is offline. It collects the new document the moment it reconnects.',
       });
     },
     onError: (error: Error) => {
-      toast({ tone: 'danger', title: 'Could not issue that', description: error.message });
+      toast({ tone: 'danger', title: 'Could not change that status', description: error.message });
     },
   });
 
@@ -583,10 +570,9 @@ function StatusSection({ customer, stacks }: { customer: Customer; stacks: Stack
           }))}
         />
         <p className="text-base text-muted">{STATUSES[current].short}</p>
-        {current !== 'active' && live.length > 0 && (
-          <p className="text-base text-muted">
-            This takes effect on their stack when the entitlements are issued, on the Entitlements
-            tab.
+        {customer.suspendedAt !== null && (
+          <p className="text-base text-warning">
+            Held read only since {dateTime(customer.suspendedAt)}.
           </p>
         )}
       </div>
@@ -602,38 +588,26 @@ function StatusSection({ customer, stacks }: { customer: Customer; stacks: Stack
             : `Mark ${customer.name} ${STATUSES[choosing].label.toLowerCase()}?`
         }
         description={choosing === null ? '' : STATUSES[choosing].short}
-        consequences={choosing === null ? [] : STATUSES[choosing].consequences}
+        // Changing the status is the whole act: the server reissues the document and sends it in the
+        // same request, so there is nothing left for an owner to remember to do afterwards.
+        consequences={
+          choosing === null
+            ? []
+            : [
+                ...STATUSES[choosing].consequences,
+                live.length === 0
+                  ? 'There is no stack yet, so this waits for the first document that customer is issued'
+                  : connected
+                    ? 'Their stack is sent a new document immediately and applies it at once'
+                    : 'Their stack is offline, so it applies the new document when it next connects',
+              ]
+        }
         confirmLabel={choosing === null ? 'Confirm' : STATUSES[choosing].label}
         tone={choosing === 'active' ? 'primary' : 'danger'}
         loading={change.isPending}
         onConfirm={() => {
           if (choosing !== null) change.mutate(choosing);
           setChoosing(null);
-        }}
-      />
-
-      <ConfirmDialog
-        open={offerIssue}
-        onOpenChange={setOfferIssue}
-        title="Send the suspension to their stack now?"
-        description={
-          live.length === 0
-            ? 'This customer has no stack yet, so there is nothing to send it to. The suspension is recorded and will be in the first document their stack is issued.'
-            : connected
-              ? 'Their stack is still running on the document it last applied, so their people can still change things until it receives this one.'
-              : 'Their stack is offline. Issuing now signs the document, and the stack applies it the moment it reconnects.'
-        }
-        consequences={[
-          'Every change their people attempt is refused from the moment it applies',
-          'Reading is untouched, and nothing of theirs is deleted',
-        ]}
-        confirmLabel="Issue now"
-        cancelLabel="Later"
-        tone="primary"
-        loading={issue.isPending}
-        onConfirm={() => {
-          if (live.length > 0) issue.mutate();
-          setOfferIssue(false);
         }}
       />
     </Section>

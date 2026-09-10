@@ -5,8 +5,9 @@
  * it was given, so sending every field on every save makes the audit log useless for answering "who
  * changed their email".
  *
- * Suspending has to say what suspension actually is before it happens, and then say out loud that
- * recording it here has not yet changed anything inside the customer's CRM.
+ * Suspending has to say what suspension actually is before it happens. The server reissues and
+ * sends the document inside the same request, so the screen must not go on offering to do that
+ * afterwards; the promise it makes in the dialog is the one the server actually keeps.
  */
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -32,6 +33,7 @@ const detail: CustomerDetail = {
     primaryDomain: 'acme.raniafrica.co.ke',
     customDomain: null,
     customDomainVerifiedAt: null,
+    suspendedAt: null,
     createdAt: '2026-09-01T00:00:00.000Z',
   },
   stacks: [
@@ -130,7 +132,34 @@ describe('the customer overview tab', () => {
     expect(fetchStub?.requests.some((r) => r.method === 'PATCH')).toBe(false);
   });
 
-  it('offers to issue straight away, because a suspension nobody was sent is not one', async () => {
+  it('promises the document goes out at once when the stack is connected', async () => {
+    const user = userEvent.setup();
+    renderTab();
+
+    await user.click(screen.getByRole('tab', { name: 'Suspended' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(
+      dialog.getByText(/sent a new document immediately and applies it at once/),
+    ).toBeVisible();
+  });
+
+  it('promises instead that an offline stack collects it later', async () => {
+    const user = userEvent.setup();
+    fetchStub = stubFetch({
+      'GET /api/v1/console/settings': settings,
+      [`PATCH ${CUSTOMER_PATH}`]: detail.customer,
+    });
+    const offline = detail.stacks.map((stack) => ({ ...stack, connected: false }));
+    renderWithQuery(<OverviewTab detail={{ ...detail, stacks: offline }} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Suspended' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByText(/applies the new document when it next connects/)).toBeVisible();
+  });
+
+  it('changes the status in one request, because the server sends the document itself', async () => {
     const user = userEvent.setup();
     renderTab();
 
@@ -140,28 +169,14 @@ describe('the customer overview tab', () => {
     await waitFor(() => {
       expect(fetchStub?.lastBody('PATCH', CUSTOMER_PATH)).toEqual({ status: 'suspended' });
     });
-
-    const offer = within(await screen.findByRole('dialog'));
-    expect(offer.getByText(/still running on the document it last applied/)).toBeVisible();
-    await user.click(offer.getByRole('button', { name: 'Issue now' }));
-
-    await waitFor(() => {
-      expect(fetchStub?.requests.some((r) => r.path === `${CUSTOMER_PATH}/issue`)).toBe(true);
-    });
+    // Issuing used to be a second thing an owner had to remember. It is not any more, and asking
+    // for it again here would sign and deliver a duplicate document for no reason.
+    expect(fetchStub?.requests.some((r) => r.path === `${CUSTOMER_PATH}/issue`)).toBe(false);
   });
 
-  it('lets the offer to issue be declined without undoing the suspension', async () => {
-    const user = userEvent.setup();
-    renderTab();
+  it('says since when a held customer has been held', () => {
+    renderTab({ status: 'suspended', suspendedAt: '2026-09-05T14:30:00.000Z' });
 
-    await user.click(screen.getByRole('tab', { name: 'Suspended' }));
-    await user.click(await screen.findByRole('button', { name: 'Suspended' }));
-    const offer = within(await screen.findByRole('dialog'));
-    await user.click(offer.getByRole('button', { name: 'Later' }));
-
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-    expect(fetchStub?.requests.some((r) => r.path === `${CUSTOMER_PATH}/issue`)).toBe(false);
+    expect(screen.getByText(/Held read only since 5 Sep 2026/)).toBeVisible();
   });
 });

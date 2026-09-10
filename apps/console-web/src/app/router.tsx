@@ -18,7 +18,8 @@ import {
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { ToastHost } from '@crm/ui';
 import { ConsoleShell } from '@/app/ConsoleShell';
-import { EmptyState, LoadingState, ErrorState } from '@/components/Page';
+import { LoadingState, ErrorState } from '@/components/Page';
+import { OverviewScreen } from '@/features/analytics/OverviewScreen';
 import { AuditScreen } from '@/features/audit/AuditScreen';
 import {
   ForgotPasswordScreen,
@@ -93,19 +94,6 @@ const appRoute = createRoute({
     </Authenticated>
   ),
 });
-
-/**
- * Stands in for the dashboard while the analytics screens are built alongside this. The route, the
- * navigation and every link to it are already right; only this function is replaced.
- */
-function OverviewScreen() {
-  return (
-    <EmptyState
-      title="The dashboard is not built yet"
-      description="Until it is, the fleet table is the whole picture."
-    />
-  );
-}
 
 /**
  * The landing screen is the fleet-wide dashboard rather than the fleet table: an owner opening the

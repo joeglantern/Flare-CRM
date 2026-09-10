@@ -73,7 +73,7 @@ export const STATUSES: Record<
     short: 'Everything works normally.',
     consequences: [
       'Everyone at that business can read and change their CRM again',
-      'The change reaches their stack only once you issue it',
+      'The expiry date they had before being held is given back to them',
     ],
   },
   suspended: {
@@ -83,7 +83,6 @@ export const STATUSES: Record<
       'Their people can still sign in and read everything they already have',
       'Every attempt to create, edit or delete anything is refused',
       'Nothing of theirs is deleted, and lifting the suspension puts it all back',
-      'The change reaches their stack only once you issue it',
     ],
   },
   churned: {
@@ -91,7 +90,7 @@ export const STATUSES: Record<
     short: 'They have left. Records kept, nothing sold.',
     consequences: [
       'They stop counting towards revenue and the fleet totals',
-      'Their stack keeps running on whatever it last applied until you revoke it',
+      'Their CRM is held read only, exactly as a suspension holds it',
       'Nothing of theirs is deleted by this',
     ],
   },

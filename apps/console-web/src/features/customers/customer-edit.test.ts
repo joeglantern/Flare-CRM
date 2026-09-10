@@ -19,6 +19,7 @@ const customer: Customer = {
   primaryDomain: 'acme.raniafrica.co.ke',
   customDomain: null,
   customDomainVerifiedAt: null,
+  suspendedAt: null,
   createdAt: '2026-09-01T00:00:00.000Z',
 };
 

@@ -1,7 +1,8 @@
 /**
  * The support tab reaches into a system we do not own, so what is tested here is the friction: it
  * asks nobody's stack anything until told to, it says on screen that the customer's own audit log
- * records what we did, and neither action fires until the person's own address has been typed out.
+ * records what we did, and neither action fires until a reason is written and the person's own
+ * address has been typed out.
  *
  * The failure this guards against is quiet: the wrong row, and somebody else's authenticator is gone.
  */
@@ -41,6 +42,20 @@ function renderTab(connected = true) {
   );
 }
 
+/**
+ * Fills in a support confirmation the way an owner has to: a reason first, then the address. Both
+ * fields only exist while the dialog is open, so there is nothing else on screen to confuse them
+ * with.
+ */
+async function confirmWith(
+  user: ReturnType<typeof userEvent.setup>,
+  reason: string,
+  address: string,
+) {
+  await user.type(await screen.findByLabelText(/Why are you doing this/), reason);
+  await user.type(screen.getByLabelText(/to confirm/), address);
+}
+
 /** Asks the stack for its users and waits for Jane's row. */
 async function listUsers() {
   const user = userEvent.setup();
@@ -57,7 +72,9 @@ afterEach(() => {
 describe('the support tab', () => {
   it('says on screen that the customer sees what we did, in their own audit log', () => {
     renderTab();
-    expect(screen.getByText(/audit log that names us and says what we did/)).toBeVisible();
+    expect(
+      screen.getByText(/names us, says what we did, and quotes the reason you give for it/),
+    ).toBeVisible();
     expect(screen.getByText(/Nothing here reads any of their business data/)).toBeVisible();
   });
 
@@ -94,15 +111,39 @@ describe('the support tab', () => {
     const confirm = dialog.getByRole('button', { name: 'Reset their two-factor' });
     expect(confirm).toBeDisabled();
 
-    await user.type(dialog.getByRole('textbox'), 'jane@acme.example');
+    await confirmWith(user, 'She rang about a lost phone.', 'jane@acme.example');
     await waitFor(() => {
       expect(confirm).toBeEnabled();
     });
     await user.click(confirm);
 
     await waitFor(() => {
-      expect(fetchStub?.lastBody('POST', RESET)).toEqual({ email: 'jane@acme.example' });
+      expect(fetchStub?.lastBody('POST', RESET)).toEqual({
+        email: 'jane@acme.example',
+        reason: 'She rang about a lost phone.',
+      });
     });
+  });
+
+  it('will not act on a reason nobody wrote, however well the address is typed', async () => {
+    renderTab();
+    const user = await listUsers();
+
+    await user.click(screen.getByRole('button', { name: 'Reset two-factor' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await user.type(dialog.getByLabelText(/to confirm/), 'jane@acme.example');
+
+    expect(dialog.getByRole('button', { name: 'Reset their two-factor' })).toBeDisabled();
+    expect(fetchStub?.requests.some((r) => r.path === RESET)).toBe(false);
+  });
+
+  it('says why the reason is being asked for, in terms of the customer', async () => {
+    renderTab();
+    const user = await listUsers();
+
+    await user.click(screen.getByRole('button', { name: 'Reset two-factor' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByText(/goes into the customer's own audit log word for word/)).toBeVisible();
   });
 
   it('does not accept a near miss of the address', async () => {
@@ -111,7 +152,7 @@ describe('the support tab', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reset two-factor' }));
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByRole('textbox'), 'jane@acme.exampl');
+    await confirmWith(user, 'She rang about a lost phone.', 'jane@acme.exampl');
 
     expect(dialog.getByRole('button', { name: 'Reset their two-factor' })).toBeDisabled();
     expect(fetchStub?.requests.some((r) => r.path === RESET)).toBe(false);
@@ -126,11 +167,14 @@ describe('the support tab', () => {
     expect(dialog.getByText(/Jane Doe \(jane@acme\.example\) at Acme Ltd/)).toBeVisible();
     expect(dialog.getByText(/including work in progress/)).toBeVisible();
 
-    await user.type(dialog.getByRole('textbox'), 'jane@acme.example');
+    await confirmWith(user, 'He is leaving the company today.', 'jane@acme.example');
     await user.click(dialog.getByRole('button', { name: 'Sign them out' }));
 
     await waitFor(() => {
-      expect(fetchStub?.lastBody('POST', REVOKE)).toEqual({ email: 'jane@acme.example' });
+      expect(fetchStub?.lastBody('POST', REVOKE)).toEqual({
+        email: 'jane@acme.example',
+        reason: 'He is leaving the company today.',
+      });
     });
   });
 
@@ -170,7 +214,7 @@ describe('the support tab', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reset two-factor' }));
     const dialog = within(await screen.findByRole('dialog'));
-    await user.type(dialog.getByRole('textbox'), 'jane@acme.example');
+    await confirmWith(user, 'She rang about a lost phone.', 'jane@acme.example');
     await user.click(dialog.getByRole('button', { name: 'Reset their two-factor' }));
 
     expect(await screen.findByText('Nobody here uses that email address')).toBeVisible();

@@ -10,8 +10,9 @@ import { useCallback, useState } from 'react';
 import type { ConsoleServerPayload } from '@crm/shared';
 import { Badge, Tabs, toast } from '@crm/ui';
 import { StatusDot } from '@/components/Bits';
-import { EmptyState, PageHeader, StateSlot } from '@/components/Page';
+import { PageHeader, StateSlot } from '@/components/Page';
 import { customerRoute } from '@/app/router';
+import { CustomerInsights } from '@/features/analytics/CustomerInsights';
 import { http } from '@/lib/api';
 import { qk } from '@/lib/query';
 import { useConsoleEvent } from '@/lib/socket';
@@ -23,19 +24,6 @@ import { OverviewTab } from './OverviewTab';
 import { SupportTab } from './SupportTab';
 
 type TabId = 'overview' | 'insights' | 'entitlements' | 'announce' | 'support' | 'history';
-
-/**
- * Stands in for `features/analytics/CustomerInsights` until it lands, so the tab exists and the
- * screen already has its shape. Replace the function with the import; nothing else moves.
- */
-function CustomerInsights(_props: { customerId: string }) {
-  return (
-    <EmptyState
-      title="Insights are not built yet"
-      description="What this customer's stack has been doing will appear here."
-    />
-  );
-}
 
 export function CustomerScreen() {
   const { customerId } = customerRoute.useParams();
