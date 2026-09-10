@@ -1,0 +1,13 @@
+{
+  "name": "@crm/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The marketing site at flarehub.co.ke. Static files, served as they are; this package exists only for the asset slicing script.",
+  "scripts": {
+    "assets": "node scripts/build-site-assets.mjs"
+  },
+  "devDependencies": {
+    "sharp": "0.35.4"
+  }
+}

@@ -393,6 +393,12 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(esbuild@0.28.2)(happy-dom@20.13.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)
 
+  apps/site:
+    devDependencies:
+      sharp:
+        specifier: 0.35.4
+        version: 0.35.4(@types/node@24.13.3)
+
   apps/web:
     dependencies:
       '@crm/shared':
