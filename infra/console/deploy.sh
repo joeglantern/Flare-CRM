@@ -9,6 +9,11 @@
 # console as an extra site, so this one has no web server of its own (docs/21 §7).
 set -euo pipefail
 cd "$(dirname "$0")"
+# The shell wins, then .env, then latest. Compose gives the shell precedence over the file, so
+# exporting a default here unconditionally would quietly ignore what .env says.
+if [ -z "${IMAGE_TAG:-}" ] && [ -f .env ]; then
+  IMAGE_TAG=$(sed -n 's/^IMAGE_TAG=//p' .env | tail -1)
+fi
 export IMAGE_TAG=${IMAGE_TAG:-latest}
 
 COMPOSE=(docker compose)
