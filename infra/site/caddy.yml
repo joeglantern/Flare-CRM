@@ -1,0 +1,10 @@
+# Overlay for the stack whose Caddy serves the marketing site. Mounts the static files from the
+# checkout, read-only. Stack it after any other overlay this host needs:
+#
+#   docker compose -f compose.yml -f ../console/same-host/crm-caddy.yml -f ../site/caddy.yml up -d caddy
+services:
+  caddy:
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN in .env when this host also serves the marketing site}
+    volumes:
+      - ../../apps/site/public:/srv/site:ro

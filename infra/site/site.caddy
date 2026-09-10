@@ -1,0 +1,52 @@
+# The marketing site at the provider's own domain, served by whichever Caddy is on this host.
+#
+# Copy this into infra/docker/caddy/conf.d/ and set SITE_DOMAIN in infra/docker/.env, then bring
+# Caddy up with the overlay that mounts the files:
+#
+#   cd ~/flare-crm/infra/docker
+#   docker compose -f compose.yml -f ../site/caddy.yml up -d caddy
+#
+# There is no build step and no publisher container: the site is static files in the repo, so a
+# git pull is the deployment. Caddy reads them read-only from the checkout.
+
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		Permissions-Policy "microphone=(), camera=(), geolocation=()"
+		# No third-party anything: the site is its own scripts, its own fonts, its own images.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	root * /srv/site
+	# Fingerprinted assets are immutable; the pages themselves must never be stale.
+	@assets path /assets/* /fonts/* /brand/* /shots/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@pages path *.html /
+	header @pages Cache-Control "no-cache"
+	# /product serves product.html, so the URLs carry no extension.
+	try_files {path} {path}.html {path}/index.html
+	file_server
+
+	handle_errors {
+		rewrite * /404.html
+		file_server
+	}
+
+	log {
+		output file /data/site-access.log {
+			roll_size 50mb
+			roll_keep 10
+		}
+		format json
+	}
+}
