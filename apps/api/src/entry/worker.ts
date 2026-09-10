@@ -5,6 +5,8 @@
  */
 import { buildApp } from '../app.js';
 import { loadEnv } from '../config/env.js';
+import { catchUp } from '../integrations/console/catch-up.js';
+import { ConsoleLink } from '../integrations/console/link.js';
 import { YeastarSubscriber } from '../integrations/yeastar/subscriber.js';
 import { reconcileCdrs } from '../integrations/yeastar/reconcile.js';
 import { QUEUES } from '../jobs/queues.js';
@@ -26,6 +28,69 @@ async function main(): Promise<void> {
       { pattern: '0 30 2 * * *' },
       { name: 'scheduled', data: {} },
     );
+
+  /*
+   * The owner console link lives in this process and nowhere else: the api process serves people
+   * and never dials out (docs/21). With no console configured the stack runs standalone, which is
+   * exactly how it ran before any of this existed.
+   */
+  let consoleLink: ConsoleLink | null = null;
+  if (
+    env.CONSOLE_URL !== undefined &&
+    env.CONSOLE_STACK_ID !== undefined &&
+    env.CONSOLE_STACK_SECRET !== undefined
+  ) {
+    const consoleConfig = {
+      CONSOLE_URL: env.CONSOLE_URL,
+      CONSOLE_STACK_ID: env.CONSOLE_STACK_ID,
+      CONSOLE_STACK_SECRET: env.CONSOLE_STACK_SECRET,
+      APP_URL: env.APP_URL,
+      APP_VERSION: env.APP_VERSION,
+    };
+
+    // Before the socket: whatever was issued while this stack was down is applied first, so it
+    // starts on the current plan rather than on the one it had when it stopped.
+    const caught = await catchUp({
+      entitlements: app.entitlements,
+      log: app.log,
+      config: consoleConfig,
+    });
+    if (caught.result === 'unreachable') {
+      app.log.warn({ reason: caught.reason }, 'could not reach the console at boot');
+    }
+
+    consoleLink = new ConsoleLink({
+      valkey: app.valkey,
+      entitlements: app.entitlements,
+      readiness: app.readiness,
+      storage: app.storage,
+      log: app.log,
+      config: consoleConfig,
+      onAnnounce: (announcement) => {
+        app.realtime.to(rooms.all).emit('system:announce', {
+          at: nowIso(),
+          level: announcement.level,
+          message: announcement.message,
+        });
+        void app.audit
+          .write(
+            { actorId: null, actorType: 'system' },
+            {
+              action: 'system.announce',
+              entity: 'system',
+              after: announcement,
+            },
+          )
+          .catch(() => undefined);
+      },
+    });
+    consoleLink.start();
+    app.readiness.register('console', () =>
+      Promise.resolve({ configured: true, connected: consoleLink?.connected === true }),
+    );
+  } else {
+    app.log.info('no owner console configured; running standalone');
+  }
 
   let subscriber: YeastarSubscriber | null = null;
   const telephonyPossible =
@@ -110,6 +175,7 @@ async function main(): Promise<void> {
     timer.unref();
     (async () => {
       await subscriber?.stop();
+      await consoleLink?.stop();
       await processors.close();
       await app.cti.tokens?.revoke().catch(() => undefined);
       await app.close();
