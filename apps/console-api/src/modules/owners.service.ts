@@ -141,6 +141,43 @@ export class OwnersService {
     return this.get(id);
   }
 
+  /**
+   * Sends the owner a link to choose a new password. Nobody sets anybody else's password here, so
+   * this is the whole of what one owner can do for another who is locked out: the link goes to
+   * their address, expires in fifteen minutes, and using it ends every session they had.
+   *
+   * The account itself is untouched if the mail fails, and the caller is told, because an owner
+   * who believes a link is on its way will wait for it rather than trying something else.
+   */
+  async sendPasswordReset(id: string, ctx: AuditContext): Promise<OwnerDto> {
+    const owner = await this.get(id);
+    if (!owner.isActive) {
+      throw new ConflictError(
+        'This account is deactivated. Reactivate it first, or the link will not sign them in',
+      );
+    }
+    try {
+      await this.deps.auth.api.requestPasswordReset({
+        body: {
+          email: owner.email,
+          ...(this.deps.consoleUrl === undefined
+            ? {}
+            : { redirectTo: `${this.deps.consoleUrl}/reset-password` }),
+        },
+      });
+    } catch (err: unknown) {
+      this.deps.log?.warn({ err, ownerId: id }, 'could not send an owner password reset');
+      throw new ConflictError('The email could not be sent, so no link is on its way');
+    }
+    await this.deps.audit.write(ctx, {
+      action: 'owner.password_reset_sent',
+      entity: 'owner',
+      entityId: id,
+      after: { email: owner.email },
+    });
+    return owner;
+  }
+
   async revokeSessions(
     id: string,
     actorHeaders: IncomingHttpHeaders,

@@ -101,6 +101,26 @@ describe('the owners screen', () => {
     });
   });
 
+  it('sends a password link, and says that nobody sees the password', async () => {
+    renderScreen();
+    const user = await pick('Amina', /Send a password link/);
+
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByText(/ever sees or sets it/)).toBeVisible();
+    // The one thing somebody might assume wrongly: that this also clears their authenticator.
+    expect(dialog.getByText(/authenticator is untouched/)).toBeVisible();
+
+    await user.click(await screen.findByRole('button', { name: 'Send the link' }));
+
+    await waitFor(() => {
+      expect(
+        fetchStub?.requests.some(
+          (r) => r.method === 'POST' && r.path === `/api/v1/owners/${OTHER_ID}/password-reset`,
+        ),
+      ).toBe(true);
+    });
+  });
+
   it('sends nothing when the confirmation is dismissed', async () => {
     renderScreen();
     const user = await pick('Amina', /Sign out everywhere/);

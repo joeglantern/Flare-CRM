@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   KeyRound,
   LogOut,
+  Mail,
   MoreHorizontal,
   ShieldCheck,
   ShieldAlert,
@@ -41,7 +42,8 @@ import { qk } from '@/lib/query';
 import type { Owner } from '@/lib/types';
 
 /** The path segment each action posts to, which is also how the dialogs are keyed. */
-type OwnerAction = 'deactivate' | 'reactivate' | 'two-factor/reset' | 'revoke-sessions';
+type OwnerAction =
+  'deactivate' | 'reactivate' | 'two-factor/reset' | 'revoke-sessions' | 'password-reset';
 
 interface Confirmation {
   title: (owner: Owner) => string;
@@ -97,6 +99,23 @@ const CONFIRMATIONS: Record<OwnerAction, Confirmation> = {
       description: `${owner.name} can enrol again at their next sign-in.`,
     }),
     failure: 'Could not reset two-factor',
+  },
+  'password-reset': {
+    title: (owner) => `Send ${owner.name} a password link?`,
+    description: (owner) =>
+      `${owner.name} gets an email with a link to choose a new password. Nobody here, including you, ever sees or sets it.`,
+    consequences: [
+      'The link works once and expires in fifteen minutes',
+      'Using it signs them out everywhere, including any session they still have open',
+      'Their authenticator is untouched: they will still be asked for a code afterwards',
+    ],
+    confirmLabel: 'Send the link',
+    tone: 'primary',
+    success: (owner) => ({
+      title: 'Link sent',
+      description: `${owner.name} has fifteen minutes to use it.`,
+    }),
+    failure: 'Could not send that link',
   },
   'revoke-sessions': {
     title: (owner) => `Sign ${owner.name} out everywhere?`,
@@ -284,6 +303,19 @@ function RowActions({
       danger: true,
       onSelect: () => {
         onPick('revoke-sessions');
+      },
+    },
+    {
+      id: 'password-reset',
+      label: 'Send a password link',
+      icon: Mail,
+      // A deactivated account can hold a link and still not get in, which reads as the link failing.
+      disabled: !owner.isActive,
+      title: owner.isActive
+        ? undefined
+        : 'Reactivate them first, or the link will not sign them in',
+      onSelect: () => {
+        onPick('password-reset');
       },
     },
     {

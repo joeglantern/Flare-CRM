@@ -1264,6 +1264,22 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     }),
   });
 
+  /**
+   * The way back in for an owner who has forgotten their password. It sends a link rather than
+   * setting one: nobody here, including the other owner, ever knows somebody else's password.
+   */
+  app.post('/owners/:id/password-reset', {
+    config: { auth: { permission: 'owner:manage' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      response: { 200: dataResponse(ownerDto) },
+    },
+    handler: async (request) => ({
+      data: await app.owners.sendPasswordReset(request.params.id, auditContext(request)),
+    }),
+  });
+
   app.post('/owners/:id/revoke-sessions', {
     config: { auth: { permission: 'owner:manage' } },
     schema: {

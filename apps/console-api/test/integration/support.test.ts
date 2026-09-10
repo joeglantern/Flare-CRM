@@ -226,6 +226,40 @@ describe('an owner locked out of the console', () => {
     expect(notice?.text).toContain('no longer work');
   });
 
+  it('is sent a link to choose a new password, never a password', async () => {
+    const stuck = await ctx.createOwner({ email: 'forgot@example.com' });
+    ctx.app.mailer.outbox.length = 0;
+
+    const res = await ctx.as(owner, {
+      method: 'POST',
+      url: `/api/v1/owners/${stuck.id}/password-reset`,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+
+    const mail = ctx.app.mailer.outbox.find((m) => m.to === stuck.email);
+    expect(mail, 'no link was sent').toBeDefined();
+    expect(mail?.subject).toContain('password');
+    expect(mail?.text).toContain('/reset-password');
+    // The link is the only thing that changes their password: the account itself is untouched.
+    expect(
+      (await ctx.app.db.user.findUniqueOrThrow({ where: { id: stuck.id } })).twoFactorEnabled,
+    ).toBe(true);
+    expect((await ctx.as(stuck, { method: 'GET', url: '/api/v1/me' })).statusCode).toBe(200);
+    const actions = (await ctx.app.db.auditLog.findMany()).map((a) => a.action);
+    expect(actions).toContain('owner.password_reset_sent');
+  });
+
+  it('cannot be sent a link while the account is switched off', async () => {
+    const other = await ctx.createOwner({ email: 'off@example.com' });
+    await ctx.as(owner, { method: 'POST', url: `/api/v1/owners/${other.id}/deactivate` });
+    const res = await ctx.as(owner, {
+      method: 'POST',
+      url: `/api/v1/owners/${other.id}/password-reset`,
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json<{ error: { message: string } }>().error.message).toContain('deactivated');
+  });
+
   it('can be deactivated and brought back', async () => {
     const other = await ctx.createOwner({ email: 'other@example.com' });
     const off = await ctx.as(owner, {
