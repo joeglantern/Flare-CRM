@@ -157,9 +157,20 @@ ssh -i <key> -L 8081:127.0.0.1:8081 <user>@<host>   # leave it running
 open http://localhost:8081
 ```
 
-While that is the way in, set `CONSOLE_URL=http://localhost:8081` in the console's `.env`: it is what
-password and invitation emails are built from, and a link to a name that does not resolve is no
-link. Put the real name back, and delete the overlay and its conf.d file, once DNS exists.
+`CONSOLE_URL` stays the real name: the console refuses a plain-http one in production, which is the
+rule doing its job. Add the tunnel to `DEV_ORIGINS` instead, which is what the CORS and CSRF checks
+read alongside `CONSOLE_URL`:
+
+```
+DEV_ORIGINS=http://localhost:8081,http://127.0.0.1:8081
+```
+
+One consequence to know about: password and invitation emails are built from `CONSOLE_URL`, so their
+links point at the name that does not resolve yet. Copy the token out of the link and open
+`http://localhost:8081/reset-password?token=…` through the tunnel. Links last fifteen minutes;
+"Forgotten your password?" on the tunnel sends another.
+
+Delete the overlay, its conf.d file and the `DEV_ORIGINS` line once DNS exists.
 
 What this costs: the signing key sits on the same machine as a customer's data, so one compromise
 is two losses. It also means the console goes down when that machine does, including when the
