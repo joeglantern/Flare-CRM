@@ -15,6 +15,15 @@ import { mkdir, stat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+// The finder lives with the brand pipeline because that is where objects have always been cut;
+// the mascot needs exactly the same treatment, so it is imported rather than written twice.
+import {
+  blobs,
+  collisions,
+  groupByCell,
+  maskOf,
+  pad as padBox,
+} from '../../web/scripts/lib/find-objects.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const src = resolve(here, '../../../assets/site/source');
@@ -108,47 +117,134 @@ async function slice(file, names, { quality }) {
 
 /**
  * The figure sheets have no gutters: the character is rendered against pure black so that
- * mix-blend-mode: screen can drop the background out, hair and cape edges included. So the grid is
- * divided evenly and each cell is then trimmed back to its own content.
+ * mix-blend-mode: screen can drop the background out, hair and cape edges included.
+ *
+ * Each figure is found rather than cut on a grid, the same way the object set is, because a cape
+ * or an outstretched arm crosses a nominal cell boundary and a fixed cut takes the arm off. The
+ * padded box is then pulled back off every neighbour so no fragment travels with it.
  */
-async function sliceFigures(file, rows, cols, names, { quality = 62 } = {}) {
+async function sliceFigures(file, rows, cols, names, { quality = 62, threshold = 26 } = {}) {
   const source = resolve(src, file);
-  const { width, height } = await sharp(source).metadata();
-  const cellWidth = Math.floor(width / cols);
-  const cellHeight = Math.floor(height / rows);
-  let i = 0;
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      const name = names[i];
-      i += 1;
-      if (!name) continue;
-      const target = resolve(pub, name);
-      await mkdir(dirname(target), { recursive: true });
-      // Cells are exported whole rather than trimmed to the figure. The black around each one is
-      // invisible once it is composited with screen, every pose comes out the same size, which
-      // makes them interchangeable in a layout, and trimming a near-black edge is guesswork.
-      const cell = sharp(source).extract({
-        left: col * cellWidth,
-        top: row * cellHeight,
-        width: cellWidth,
-        height: cellHeight,
-      });
-      const png = await cell.png().toBuffer();
-      await Promise.all([
-        sharp(png).avif({ quality, effort: 9 }).toFile(`${target}.avif`),
-        sharp(png)
-          .webp({ quality: quality + 10, effort: 6 })
-          .toFile(`${target}.webp`),
-      ]);
-      const written = await stat(`${target}.avif`);
-      const shape = await sharp(`${target}.avif`).metadata();
-      console.log(
-        `${name}.avif`,
-        `${String(shape.width)}x${String(shape.height)}`,
-        `${String(Math.round(written.size / 1024))} KB`,
-      );
-    }
+  const { data, info } = await sharp(source).raw().toBuffer({ resolveWithObject: true });
+  const found = groupByCell(
+    blobs(
+      maskOf(
+        { data, width: info.width, height: info.height, channels: info.channels },
+        { threshold },
+      ),
+      info.width,
+      info.height,
+      { minArea: 400 },
+    ),
+    cols,
+    rows,
+    info.width,
+    info.height,
+  );
+  if (found.length !== names.length) {
+    throw new Error(
+      `${file}: found ${String(found.length)} figures for ${String(names.length)} names`,
+    );
   }
+  const touching = collisions(found, names);
+  for (const [a, b] of touching) console.warn(`  ${file}: ${a} and ${b} overlap; re-cut by hand`);
+  const skip = new Set(touching.flat());
+
+  const sheet = [];
+  for (const [i, name] of names.entries()) {
+    if (skip.has(name)) continue;
+    const box = found[i];
+    const room = padBox(box, 0.06, info.width, info.height);
+    for (const [j, other] of found.entries()) {
+      if (i === j) continue;
+      if (other.left >= box.left + box.width) {
+        room.width = Math.min(room.width, other.left - room.left);
+      }
+      if (other.top >= box.top + box.height) {
+        room.height = Math.min(room.height, other.top - room.top);
+      }
+      if (other.left + other.width <= box.left) {
+        const edge = other.left + other.width;
+        room.width -= Math.max(0, edge - room.left);
+        room.left = Math.max(room.left, edge);
+      }
+      if (other.top + other.height <= box.top) {
+        const edge = other.top + other.height;
+        room.height -= Math.max(0, edge - room.top);
+        room.top = Math.max(room.top, edge);
+      }
+    }
+    const target = resolve(pub, name);
+    await mkdir(dirname(target), { recursive: true });
+    const png = await sharp(source)
+      .extract({
+        left: room.left,
+        top: room.top,
+        width: Math.max(1, room.width),
+        height: Math.max(1, room.height),
+      })
+      .png()
+      .toBuffer();
+    await Promise.all([
+      sharp(png).avif({ quality, effort: 9 }).toFile(`${target}.avif`),
+      sharp(png)
+        .webp({ quality: quality + 10, effort: 6 })
+        .toFile(`${target}.webp`),
+    ]);
+    const written = await stat(`${target}.avif`);
+    const shape = await sharp(`${target}.avif`).metadata();
+    console.log(
+      `${name}.avif`,
+      `${String(shape.width)}x${String(shape.height)}`,
+      `${String(Math.round(written.size / 1024))} KB`,
+    );
+    sheet.push({ name, png });
+  }
+  return sheet;
+}
+
+/** Every slice at thumbnail size with its name under it, so the set can be judged in one look. */
+async function contactSheet(items, target) {
+  if (items.length === 0) return;
+  const cell = 190;
+  const label = 26;
+  const cols = 6;
+  const rows = Math.ceil(items.length / cols);
+  const width = cols * cell;
+  const height = rows * (cell + label);
+  const thumbs = await Promise.all(
+    items.map(async ({ png }, i) => ({
+      input: await sharp(png)
+        .resize(cell - 16, cell - 16, { fit: 'inside' })
+        .png()
+        .toBuffer(),
+      left: (i % cols) * cell + 8,
+      top: Math.floor(i / cols) * (cell + label) + 8,
+    })),
+  );
+  const text = items
+    .map(({ name }, i) => {
+      const x = (i % cols) * cell + cell / 2;
+      const y = Math.floor(i / cols) * (cell + label) + cell + 16;
+      return `<text x="${String(x)}" y="${String(y)}" fill="#A3A19C" font-family="monospace" font-size="12" text-anchor="middle">${name.split('/').pop() ?? name}</text>`;
+    })
+    .join('');
+  await sharp({
+    create: { width, height, channels: 4, background: { r: 10, g: 10, b: 12, alpha: 1 } },
+  })
+    .composite([
+      ...thumbs,
+      {
+        input: Buffer.from(
+          `<svg width="${String(width)}" height="${String(height)}">${text}</svg>`,
+        ),
+        top: 0,
+        left: 0,
+      },
+    ])
+    .png()
+    .toFile(target);
+  console.log('contact sheet:', target);
 }
 
 await slice(
@@ -172,7 +268,7 @@ await slice(
 
 console.log('site assets written to', pub);
 
-await sliceFigures('mascot-poses.png', 4, 4, [
+const poses = await sliceFigures('mascot-poses.png', 4, 4, [
   'mascot/arms-folded',
   'mascot/flying',
   'mascot/pointing',
@@ -191,7 +287,7 @@ await sliceFigures('mascot-poses.png', 4, 4, [
   'mascot/peeking',
 ]);
 
-await sliceFigures('mascot-faces.png', 3, 3, [
+const faces = await sliceFigures('mascot-faces.png', 3, 3, [
   'mascot/face-smiling',
   'mascot/face-steady',
   'mascot/face-sceptical',
@@ -203,8 +299,14 @@ await sliceFigures('mascot-faces.png', 3, 3, [
   'mascot/emblem',
 ]);
 
-await sliceFigures('spark-trio.png', 1, 3, ['spark/solid', 'spark/outline', 'spark/ash'], {
-  quality: 70,
-});
+const sparks = await sliceFigures(
+  'spark-trio.png',
+  1,
+  3,
+  ['spark/solid', 'spark/outline', 'spark/ash'],
+  { quality: 70 },
+);
 
-await sliceFigures('mascot-dive.png', 1, 1, ['mascot/dive'], { quality: 66 });
+const dive = await sliceFigures('mascot-dive.png', 1, 1, ['mascot/dive'], { quality: 66 });
+
+await contactSheet([...poses, ...faces, ...dive, ...sparks], resolve(pub, 'mascot-sheet.png'));
