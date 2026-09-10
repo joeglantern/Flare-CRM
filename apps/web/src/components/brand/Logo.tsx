@@ -4,10 +4,12 @@
  * so it survives 16 px. Colour comes from `currentColor` unless `tone` is set.
  */
 import type { SVGProps } from 'react';
+import { FLARE_MARK_PATH } from '@crm/ui';
 import { cn } from '@/lib/utils';
 
-export const FLARE_MARK_PATH =
-  'M93 5 C70.9 38.9 70.1 53.6 89 72 C58.9 66.4 42.1 71.6 13 96 C30.4 64.9 28.6 49.1 5 24 C39.8 36.3 59.2 32.2 93 5 Z';
+// The path lives in the design system so the console draws the same mark; re-exported here
+// because the CRM has referred to it by this name since before there was a second product.
+export { FLARE_MARK_PATH };
 
 type Tone = 'flare' | 'white' | 'black' | 'current';
 

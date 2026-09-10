@@ -6,6 +6,7 @@
 export * from './Avatar.js';
 export * from './Badge.js';
 export * from './Banner.js';
+export * from './Brand.js';
 export * from './Button.js';
 export * from './ConfirmDialog.js';
 export * from './Input.js';

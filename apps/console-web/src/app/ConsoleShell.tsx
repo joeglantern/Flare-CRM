@@ -21,7 +21,7 @@ import {
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
-import { Badge, cn, IconButton, ToastHost, Tooltip } from '@crm/ui';
+import { Badge, cn, FlareMark, IconButton, ToastHost, Tooltip } from '@crm/ui';
 import { signOut } from '@/lib/auth';
 import { connectSocket, disconnectSocket, useSocketStatus } from '@/lib/socket';
 import { useTheme } from '@/lib/theme';
@@ -59,7 +59,17 @@ export function ConsoleShell({ me, children }: { me: Me; children: ReactNode }) 
       >
         <div className="mb-3 flex items-center justify-between gap-2 px-1">
           <span className="flex items-center gap-2 text-md font-semibold tracking-tight">
-            <KeyRound size={15} className="text-flare" aria-hidden />
+            {/* The mark says which product this is; the key says which half of it. Badged rather
+                than set side by side, because two icons in a row read as two separate things. */}
+            <span className="relative inline-flex shrink-0">
+              <FlareMark size={18} title="Flare" />
+              <KeyRound
+                size={11}
+                strokeWidth={2.5}
+                aria-hidden
+                className="absolute -right-1 -bottom-1 rounded-full bg-surface p-px text-muted"
+              />
+            </span>
             Flare Console
           </span>
         </div>
