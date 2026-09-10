@@ -11,9 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as DataDeletionRouteImport } from './routes/data-deletion'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TwoFactorRouteImport } from './routes/two-factor'
 import { Route as AppHomeRouteImport } from './routes/_app/home'
 import { Route as AppImportsRouteImport } from './routes/_app/imports'
@@ -49,9 +52,19 @@ const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DataDeletionRoute = DataDeletionRouteImport.update({
+  id: '/data-deletion',
+  path: '/data-deletion',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -62,6 +75,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TwoFactorRoute = TwoFactorRouteImport.update({
@@ -192,9 +210,12 @@ const AppLeadsLeadIdRoute = AppLeadsLeadIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/data-deletion': typeof DataDeletionRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
+  '/terms': typeof TermsRoute
   '/two-factor': typeof TwoFactorRoute
   '/home': typeof AppHomeRoute
   '/imports': typeof AppImportsRoute
@@ -223,9 +244,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/data-deletion': typeof DataDeletionRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
+  '/terms': typeof TermsRoute
   '/two-factor': typeof TwoFactorRoute
   '/home': typeof AppHomeRoute
   '/imports': typeof AppImportsRoute
@@ -256,9 +280,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/data-deletion': typeof DataDeletionRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
+  '/terms': typeof TermsRoute
   '/two-factor': typeof TwoFactorRoute
   '/_app/home': typeof AppHomeRoute
   '/_app/imports': typeof AppImportsRoute
@@ -289,9 +316,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/data-deletion'
     | '/forgot-password'
+    | '/privacy'
     | '/reset-password'
     | '/sign-in'
+    | '/terms'
     | '/two-factor'
     | '/home'
     | '/imports'
@@ -320,9 +350,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/data-deletion'
     | '/forgot-password'
+    | '/privacy'
     | '/reset-password'
     | '/sign-in'
+    | '/terms'
     | '/two-factor'
     | '/home'
     | '/imports'
@@ -352,9 +385,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/data-deletion'
     | '/forgot-password'
+    | '/privacy'
     | '/reset-password'
     | '/sign-in'
+    | '/terms'
     | '/two-factor'
     | '/_app/home'
     | '/_app/imports'
@@ -385,9 +421,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  DataDeletionRoute: typeof DataDeletionRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignInRoute: typeof SignInRoute
+  TermsRoute: typeof TermsRoute
   TwoFactorRoute: typeof TwoFactorRoute
 }
 
@@ -407,11 +446,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/data-deletion': {
+      id: '/data-deletion'
+      path: '/data-deletion'
+      fullPath: '/data-deletion'
+      preLoaderRoute: typeof DataDeletionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forgot-password': {
       id: '/forgot-password'
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -426,6 +479,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/two-factor': {
@@ -665,9 +725,12 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  DataDeletionRoute: DataDeletionRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignInRoute: SignInRoute,
+  TermsRoute: TermsRoute,
   TwoFactorRoute: TwoFactorRoute,
 }
 export const routeTree = rootRouteImport

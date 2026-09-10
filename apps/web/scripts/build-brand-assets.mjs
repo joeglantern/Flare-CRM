@@ -237,6 +237,10 @@ async function main() {
   await raster(appIcon, 512, out('icon-512.png'));
   await raster(appIcon, 180, out('apple-touch-icon.png'));
   await raster(markSvg, 512, out('maskable-512.png'), { r: 11, g: 11, b: 12, alpha: 1 });
+  // The listing icon app stores and Meta ask for: 1024 square, on the brand's own dark ground.
+  // Transparency is not allowed a listing, and a mark floating on whatever colour the reviewer's
+  // page happens to be is not the mark anybody designed.
+  await raster(markSvg, 1024, out('brand/app-icon-1024.png'), { r: 11, g: 11, b: 12, alpha: 1 });
 
   await writeFile(
     out('brand/.generated'),

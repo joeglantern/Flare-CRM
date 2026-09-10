@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+// The leading dash keeps this file out of the generated route tree; the router plugin treats
+// everything else in this directory as a route and warns about a file that exports none.
 import { safeRedirect } from './sign-in';
 
 describe('where a sign-in sends somebody afterwards', () => {
