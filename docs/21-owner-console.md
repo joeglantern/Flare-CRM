@@ -194,6 +194,14 @@ IMAGE_TAG=<git-sha> ./deploy.sh
 docker compose run --rm create-owner you@example.com "Your Name"
 ```
 
+Customers are created from the screens. The one exception is the provider's own stack on a console
+nobody can sign in to yet, which has a script for it; it records itself as a system action rather
+than putting an owner's name on something an owner did not do:
+
+```
+docker compose run --rm register-customer <slug> "<Name>" "<Contact name>" <contact email>
+```
+
 The signing key is the one irreplaceable thing on that machine. Losing it means every customer has
 to be issued a document signed by a new key before they trust anything from the console again; the
 fleet screen shows who has not applied one yet. Back up `/opt/flare-console/.env` with the database
