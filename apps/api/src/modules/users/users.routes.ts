@@ -25,6 +25,8 @@ const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     settings: app.settings,
     entitlements: app.entitlements,
     storage: app.storage,
+    mailer: app.mailer,
+    log: app.log,
     appUrl: app.config.APP_URL,
     avatarUrl: (key) => (key ? `/api/v1/files/${encodeURIComponent(key)}` : null),
   });

@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { TwoFactorEnrolScreen, TwoFactorVerifyScreen } from '@/features/auth/TwoFactorScreen';
+import { twoFactorStep } from '@crm/shared';
 import { authClient } from '@/lib/auth/client';
 import { safeRedirect } from './sign-in';
 
@@ -12,14 +13,31 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute('/two-factor')({
   validateSearch: searchSchema,
-  // Enrolling needs a session: the server re-checks the password against the signed-in account.
-  // Without this a signed-out visitor gets the form, and the server's "Unauthorized" is shown in
-  // the password field as though the password were wrong. The verify step is deliberately not
-  // guarded, because during sign-in the second factor is supplied before a session exists.
+  // Which of the two screens applies is decided by whether a session exists, not by how the
+  // browser got here (docs/07). During sign-in the second factor is supplied before a session
+  // exists, so no session means the code box is right. A full session means it never is.
+  //
+  // That is what a person whose second factor was just reset runs into: a stale tab, a bookmark or
+  // a back button lands them on the code screen, and no code they can produce will ever work,
+  // because the secret it would have to match was deleted.
   beforeLoad: async ({ search, location }) => {
-    if (search.setup !== true) return;
     const { data } = await authClient.getSession();
-    if (!data) throw redirect({ to: '/sign-in', search: { redirect: location.href } });
+    const step = twoFactorStep({
+      session: data ? { twoFactorEnabled: data.user.twoFactorEnabled === true } : null,
+      setup: search.setup === true,
+    });
+    if (step === 'verify') return;
+    if (step === 'sign-in') throw redirect({ to: '/sign-in', search: { redirect: location.href } });
+    if (step === 'app') throw redirect({ to: safeRedirect(search.redirect) });
+    if (search.setup !== true) {
+      throw redirect({
+        to: '/two-factor',
+        search: {
+          ...(search.redirect === undefined ? {} : { redirect: search.redirect }),
+          setup: true,
+        },
+      });
+    }
   },
   component: TwoFactorRoute,
 });

@@ -16,6 +16,7 @@ import {
   useNavigate,
 } from '@tanstack/react-router';
 import { useEffect, useMemo, type ReactNode } from 'react';
+import { twoFactorStep } from '@crm/shared';
 import { ToastHost } from '@crm/ui';
 import { ConsoleShell } from '@/app/ConsoleShell';
 import { LoadingState, ErrorState } from '@/components/Page';
@@ -187,6 +188,22 @@ const twoFactorRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): { setup?: boolean } => ({
     ...(search.setup === true || search.setup === 'true' ? { setup: true } : {}),
   }),
+  // Which screen applies is decided by the session, not by how the browser got here (docs/21 §2).
+  // An owner whose second factor was just reset arrives with a working session and no second
+  // factor; if a bookmark or a back button drops them on the code box they can never leave it,
+  // because the secret their code would have to match was deleted.
+  beforeLoad: async ({ search }) => {
+    const { data } = await authClient.getSession();
+    const step = twoFactorStep({
+      session: data ? { twoFactorEnabled: data.user.twoFactorEnabled === true } : null,
+      setup: search.setup === true,
+    });
+    if (step === 'app') throw redirect({ to: '/' });
+    if (step === 'sign-in') throw redirect({ to: '/sign-in' });
+    if (step === 'enrol' && search.setup !== true) {
+      throw redirect({ to: '/two-factor', search: { setup: true } });
+    }
+  },
   component: () => (
     <>
       <TwoFactorRoute />

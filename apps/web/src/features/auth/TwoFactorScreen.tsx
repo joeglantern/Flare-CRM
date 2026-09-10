@@ -47,13 +47,18 @@ export function TwoFactorVerifyScreen({
       title="Enter your code"
       description="Open your authenticator app and type the six digit code. A backup code works here too."
       footer={
-        <button
-          type="button"
-          onClick={onSignOut}
-          className="underline underline-offset-2 hover:text-fg"
-        >
-          Sign in as someone else
-        </button>
+        <>
+          {/* The one case where no code will ever work: the secret it would match was deleted. */}
+          Had your two-factor reset by an administrator?{' '}
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="underline underline-offset-2 hover:text-fg"
+          >
+            Start again
+          </button>{' '}
+          and you will be asked to set up a new authenticator.
+        </>
       }
     >
       <form

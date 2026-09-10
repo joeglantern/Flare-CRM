@@ -218,6 +218,12 @@ describe('an owner locked out of the console', () => {
     });
     expect(row.entityId).toBe(stuck.id);
     expect(row.actorId).toBe(owner.id);
+
+    // There is nobody above an owner here, so an unannounced reset is indistinguishable from
+    // somebody else getting in. They are told.
+    const notice = ctx.app.mailer.outbox.find((m) => m.to === stuck.email);
+    expect(notice, 'the owner was not told their second factor had been cleared').toBeDefined();
+    expect(notice?.text).toContain('no longer work');
   });
 
   it('can be deactivated and brought back', async () => {

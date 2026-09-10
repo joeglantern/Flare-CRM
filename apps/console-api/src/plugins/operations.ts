@@ -14,7 +14,17 @@ const OWNER_CONTACT_KEY = 'ownerContact';
 
 export default fp(
   function operations(app: FastifyInstance) {
-    app.decorate('owners', new OwnersService({ db: app.db, auth: app.auth, audit: app.audit }));
+    app.decorate(
+      'owners',
+      new OwnersService({
+        db: app.db,
+        auth: app.auth,
+        audit: app.audit,
+        mailer: app.mailer,
+        consoleUrl: app.config.CONSOLE_URL,
+        log: app.log,
+      }),
+    );
     app.decorate('support', new SupportService({ db: app.db, link: app.link, audit: app.audit }));
     app.decorate(
       'alerts',

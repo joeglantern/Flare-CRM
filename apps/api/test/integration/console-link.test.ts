@@ -57,7 +57,14 @@ describe('the console link, from the stack side', () => {
 
   /** The support deps the worker hands the link, so the provider may unstick a person here. */
   function supportDeps(): SupportDeps {
-    return { db: ctx.app.db, valkey: ctx.app.valkey, audit: ctx.app.audit, log: ctx.app.log };
+    return {
+      db: ctx.app.db,
+      valkey: ctx.app.valkey,
+      audit: ctx.app.audit,
+      log: ctx.app.log,
+      mailer: ctx.app.mailer,
+      appUrl: 'https://acme.example.com',
+    };
   }
 
   /** The link as the worker builds it, minus the parts that belong to the worker. */
@@ -366,6 +373,13 @@ describe('the console link, from the stack side', () => {
       expect(row.actorId).toBeNull();
       expect(JSON.stringify(row.after)).toContain('owner@flare.test');
       expect(JSON.stringify(row.after)).toContain('Lost her phone');
+
+      // The person it happened to is told by us, not by an authenticator that stopped working.
+      const notice = ctx.app.mailer.outbox.find((m) => m.to === user.email);
+      expect(notice, 'nobody told the person whose second factor was cleared').toBeDefined();
+      expect(notice?.text).toContain('provider');
+      expect(notice?.text).toContain('Lost her phone');
+      expect(notice?.text).toContain('https://acme.example.com/sign-in');
     });
 
     it('says so plainly when the email belongs to nobody here', async () => {

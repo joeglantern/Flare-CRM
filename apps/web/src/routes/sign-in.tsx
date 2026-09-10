@@ -25,9 +25,18 @@ export const Route = createFileRoute('/sign-in')({
   component: SignInRoute,
 });
 
+/**
+ * The auth screens themselves are never a destination. Sending somebody back to one after they
+ * have just signed in is how a person whose second factor was reset ends up staring at a code box
+ * with no code to give.
+ */
+const AUTH_PATHS = ['/sign-in', '/two-factor', '/forgot-password', '/reset-password'];
+
 /** Only same-origin paths are honoured, never absolute URLs (open-redirect guard). */
 export function safeRedirect(target: string | undefined): string {
   if (!target || !target.startsWith('/') || target.startsWith('//')) return '/home';
+  const path = target.split(/[?#]/)[0] ?? '';
+  if (AUTH_PATHS.some((auth) => path === auth || path.startsWith(`${auth}/`))) return '/home';
   return target;
 }
 

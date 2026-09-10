@@ -59,6 +59,47 @@ export function passwordReset(input: {
   };
 }
 
+/**
+ * Sent to the person whose second factor was cleared, not to whoever cleared it.
+ *
+ * Without this the first they hear of it is a code that stops working, and the natural reading of
+ * that is "my account is broken" rather than "I need to set up my authenticator again". It also
+ * means an unexpected reset reaches the person it happened to, which is the only way they would
+ * ever know to ask about it.
+ */
+export function twoFactorReset(input: {
+  to: string;
+  name: string;
+  url: string;
+  appName: string;
+  /** Who did it, in words the recipient will recognise. */
+  by: string;
+  reason?: string | null;
+}): MailMessage {
+  const title = `Your ${input.appName} two-factor has been reset`;
+  const because =
+    input.reason === undefined || input.reason === null || input.reason.trim() === ''
+      ? ''
+      : ` The reason given was: ${input.reason.trim()}`;
+  return {
+    to: input.to,
+    subject: title,
+    text: `Hi ${input.name},
+
+Your two-factor authentication was reset by ${input.by}.${because}
+
+Your old authenticator and backup codes no longer work. Sign in with your password and you will be asked to set up a new authenticator:
+${input.url}
+
+If you were not expecting this, tell an administrator now: whoever did it can sign in as you until you set a new second factor up.
+`,
+    html: layout(
+      title,
+      `<p>Hi ${escapeHtml(input.name)},</p><p>Your two-factor authentication was reset by ${escapeHtml(input.by)}.${escapeHtml(because)}</p><p>Your old authenticator and backup codes no longer work. Sign in with your password and you will be asked to set up a new one.</p>${button(input.url, 'Sign in and set it up')}<p style="font-size:13px;color:#666">If you were not expecting this, tell an administrator now.</p>`,
+    ),
+  };
+}
+
 export function verifyEmail(input: {
   to: string;
   name: string;

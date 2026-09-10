@@ -29,6 +29,8 @@ import type { AuditContext, AuditService } from '../audit/audit.service.js';
 import type { EntitlementsService } from '../entitlements/entitlements.service.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import type { Storage } from '../../integrations/storage/storage.js';
+import type { Mailer } from '../../plugins/mailer.js';
+import { twoFactorReset } from '../notifications/templates/auth.js';
 import type { Redis } from 'ioredis';
 
 export interface UsersDeps {
@@ -39,6 +41,9 @@ export interface UsersDeps {
   settings: SettingsService;
   entitlements: EntitlementsService;
   storage: Storage;
+  /** Optional so a caller that only reads users need not carry a mail server. */
+  mailer?: Mailer;
+  log?: { error: (o: unknown, m: string) => void };
   appUrl: string;
   avatarUrl: (key: string | null) => string | null;
 }
@@ -376,7 +381,41 @@ export class UsersService {
       before: { twoFactorEnabled: before.twoFactorEnabled },
       after: { twoFactorEnabled: false },
     });
+    await this.tellThemTheirSecondFactorWasReset(before, ctx.actorId);
     return this.get(id);
+  }
+
+  /**
+   * The person this happened to finds out from us rather than from a code that has stopped
+   * working. A mail server that is down must not undo a reset that has already happened, so this
+   * is logged and swallowed rather than thrown.
+   */
+  private async tellThemTheirSecondFactorWasReset(
+    user: UserDto,
+    actorId: string | null,
+  ): Promise<void> {
+    const mailer = this.deps.mailer;
+    if (!mailer) return;
+    const actor =
+      actorId === null
+        ? null
+        : await this.deps.db.user.findUnique({
+            where: { id: actorId },
+            select: { name: true },
+          });
+    try {
+      await mailer.send(
+        twoFactorReset({
+          to: user.email,
+          name: user.name,
+          url: `${this.deps.appUrl}/sign-in`,
+          appName: 'CRM',
+          by: actor?.name ?? 'an administrator',
+        }),
+      );
+    } catch (err: unknown) {
+      this.deps.log?.error({ err, userId: user.id }, 'could not email a two-factor reset notice');
+    }
   }
 
   async revokeSessions(

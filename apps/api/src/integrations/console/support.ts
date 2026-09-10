@@ -17,6 +17,8 @@ import {
   type SupportUser,
 } from '@crm/shared';
 import type { AuditService } from '../../modules/audit/audit.service.js';
+import { twoFactorReset } from '../../modules/notifications/templates/auth.js';
+import type { Mailer } from '../../plugins/mailer.js';
 import type { Db } from '../../plugins/prisma.js';
 
 /** Better Auth keeps a list of live sessions per user under this key, and each session under its token. */
@@ -33,6 +35,9 @@ export interface SupportDeps {
   valkey: Redis;
   audit: AuditService;
   log: Logger;
+  /** So the person a support action happened to hears it from us, and not from a broken sign-in. */
+  mailer?: Mailer;
+  appUrl?: string;
 }
 
 export async function runSupportCommand(
@@ -120,6 +125,7 @@ export async function runSupportCommand(
       });
     });
     await endSessions(deps, user.id);
+    await tellThem(deps, user, provider, command.reason ?? null);
     deps.log.warn({ provider, userId: user.id }, 'provider reset a second factor');
     return {
       commandId: command.commandId,
@@ -143,6 +149,34 @@ export async function runSupportCommand(
     ok: true,
     message: `${user.name} has been signed out everywhere.`,
   };
+}
+
+/**
+ * The person whose authenticator has just stopped working is told why, and by whom. A support
+ * action nobody told you about is indistinguishable from a break-in, and this is the difference.
+ * Mail failing must not undo a reset that already happened.
+ */
+async function tellThem(
+  deps: SupportDeps,
+  user: { name: string; email: string },
+  provider: string,
+  reason: string | null,
+): Promise<void> {
+  if (!deps.mailer || deps.appUrl === undefined) return;
+  try {
+    await deps.mailer.send(
+      twoFactorReset({
+        to: user.email,
+        name: user.name,
+        url: `${deps.appUrl}/sign-in`,
+        appName: 'CRM',
+        by: `your CRM provider (${provider})`,
+        reason,
+      }),
+    );
+  } catch (err: unknown) {
+    deps.log.warn({ err }, 'could not email a two-factor reset notice');
+  }
 }
 
 /**

@@ -175,6 +175,10 @@ export const usersRoles: Chapter = {
           text: 'If those are gone too, open Settings, Users, find them in the list and choose <em>Reset two-factor</em> from the row menu. They are signed out everywhere and asked to enrol again the next time they sign in.',
         },
         {
+          type: 'p',
+          text: 'They are emailed as soon as you do it, naming you, because a second factor that stops working with no explanation looks like a broken account or a break-in. Tell them to sign in with their password as usual: they will be shown a new QR code to scan rather than a box asking for a code, and their old authenticator entry can be deleted.',
+        },
+        {
           type: 'callout',
           tone: 'warning',
           text: 'Anyone who can do this can hand someone else a way in. Be certain who you are talking to before you reset it, and know that the reset is recorded in the audit log with your name against it.',
