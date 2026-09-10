@@ -29,6 +29,9 @@ Source requirement: `CRM_PABX_System_Requirements.md` (v1.0). The PBX is confirm
 | 15  | [Implementation plan](15-implementation-plan.md)                     | Ordered build steps for the backend with definition-of-done per step.                                                  |
 | 16  | [Open questions & assumptions](16-open-questions-and-assumptions.md) | Client questions from spec §10 with the defaults we build against until answered.                                      |
 | 17  | [Frontend guidelines](17-frontend-guidelines.md)                     | Vite/React app rules (built after the backend).                                                                        |
+| 20  | [Entitlements](20-entitlements.md)                                   | What a customer may use: the catalogue, the signed document, and where it is enforced.                                 |
+| 21  | [Owner console](21-owner-console.md)                                 | The provider's own service: customers, plans, the fleet, and the link every stack dials home on.                       |
+| 22  | [Help manual](22-help-manual.md)                                     | The manual inside the product: how its content, figures and printing work.                                             |
 
 ## Non-negotiables (summary — details in the linked docs)
 

@@ -1,0 +1,228 @@
+# The owner console on its own small VPS (docs/21). Deploy with infra/console/deploy.sh.
+# Never run `docker compose down -v` here: the volume holds every customer's plan and the audit log.
+#
+# Smaller than a customer stack by design. No object storage, no queues, no PBX: this service knows
+# who the customers are and what they may use, and nothing about their contacts or calls.
+name: flare-console
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: '50m', max-file: '10' }
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ['80:80', '443:443', '443:443/udp']
+    environment:
+      CONSOLE_DOMAIN: ${CONSOLE_DOMAIN:?set CONSOLE_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - console_dist:/srv/console:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    logging: *logging
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_completed_successfully }
+
+  # publishes the built console client into console_dist and exits; Caddy serves it
+  web:
+    image: ${CONSOLE_WEB_IMAGE:-ghcr.io/OWNER/crm-console-web:latest}
+    build:
+      context: ../..
+      dockerfile: apps/console-web/Dockerfile
+    restart: 'no'
+    volumes:
+      - console_dist:/out
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    logging: *logging
+
+  api:
+    image: ${CONSOLE_IMAGE:-ghcr.io/OWNER/crm-console-api}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: [.env]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+    # edge as well as internal: customer stacks connect in over the websocket, and password and
+    # invitation email goes out over SMTP.
+    networks: [edge, internal]
+    stop_grace_period: 30s
+    deploy:
+      resources: { limits: { memory: 512m } }
+    depends_on:
+      postgres: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:4100/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  migrate:
+    image: ${CONSOLE_IMAGE:-ghcr.io/OWNER/crm-console-api}:${IMAGE_TAG:-latest}
+    profiles: [ops]
+    restart: 'no'
+    env_file: [.env]
+    command: ['node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy']
+    networks: [internal]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+
+  # the starting plan and the provider's contact details; idempotent, safe after every deploy
+  seed:
+    image: ${CONSOLE_IMAGE:-ghcr.io/OWNER/crm-console-api}:${IMAGE_TAG:-latest}
+    profiles: [ops]
+    restart: 'no'
+    env_file: [.env]
+    command: ['node', 'dist/seed.js']
+    networks: [internal]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+
+  # creates the first owner and emails them a set-password link:
+  #   docker compose run --rm create-owner you@example.com "Your Name"
+  create-owner:
+    image: ${CONSOLE_IMAGE:-ghcr.io/OWNER/crm-console-api}:${IMAGE_TAG:-latest}
+    profiles: [ops]
+    restart: 'no'
+    env_file: [.env]
+    entrypoint: ['node', 'dist/create-owner.js']
+    command: []
+    networks: [edge, internal]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+
+  postgres:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: console
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=384MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - wal_level=replica
+      - -c
+      - log_min_duration_statement=500
+      - -c
+      - max_connections=50
+    shm_size: 128m
+    secrets: [postgres_password]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+    deploy:
+      resources: { limits: { memory: 1g } }
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d console']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    labels: { com.crm.persistent: 'true' }
+
+  valkey:
+    image: valkey/valkey:8.1-alpine
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - exec valkey-server --appendonly yes --appendfsync everysec --maxmemory 200mb --maxmemory-policy noeviction --requirepass "$$(cat /run/secrets/valkey_password)" --protected-mode yes
+    secrets: [valkey_password]
+    volumes: [valkey_data:/data]
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+    deploy:
+      resources: { limits: { memory: 256m } }
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'valkey-cli -a "$$(cat /run/secrets/valkey_password)" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    labels: { com.crm.persistent: 'true' }
+
+  # Nightly dump of the console database. Everything here is small and everything here matters:
+  # losing it means every customer stack keeps its last document and nothing can be changed.
+  backup:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGDATABASE: console
+      PGPASSFILE: /run/secrets/pgpass
+      BACKUP_CRON: ${BACKUP_CRON:-30 2 * * *}
+    secrets: [pgpass]
+    volumes: [console_backups:/backups]
+    networks: [internal]
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+    depends_on:
+      postgres: { condition: service_healthy }
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eu
+        # The dump command lives in a file rather than in the crontab line: cron reads a percent
+        # sign as a newline, and every date format string is made of them.
+        cat > /usr/local/bin/console-backup <<'SCRIPT'
+        #!/bin/sh
+        set -eu
+        pg_dump --format=custom --file=/backups/console-$$(date +%Y%m%dT%H%M%S).dump
+        ls -1t /backups/console-*.dump | tail -n +15 | xargs -r rm --
+        SCRIPT
+        chmod +x /usr/local/bin/console-backup
+        echo "$$BACKUP_CRON /usr/local/bin/console-backup" > /etc/crontabs/root
+        crond -f -l 8
+
+secrets:
+  postgres_password: { file: ./secrets/postgres_password }
+  valkey_password: { file: ./secrets/valkey_password }
+  pgpass: { file: ./secrets/pgpass }
+
+volumes:
+  pg_data: { labels: { com.crm.persistent: 'true' } }
+  valkey_data: { labels: { com.crm.persistent: 'true' } }
+  console_backups: { labels: { com.crm.persistent: 'true' } }
+  console_dist: {}
+  caddy_data: { labels: { com.crm.persistent: 'true' } }
+  caddy_config: {}
+
+networks:
+  edge: {}
+  internal: { internal: true }

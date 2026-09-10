@@ -70,6 +70,17 @@ crm.example.com {
 
 Recording/attachment downloads: default is direct presigned URLs to the S3 host; if the S3 host is not public (SeaweedFS internal), the API streams objects through `GET /api/v1/files/:key` (permission-checked, `Range` supported for audio scrubbing). Choose one per deployment via `STORAGE_PUBLIC_URL`.
 
+### 3.1 A customer on a domain of their own
+
+The site block is addressed `{$CRM_DOMAIN}{$CRM_EXTRA_SITES}`. `CRM_EXTRA_SITES` is empty for most
+customers; a customer with their own name gets `, crm.theircompany.co.ke` there and Caddy asks for
+that certificate too. `CRM_EXTRA_CSP` widens the page's `connect-src` to match, since the socket
+then connects to that host. Both are written by `infra/provision-customer.sh`; compose strips a
+leading space from a `.env` value, so the separators live in the Caddyfile.
+
+Verified with `caddy adapt`: two hostnames on one site block, one certificate each, one CSP
+covering both.
+
 ## 4. VPS bootstrap (`infra/vps/bootstrap.sh`, idempotent)
 
 1. Create `deploy` user with sudo, SSH key only; disable password auth and root login; change SSH port (optional); install `fail2ban`, `unattended-upgrades`.
@@ -91,6 +102,23 @@ ssh deploy@vps 'cd /opt/crm && docker compose pull api worker && docker compose 
 - Migrations run **before** the new api/worker start; they must be backward compatible with the previous version (expand → migrate → contract pattern) so a rollback is `docker compose up -d` with the previous tag.
 - Frontend: CI builds `apps/web` and uploads `dist/` to the `web_dist` volume (or bakes it into a `crm/web` nginx-less image mounted into caddy). Cache-busted assets; `index.html` `no-store`.
 - Zero-downtime: api uses `stopGracePeriod 30s`; Fastify `close()` drains connections; Socket.IO clients reconnect to the new container.
+
+### 5.1 A new customer, from nothing
+
+```
+ssh root@newvps 'bash -s' < infra/vps/bootstrap.sh   # once per machine
+scp -r infra deploy@newvps:/tmp/flare && ssh deploy@newvps
+sudo /tmp/flare/provision-customer.sh --slug acme --domain acme.raniafrica.co.ke   --console-url https://console.raniafrica.co.ke   --stack-id stk_… --stack-secret … --console-public-key MCowBQ…   --acme-email ops@raniafrica.co.ke --admin-email jane@acme.co.ke --image-tag <sha>
+```
+
+The four console arguments come from the customer's screen in the owner console, shown once
+(docs/21). Given none of them the stack runs standalone, with every feature on, which is how the
+pilot deployment runs. Every password is generated on the machine and never printed; they live in
+`/opt/crm/.env` and `/opt/crm/secrets`, which is why that directory is backed up with the data
+(docs/13).
+
+The owner console itself is a separate stack on a separate machine: `infra/console/`, deployed the
+same way with its own `deploy.sh`.
 
 ## 6. Environment variables (`.env.example` — every key documented)
 

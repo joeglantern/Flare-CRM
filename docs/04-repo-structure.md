@@ -5,9 +5,12 @@ CRM/
 ├── docs/                          # this documentation (source of truth)
 ├── apps/
 │   ├── api/                       # Fastify backend (api + worker entrypoints)
-│   └── web/                       # Vite/React frontend (built after backend)
+│   ├── web/                       # Vite/React frontend (built after backend)
+│   ├── console-api/               # owner console backend: customers, plans, entitlements (docs/21)
+│   └── console-web/               # owner console client
 ├── packages/
 │   ├── shared/                    # Zod schemas, DTO types, enums, constants, visibility helpers
+│   ├── ui/                        # design system primitives shared by both clients
 │   └── tsconfig/                  # shared tsconfig bases
 ├── infra/
 │   ├── docker/
@@ -17,6 +20,8 @@ CRM/
 │   │   ├── postgres/init/*.sql    # extensions (citext, pg_trgm), roles
 │   │   ├── seaweedfs/             # s3 config json (identities/policies)
 │   │   └── backup/                # restic + pg_dump scripts, crontab
+│   ├── console/                   # the owner console's own compose stack (docs/21)
+│   ├── provision-customer.sh      # stands a customer stack up on a bootstrapped VPS
 │   └── vps/                       # bootstrap script (ufw, docker, wireguard), hardening notes
 ├── .github/workflows/ci.yml       # lint, typecheck, test, build images
 ├── .env.example                   # every variable documented; never real values

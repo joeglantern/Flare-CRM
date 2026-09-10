@@ -55,18 +55,18 @@ Error (RFC 9457-style, always this shape):
 }
 ```
 
-| HTTP | code                                                              | when                                                                 |
-| ---- | ----------------------------------------------------------------- | -------------------------------------------------------------------- |
-| 400  | `BAD_REQUEST`                                                     | malformed JSON, bad cursor                                           |
-| 401  | `UNAUTHENTICATED`                                                 | no/invalid session                                                   |
-| 403  | `FORBIDDEN` (+`required`) / `TWO_FACTOR_REQUIRED` / `DO_NOT_CALL` | permission or policy                                                 |
-| 404  | `NOT_FOUND`                                                       | also used for out-of-scope records (do not reveal existence)         |
-| 409  | `CONFLICT` / `DUPLICATE` (+`matches[]`) / `STALE_VERSION`         | uniqueness, optimistic concurrency                                   |
-| 413  | `PAYLOAD_TOO_LARGE`                                               |                                                                      |
-| 422  | `VALIDATION_FAILED`                                               | Zod failures                                                         |
-| 429  | `RATE_LIMITED` (+`Retry-After`)                                   |                                                                      |
-| 503  | `PBX_UNAVAILABLE` / `SERVICE_UNAVAILABLE`                         | dependency down / under pressure                                     |
-| 500  | `INTERNAL`                                                        | never includes stack traces or messages from internals in production |
+| HTTP | code                                                                                                                    | when                                                                 |
+| ---- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 400  | `BAD_REQUEST`                                                                                                           | malformed JSON, bad cursor                                           |
+| 401  | `UNAUTHENTICATED`                                                                                                       | no/invalid session                                                   |
+| 403  | `FORBIDDEN` (+`required`) / `TWO_FACTOR_REQUIRED` / `DO_NOT_CALL` / `FEATURE_NOT_IN_PLAN` (+`feature`) / `PLAN_EXPIRED` | permission, policy, or what the customer's plan includes (docs/20)   |
+| 404  | `NOT_FOUND`                                                                                                             | also used for out-of-scope records (do not reveal existence)         |
+| 409  | `CONFLICT` / `DUPLICATE` (+`matches[]`) / `STALE_VERSION` / `LIMIT_REACHED` (+`details {limit, used, max}`)             | uniqueness, optimistic concurrency, a plan ceiling reached (docs/20) |
+| 413  | `PAYLOAD_TOO_LARGE`                                                                                                     |                                                                      |
+| 422  | `VALIDATION_FAILED`                                                                                                     | Zod failures                                                         |
+| 429  | `RATE_LIMITED` (+`Retry-After`)                                                                                         |                                                                      |
+| 503  | `PBX_UNAVAILABLE` / `SERVICE_UNAVAILABLE`                                                                               | dependency down / under pressure                                     |
+| 500  | `INTERNAL`                                                                                                              | never includes stack traces or messages from internals in production |
 
 Application errors are thrown as `AppError(code, status, message, details?)` from services; a single Fastify `setErrorHandler` maps Zod, Prisma (`P2002` → `409`, `P2025` → `404`), and `AppError` to this shape and logs 5xx with the request id.
 

@@ -26,6 +26,10 @@ services:
     environment:
       CRM_DOMAIN: ${CRM_DOMAIN:?set CRM_DOMAIN in .env}
       ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+      # A customer on a domain of their own: ", crm.theircompany.co.ke" and the matching
+      # " wss://crm.theircompany.co.ke https://crm.theircompany.co.ke" for the page's connect-src.
+      CRM_EXTRA_SITES: ${CRM_EXTRA_SITES:-}
+      CRM_EXTRA_CSP: ${CRM_EXTRA_CSP:-}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - web_dist:/srv/web:ro

@@ -1,0 +1,129 @@
+# 21. The owner console
+
+A separate service, on a separate machine, with a separate database. It holds the customers, the
+plans and what each customer is entitled to, and it is the only place an entitlements document is
+signed. It never sees a customer's contacts, calls or messages.
+
+It exists because a customer's own administrator holds every permission inside their CRM by
+construction (docs/07). What they may use therefore cannot be a permission; it has to come from
+outside, signed, and be read-only where it lands.
+
+## 1. Shape
+
+| Piece              | Where                     | What it is                                        |
+| ------------------ | ------------------------- | ------------------------------------------------- |
+| `apps/console-api` | its own VPS               | Fastify, Prisma, Postgres, Valkey, Socket.IO      |
+| `apps/console-web` | same VPS, served by Caddy | Vite, React, TanStack Router and Query, `@crm/ui` |
+| `infra/console`    | that VPS                  | compose stack, Caddyfile, deploy script           |
+
+One role: `owner`. Everyone who can sign in here can do everything here, because the people who
+sign in here are the provider. Two-factor is required of every account; the only routes reachable
+without it are the ones that set it up.
+
+Sessions are eight hours, not the CRM's twelve. The cookie prefix is `flarecon`, distinct from the
+CRM's, so a browser open on both never confuses the two.
+
+## 2. What an owner does
+
+- **Fleet.** Every customer, their plan, whether their stack is reporting in, seats and storage in
+  use, the version they are running, when they last backed up, and when their plan expires. Rows
+  update from the socket, not from polling.
+- **Customer.** Contact details; the two domains and the DNS checks behind verifying the second;
+  stack credentials, shown once; entitlements; announcements; and the history of every document
+  issued.
+- **Plans.** The shapes a customer can be sold, so a per-customer override is the exception.
+- **Owners.** Invite, deactivate. An invitation emails a link; nobody sets anyone else's password.
+- **Audit.** Everything anyone did here, append-only at the database level.
+- **Settings.** The support contact carried inside every document, the brand domain, and the
+  signing key's fingerprint and public half.
+
+Saving what a customer is entitled to and issuing it are two steps. Saving records what was agreed;
+issuing signs it and sends it. An owner mid-negotiation should not be changing what a live CRM
+allows on every keystroke.
+
+## 3. The link
+
+A stack dials out; the console never reaches in. That is what lets a customer keep their firewall
+shut, and it is why the console learns how a stack is doing only because the stack tells it.
+
+- **Namespace** `/link` on the console's Socket.IO server. Authentication is
+  `{ stackId, secret, protocol: 1 }` in the handshake, checked against a hash. Revoked stacks are
+  refused. The newest connection for a stack wins; the previous one is dropped.
+- **Stack to console:** `hello` (version, domain, uptime, the document it holds), `heartbeat` every
+  thirty seconds (readiness, usage, last backup, the document it holds), `ack` (applied or
+  rejected, with a reason).
+- **Console to stack:** `entitlements` (envelope and issue id), `announce`, `ping`.
+- **Console to owner browsers**, on the default namespace: `fleet:stack` and `issue:status`.
+- **Rate:** five events a second per stack; a stack that exceeds it is disconnected.
+- **Staleness:** a stack that has not been heard from in ninety seconds is marked disconnected by a
+  sweeper, so a process that died without a clean disconnect does not sit there looking healthy.
+
+Two REST endpoints carry the same document for a stack whose socket is not up yet, authenticated by
+`Authorization: Bearer <stackId>.<secret>`:
+
+- `GET /api/link/entitlements` → the newest outstanding document, or 204.
+- `POST /api/link/ack` → what the stack did with it.
+
+Only one worker replica holds the connection, chosen by a Valkey leader lock (`console:leader`),
+the same pattern the PBX subscriber uses.
+
+## 4. Stack credentials
+
+Created from the customer's screen. The console returns the four environment lines once:
+
+```
+CONSOLE_URL=https://console.raniafrica.co.ke
+CONSOLE_STACK_ID=stk_…
+CONSOLE_STACK_SECRET=…
+CONSOLE_PUBLIC_KEY=MCowBQ…
+```
+
+The secret is stored only as a hash. Rotating issues a new secret for the same id and drops the
+live connection; revoking refuses the stack altogether. Neither touches the customer's data: a
+revoked stack keeps running on whatever document it last applied.
+
+## 5. Domains
+
+Every customer gets `<slug>.<brand domain>`. A customer who wants their own domain publishes two
+records:
+
+- `CNAME crm.theircompany.co.ke → <slug>.<brand domain>`
+- `TXT _flare-verify.crm.theircompany.co.ke → <token from the console>`
+
+The console checks both. The CNAME alone is not enough: anyone can point a name at us. Once
+verified, one command is re-run on the customer's server with the domain in `--extra-domains`, and
+Caddy asks for that certificate. That last step is a command rather than a button because a
+container cannot rewrite the web server in front of it (docs/08 §N).
+
+## 6. Deployment
+
+`infra/console/` holds the compose stack: Caddy, the api, Postgres, Valkey, a client publisher and
+a nightly `pg_dump`. Same hardening rules as a customer stack (docs/12 §1): read-only containers,
+all capabilities dropped, no new privileges, capped logs, internal network for the data services.
+
+```
+cp .env.example .env         # fill in, generate the three keys as the comments say
+IMAGE_TAG=<git-sha> ./deploy.sh
+docker compose run --rm create-owner you@example.com "Your Name"
+```
+
+The signing key is the one irreplaceable thing on that machine. Losing it means every customer has
+to be issued a document signed by a new key before they trust anything from the console again; the
+fleet screen shows who has not applied one yet. Back up `/opt/flare-console/.env` with the database
+(docs/13).
+
+## 7. Local development
+
+```
+pnpm dev:console         # api on 4100
+pnpm dev:console-web     # client on 5174, proxying to it
+pnpm --filter @crm/console-api exec tsx src/scripts/dev-owner.ts you@example.com "Your Name"
+```
+
+`dev-owner` prints a password because the real path emails a link and a laptop rarely has SMTP. It
+refuses to run in production. Two-factor still applies: the account can sign in and do nothing else
+until an authenticator is set up.
+
+To watch the whole loop, create a customer and a stack in the console, paste the four lines into
+the repo's `.env`, and start the worker. The fleet row turns live within a heartbeat, and switching
+a feature off reaches the CRM in under a second.

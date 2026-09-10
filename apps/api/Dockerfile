@@ -29,6 +29,11 @@ RUN pnpm --filter @crm/api prisma:generate \
 
 # ---- runtime ---------------------------------------------------------------------------
 FROM node:24-alpine AS runtime
+# What this image was built from, reported to the owner console in every heartbeat so the fleet
+# screen can say which stack is behind (docs/21):
+#   docker build --build-arg APP_VERSION=$(git rev-parse --short HEAD) ...
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 RUN apk add --no-cache openssl curl tini && addgroup -S app && adduser -S -G app app
 WORKDIR /app
 ENV NODE_ENV=production
