@@ -52,6 +52,16 @@ fi
 echo "== starting data services"
 "${COMPOSE[@]}" up -d postgres valkey
 
+# Compose returns as soon as the container starts, which is well before Postgres is accepting
+# connections; without this the first migration of a fresh volume fails.
+echo "== waiting for postgres"
+for _ in $(seq 1 30); do
+  if "${COMPOSE[@]}" exec -T postgres pg_isready -U postgres -d console >/dev/null 2>&1; then
+    break
+  fi
+  sleep 2
+done
+
 echo "== migrations"
 "${COMPOSE[@]}" run --rm migrate
 
