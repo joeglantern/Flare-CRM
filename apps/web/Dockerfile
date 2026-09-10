@@ -11,6 +11,9 @@ FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
+# The design system is a workspace dependency, so its own dependencies have to be installed here:
+# without this the build compiles its sources with no node_modules beside them and fails on React.
+COPY packages/ui/package.json packages/ui/
 COPY packages/tsconfig/package.json packages/tsconfig/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
