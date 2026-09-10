@@ -20,6 +20,11 @@ import { ToastHost } from '@crm/ui';
 import { ConsoleShell } from '@/app/ConsoleShell';
 import { LoadingState, ErrorState } from '@/components/Page';
 import { AuditScreen } from '@/features/audit/AuditScreen';
+import {
+  ForgotPasswordScreen,
+  LinkExpiredScreen,
+  SetPasswordScreen,
+} from '@/features/auth/PasswordScreens';
 import { SignInScreen } from '@/features/auth/SignInScreen';
 import { TwoFactorRoute } from '@/features/auth/TwoFactorRoute';
 import { CustomerScreen } from '@/features/customers/CustomerScreen';
@@ -27,7 +32,7 @@ import { FleetScreen } from '@/features/fleet/FleetScreen';
 import { OwnersScreen } from '@/features/owners/OwnersScreen';
 import { PlansScreen } from '@/features/plans/PlansScreen';
 import { SettingsScreen } from '@/features/settings/SettingsScreen';
-import { meQuery } from '@/lib/auth';
+import { authClient, meQuery } from '@/lib/auth';
 import { isApiError } from '@/lib/errors';
 import { createQueryClient } from '@/lib/query';
 import { onUnauthenticated } from '@/lib/api';
@@ -147,6 +152,24 @@ const signInRoute = createRoute({
   ),
 });
 
+/** Where the emailed invitation lands, and where a forgotten password is replaced. */
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/forgot-password',
+  component: ForgotPassword,
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  validateSearch: (search: Record<string, unknown>): ResetSearch => ({
+    ...(typeof search.token === 'string' ? { token: search.token } : {}),
+    ...(typeof search.error === 'string' ? { error: search.error } : {}),
+    ...(search.mode === 'set' ? { mode: 'set' as const } : {}),
+  }),
+  component: ResetPassword,
+});
+
 const twoFactorRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/two-factor',
@@ -161,6 +184,77 @@ const twoFactorRoute = createRoute({
   ),
 });
 
+interface ResetSearch {
+  token?: string;
+  /** Better Auth appends this when a link has already been used or has expired. */
+  error?: string;
+  /** A brand new owner sets a password rather than replacing one. */
+  mode?: 'set';
+}
+
+function ForgotPassword() {
+  const navigate = useNavigate();
+  return (
+    <>
+      <ForgotPasswordScreen
+        onBack={() => {
+          void navigate({ to: '/sign-in' });
+        }}
+        onSubmit={async (email) => {
+          // Whether the send succeeded is deliberately not reported: it would reveal whether the
+          // address has an account here. Only a transport failure is worth surfacing.
+          try {
+            await authClient.requestPasswordReset({ email, redirectTo: '/reset-password' });
+            return { ok: true };
+          } catch {
+            return {
+              ok: false,
+              message: 'Could not reach the console. Check your connection and try again.',
+            };
+          }
+        }}
+      />
+      <ToastHost />
+    </>
+  );
+}
+
+function ResetPassword() {
+  const search = resetPasswordRoute.useSearch();
+  const navigate = useNavigate();
+  const token = search.token;
+
+  if (token === undefined || search.error !== undefined) {
+    return (
+      <LinkExpiredScreen
+        onRequestNew={() => {
+          void navigate({ to: '/forgot-password' });
+        }}
+      />
+    );
+  }
+
+  return (
+    <SetPasswordScreen
+      mode={search.mode ?? 'reset'}
+      onBack={() => {
+        void navigate({ to: '/sign-in' });
+      }}
+      onSubmit={async (password) => {
+        const res = await authClient.resetPassword({ newPassword: password, token });
+        if (res.error) {
+          return {
+            ok: false,
+            message: res.error.message ?? 'That link is no longer valid. Ask for a new one.',
+          };
+        }
+        await navigate({ to: '/sign-in' });
+        return { ok: true };
+      }}
+    />
+  );
+}
+
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([
     fleetRoute,
@@ -172,6 +266,8 @@ const routeTree = rootRoute.addChildren([
   ]),
   signInRoute,
   twoFactorRoute,
+  forgotPasswordRoute,
+  resetPasswordRoute,
 ]);
 
 function buildRouter(queryClient: QueryClient) {

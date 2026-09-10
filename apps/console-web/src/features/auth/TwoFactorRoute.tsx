@@ -19,7 +19,10 @@ export function TwoFactorRoute() {
   const queryClient = useQueryClient();
 
   const done = async () => {
-    await queryClient.invalidateQueries({ queryKey: qk.me() });
+    // Refetch rather than invalidate: nothing is watching `me` on this screen, and an invalidated
+    // but unwatched query keeps its old value. The console would then read "two-factor not set up"
+    // and send this owner straight back here, which is what it did before this line changed.
+    await queryClient.refetchQueries({ queryKey: qk.me(), type: 'all' });
     await navigate({ to: '/' });
   };
 

@@ -48,7 +48,13 @@ export class StorageUsage {
     return snapshot(hash);
   }
 
-  /** Authoritative sums from the database and the object store. */
+  /**
+   * Authoritative sums from the database and the object store.
+   *
+   * An unreachable object store does not fail this: the two database figures are still right, and
+   * the backup total keeps whatever was last measured. A stack whose disk is unwell must still be
+   * able to say how it is doing, which is exactly when the owner wants to hear from it.
+   */
   async recompute(): Promise<StorageUsageSnapshot> {
     const [attachments, recordings, backups] = await Promise.all([
       this.db.attachment.aggregate({ _sum: { sizeBytes: true } }),
@@ -56,12 +62,14 @@ export class StorageUsage {
         _sum: { recordingSizeBytes: true },
         where: { recordingStatus: 'stored' },
       }),
-      this.storage.list('backups/', 1000),
+      this.storage.list('backups/', 1000).catch(() => null),
     ]);
+    const lastKnownBackups =
+      backups === null ? Number((await this.valkey.hget(KEY, 'backups')) ?? 0) : 0;
     const values = {
       attachments: Number(attachments._sum.sizeBytes ?? 0n),
       recordings: Number(recordings._sum.recordingSizeBytes ?? 0n),
-      backups: backups.reduce((sum, o) => sum + o.size, 0),
+      backups: backups === null ? lastKnownBackups : backups.reduce((sum, o) => sum + o.size, 0),
       refreshedAt: new Date().toISOString(),
     };
     await this.valkey.hset(KEY, values);

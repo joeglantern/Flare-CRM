@@ -44,6 +44,17 @@ export function SignInScreen() {
     <AuthLayout
       title="Sign in"
       description="The console controls every customer's plan, so it asks for a second factor every time."
+      footer={
+        <button
+          type="button"
+          onClick={() => {
+            void navigate({ to: '/forgot-password' });
+          }}
+          className="underline underline-offset-2 hover:text-text"
+        >
+          Forgotten your password?
+        </button>
+      }
     >
       <form
         noValidate
