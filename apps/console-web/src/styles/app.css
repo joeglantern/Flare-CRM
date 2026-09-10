@@ -148,6 +148,17 @@
   .live-pulse {
     animation: flare-live 1.6s ease-in-out infinite;
   }
+  /* Badge asks for this when it is told to pulse; without it the prop was inert here. */
+  .ring-pulse {
+    animation: flare-ring 1.2s ease-out infinite;
+  }
+  /* The Tabs strip scrolls sideways and should not show a bar doing it. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
   .spin {
     animation: flare-spin 1s linear infinite;
   }
@@ -170,6 +181,14 @@
   }
 }
 
+@keyframes flare-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 106, 61, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(255, 106, 61, 0);
+  }
+}
 @keyframes flare-live {
   0%,
   100% {
@@ -208,5 +227,19 @@
   }
   to {
     background-position: -200% 0;
+  }
+}
+
+/*
+ * Somebody who has asked their system for less movement gets the end of every animation rather
+ * than the animation. The charts honour this too, and land on their final frame.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

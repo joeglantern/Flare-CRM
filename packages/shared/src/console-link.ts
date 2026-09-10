@@ -39,6 +39,51 @@ export const stackUsage = z.object({
   backupsBytes: z.number().int().min(0),
 });
 
+/**
+ * A support action the provider performs on a customer's stack, at that customer's request.
+ *
+ * Three actions and no more. None of them reads a customer's business data: the list carries only
+ * who can sign in, and the other two unlock somebody who is stuck. Every one is audited in the
+ * console and again inside the customer's own CRM, where it names the provider, so nobody can do
+ * this quietly.
+ */
+export const SUPPORT_ACTIONS = ['list-users', 'reset-two-factor', 'revoke-sessions'] as const;
+export type SupportAction = (typeof SUPPORT_ACTIONS)[number];
+
+const commandId = z.string().regex(/^cmd_[0-9a-f-]{36}$/, 'Expected a command id');
+
+export const supportCommand = z.object({
+  commandId,
+  action: z.enum(SUPPORT_ACTIONS),
+  /** Which person, for the two actions that need one. Absent for list-users. */
+  email: z.string().max(254).optional(),
+  /** Who asked for it, carried into the customer's audit row. */
+  requestedBy: z.string().max(120),
+  reason: z.string().max(300).optional(),
+});
+export type SupportCommand = z.infer<typeof supportCommand>;
+
+/** What the stack found: enough to pick a person, and nothing about their work. */
+export const supportUser = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  role: z.string(),
+  isActive: z.boolean(),
+  twoFactorEnabled: z.boolean(),
+  lastSeenAt: isoDateTime.nullable(),
+});
+export type SupportUser = z.infer<typeof supportUser>;
+
+export const supportResult = z.object({
+  commandId,
+  action: z.enum(SUPPORT_ACTIONS),
+  ok: z.boolean(),
+  message: z.string().max(300).optional(),
+  users: z.array(supportUser).optional(),
+});
+export type SupportResult = z.infer<typeof supportResult>;
+
 export const stackToConsoleEvents = {
   hello: z.object({
     stackId,
@@ -62,6 +107,7 @@ export const stackToConsoleEvents = {
     result: z.enum(['applied', 'rejected']),
     reason: z.string().max(300).optional(),
   }),
+  commandResult: supportResult,
 } as const;
 
 export const consoleToStackEvents = {
@@ -70,7 +116,9 @@ export const consoleToStackEvents = {
     message: z.string().trim().min(1).max(500),
     level: z.enum(['info', 'warning', 'error']),
   }),
+  /** Asks for a heartbeat now rather than at the next thirty second tick. */
   ping: z.object({ at: isoDateTime }),
+  command: supportCommand,
 } as const;
 
 export const ISSUE_STATUSES = ['pending', 'delivered', 'acked', 'rejected', 'superseded'] as const;
@@ -88,6 +136,17 @@ export const consoleServerEvents = {
     usage: stackUsage.nullable(),
     readyOk: z.boolean().nullable(),
     lastBackupAt: isoDateTime.nullable(),
+  }),
+  /** An alert opened or resolved, so an owner watching the console sees it without a refresh. */
+  'alert:changed': z.object({
+    at: isoDateTime,
+    id: z.string(),
+    kind: z.string(),
+    level: z.enum(['info', 'warning', 'danger']),
+    customerId: z.string(),
+    customerName: z.string(),
+    open: z.boolean(),
+    summary: z.string(),
   }),
   'issue:status': z.object({
     at: isoDateTime,

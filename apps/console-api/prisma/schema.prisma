@@ -129,9 +129,11 @@ model Customer {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  entitlement CustomerEntitlement?
-  stacks      Stack[]
-  issues      EntitlementIssue[]
+  entitlement   CustomerEntitlement?
+  stacks        Stack[]
+  issues        EntitlementIssue[]
+  alerts        ConsoleAlert[]
+  announcements Announcement[]
 
   @@index([status])
   @@map("customers")
@@ -144,6 +146,9 @@ model Plan {
   /// Feature map from packages/shared; overrides on a customer are layered on top.
   features    Json
   limits      Json
+  /// What this plan costs a month, in minor units of `currency`. Null means it is not sold.
+  priceMonthlyMinor Int?    @map("price_monthly_minor")
+  currency          String  @default("KES")
   isDefault   Boolean  @default(false) @map("is_default")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -160,6 +165,8 @@ model CustomerEntitlement {
   featureOverrides Json      @default("{}") @map("feature_overrides")
   limitOverrides   Json      @default("{}") @map("limit_overrides")
   expiresAt        DateTime? @map("expires_at") @db.Timestamptz(3)
+  /// What this customer actually pays, when it differs from the plan.
+  priceMonthlyMinorOverride Int? @map("price_monthly_minor_override")
   agreementNotes   String    @default("") @map("agreement_notes")
   updatedById      String?   @map("updated_by_id") @db.Uuid
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -195,6 +202,8 @@ model Stack {
 
   customer Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
   issues   EntitlementIssue[]
+  samples  StackSample[]
+  days     StackDay[]
 
   @@index([customerId])
   @@index([connected])
@@ -221,6 +230,102 @@ model EntitlementIssue {
   @@index([customerId, issuedAt(sort: Desc)])
   @@index([stackId, status])
   @@map("entitlement_issues")
+}
+
+/// One measurement of a stack, taken from a heartbeat at most every five minutes (docs/21 §8).
+/// Nothing here describes a customer's business: seats, bytes, health and version.
+model StackSample {
+  id               String   @id @db.Uuid
+  stackId          String   @map("stack_id")
+  customerId       String   @map("customer_id") @db.Uuid
+  at               DateTime @db.Timestamptz(3)
+  seatsActive      Int      @map("seats_active")
+  storageBytes     BigInt   @map("storage_bytes")
+  attachmentsBytes BigInt   @map("attachments_bytes")
+  recordingsBytes  BigInt   @map("recordings_bytes")
+  backupsBytes     BigInt   @map("backups_bytes")
+  readyOk          Boolean  @map("ready_ok")
+  version          String
+  lastBackupAt     DateTime? @map("last_backup_at") @db.Timestamptz(3)
+
+  stack Stack @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  @@index([stackId, at(sort: Desc)])
+  @@index([customerId, at(sort: Desc)])
+  @@index([at])
+  @@map("stack_samples")
+}
+
+/// A stack's day, rolled up from its samples so a month of charts is thirty rows and not eight
+/// thousand. Rewritten in place while the day is still running.
+model StackDay {
+  stackId          String   @map("stack_id")
+  customerId       String   @map("customer_id") @db.Uuid
+  day              DateTime @db.Date
+  samples          Int
+  connectedMinutes Int      @map("connected_minutes")
+  seatsMax         Int      @map("seats_max")
+  seatsAvg         Int      @map("seats_avg")
+  storageMaxBytes  BigInt   @map("storage_max_bytes")
+  readyFailures    Int      @map("ready_failures")
+  versions         String[]
+  backupSeenAt     DateTime? @map("backup_seen_at") @db.Timestamptz(3)
+
+  stack Stack @relation(fields: [stackId], references: [id], onDelete: Cascade)
+
+  @@id([stackId, day])
+  @@index([customerId, day])
+  @@map("stack_days")
+}
+
+/// The whole fleet's day: what the overview draws its lines from, money included.
+model FleetDay {
+  day            DateTime @id @db.Date
+  customers      Int
+  customersLive  Int      @map("customers_live")
+  seatsUsed      Int      @map("seats_used")
+  seatsSold      Int      @map("seats_sold")
+  storageBytes   BigInt   @map("storage_bytes")
+  mrrMinor       Int      @map("mrr_minor")
+  currency       String   @default("KES")
+
+  @@map("fleet_days")
+}
+
+/// Something an owner should look at. One open row per kind per customer is the deduplication:
+/// a stack that is offline for a day is one alert, not two thousand emails.
+model ConsoleAlert {
+  id             String    @id @db.Uuid
+  kind           String
+  level          String
+  customerId     String    @map("customer_id") @db.Uuid
+  stackId        String?   @map("stack_id")
+  openedAt       DateTime  @default(now()) @map("opened_at") @db.Timestamptz(3)
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(3)
+  lastNotifiedAt DateTime? @map("last_notified_at") @db.Timestamptz(3)
+  context        Json      @default("{}")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, kind, resolvedAt])
+  @@index([resolvedAt, openedAt(sort: Desc)])
+  @@map("console_alerts")
+}
+
+/// What was announced to a customer, so the tab remembers it after a reload.
+model Announcement {
+  id         String   @id @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  message    String
+  level      String
+  delivered  Int
+  sentById   String   @map("sent_by_id") @db.Uuid
+  sentAt     DateTime @default(now()) @map("sent_at") @db.Timestamptz(3)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, sentAt(sort: Desc)])
+  @@map("announcements")
 }
 
 model ConsoleSetting {
