@@ -127,7 +127,7 @@ The wildcard is a DNS convenience only. Caddy still serves a named site per host
 a certificate per name over HTTP-01, so a name nobody has configured resolves and is then refused,
 which is the behaviour we want. There is deliberately no `api.` name: there is no central API, and
 a name implying one would be a promise the architecture does not keep. Every stack serves its own
-API on its own domain (docs/20 §7).
+API on its own domain (docs/20 §8).
 
 ### A customer's own domain
 

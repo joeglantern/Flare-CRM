@@ -138,7 +138,37 @@ the retention job and whenever the counter is missing. The recount survives an u
 store: the database figures are still right and the backup total keeps its last value, because a
 stack with a sick disk must still be able to report how it is doing.
 
-## 7. What this does not do
+## 7. What holds when the customer holds the machine
+
+A customer may run their stack on their own server. It is worth being exact about what survives
+that, because the honest answer is narrower than "we keep control" and stronger than "we lose it".
+
+What survives:
+
+- **They cannot mint entitlements.** The signing key is the provider's and never leaves the
+  console. A document is verified by signature and by `audience`, so one issued for another
+  customer will not apply either.
+- **Expiry enforces itself offline.** An expired document puts the stack in read-only without the
+  console being reachable at all. This, not the socket, is what makes non-payment self-limiting: it
+  is why an entitlement should carry a short expiry that is reissued each period rather than a
+  distant one.
+- **The link needs nothing inbound.** The stack dials out, so a customer's firewall does not have
+  to be opened for us to see the fleet or to answer a support request.
+
+What does not survive, and should not be sold as if it did:
+
+- **They hold the machine.** Anyone with root on that host can read its database, take its
+  recordings, and run a patched build. Enforcement runs in their process; it is a lock on a door
+  they own the wall of. What keeps it shut is that they get images rather than source, that
+  upgrades and support come through us, and that the agreement says so.
+- **They can cut the link.** Blocking egress costs them announcements, support and every measure
+  the console draws, and it opens a `stack_offline` alert on our side, which is itself the signal.
+  It does not stop their document expiring on schedule.
+- **Nothing can be repossessed remotely.** There is no kill switch that deletes their data, and
+  there should not be: a provider who can destroy a customer's records is a risk no customer should
+  accept.
+
+## 8. What this does not do
 
 It does not make the CRM multi-tenant. One stack, one customer, one database. The document travels
 between two services and is enforced in one hook, so the same layer would work unchanged if a
