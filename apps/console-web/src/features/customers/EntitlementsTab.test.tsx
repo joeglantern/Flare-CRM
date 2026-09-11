@@ -7,7 +7,7 @@ import { DEFAULT_ENTITLEMENTS } from '@crm/shared';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { CustomerEntitlements, Issue, Plan, Stack } from '@/lib/types';
+import type { CustomerEntitlements, Issue, Me, Plan, Stack } from '@/lib/types';
 import { renderWithQuery, stubFetch, type FetchStub } from '@/test/render';
 import { EntitlementsTab } from './EntitlementsTab';
 
@@ -57,10 +57,21 @@ const stack: Stack = {
 
 const issues: Issue[] = [];
 
+/** Saving and issuing are an owner's, so the editor asks who is signed in before it offers them. */
+const me: Me = {
+  id: '33333333-3333-4333-8333-333333333333',
+  name: 'Liban',
+  email: 'liban@example.com',
+  role: 'owner',
+  twoFactorEnabled: true,
+  permissions: ['entitlement:read', 'entitlement:issue'],
+};
+
 let fetchStub: FetchStub | null = null;
 
 function renderTab() {
   fetchStub = stubFetch({
+    'GET /api/v1/me': me,
     'GET /api/v1/plans': [plan],
     [`PUT /api/v1/customers/${CUSTOMER_ID}/entitlements`]: { ok: true },
     [`POST /api/v1/customers/${CUSTOMER_ID}/issue`]: { issues: [] },
@@ -78,10 +89,14 @@ function renderTab() {
 /**
  * The plan arrives from its own request, and until it does the editor falls back to everything on.
  * Softphone is off in this plan and nowhere else, so it is the signal that the plan is on screen.
+ *
+ * Who is signed in arrives from a second request, and the buttons are held back until it does, so
+ * this waits for both rather than racing whichever answers second.
  */
 async function planLoaded(): Promise<void> {
   await waitFor(() => {
     expect(screen.getByRole('switch', { name: 'Softphone' })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: /Issue and push/ })).toBeInTheDocument();
   });
 }
 

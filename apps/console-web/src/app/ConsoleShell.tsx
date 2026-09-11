@@ -21,19 +21,32 @@ import {
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
+import { CONSOLE_ROLE_COPY, consoleRoleOf } from '@crm/shared';
 import { Badge, cn, FlareMark, IconButton, ToastHost, Tooltip } from '@crm/ui';
 import { signOut } from '@/lib/auth';
+import { usePermissions } from '@/lib/permissions';
 import { connectSocket, disconnectSocket, useSocketStatus } from '@/lib/socket';
 import { useTheme } from '@/lib/theme';
 import type { Me } from '@/lib/types';
 
+/**
+ * Each entry names the permission that makes it worth showing. A support account has no business
+ * on the plans screen, and a link that always answers "not allowed" teaches somebody that the
+ * console is broken rather than that their account is narrow.
+ */
 const NAV = [
-  { to: '/', label: 'Overview', icon: Gauge, exact: true },
-  { to: '/customers', label: 'Customers', icon: Building2, exact: false },
-  { to: '/plans', label: 'Plans', icon: Layers, exact: false },
-  { to: '/owners', label: 'Owners', icon: Users, exact: false },
-  { to: '/audit', label: 'Audit', icon: ScrollText, exact: false },
-  { to: '/settings', label: 'Settings', icon: Settings, exact: false },
+  { to: '/', label: 'Overview', icon: Gauge, exact: true, permission: 'analytics:read' },
+  {
+    to: '/customers',
+    label: 'Customers',
+    icon: Building2,
+    exact: false,
+    permission: 'customer:read',
+  },
+  { to: '/plans', label: 'Plans', icon: Layers, exact: false, permission: 'plan:write' },
+  { to: '/owners', label: 'Owners', icon: Users, exact: false, permission: 'owner:manage' },
+  { to: '/audit', label: 'Audit', icon: ScrollText, exact: false, permission: 'audit:read' },
+  { to: '/settings', label: 'Settings', icon: Settings, exact: false, permission: 'settings:read' },
 ] as const;
 
 export function ConsoleShell({ me, children }: { me: Me; children: ReactNode }) {
@@ -43,6 +56,9 @@ export function ConsoleShell({ me, children }: { me: Me; children: ReactNode }) 
   const connected = useSocketStatus((s) => s.connected);
   const theme = useTheme((s) => s.resolved);
   const toggleTheme = useTheme((s) => s.toggle);
+  const { can } = usePermissions();
+  const nav = NAV.filter((item) => can(item.permission));
+  const role = consoleRoleOf(me.role);
 
   useEffect(() => {
     connectSocket();
@@ -77,7 +93,7 @@ export function ConsoleShell({ me, children }: { me: Me; children: ReactNode }) 
           </span>
         </div>
 
-        {NAV.map((item) => {
+        {nav.map((item) => {
           const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
           return (
             <Link
@@ -110,8 +126,10 @@ export function ConsoleShell({ me, children }: { me: Me; children: ReactNode }) 
           </Tooltip>
 
           <div className="flex items-center justify-between gap-1 border-t border-border px-1 pt-2">
-            <span className="min-w-0 truncate text-sm text-muted" title={me.email}>
-              {me.name}
+            <span className="flex min-w-0 flex-col" title={me.email}>
+              <span className="truncate text-sm text-muted">{me.name}</span>
+              {/* Which half of the console this account is, so a narrower screen is never a puzzle. */}
+              <span className="truncate text-xs text-faint">{CONSOLE_ROLE_COPY[role].label}</span>
             </span>
             <span className="flex shrink-0 items-center">
               <IconButton

@@ -1,6 +1,7 @@
 /**
- * The people who can use this console. Everyone here can do everything here, which is why there are
- * meant to be two of them and why adding one is a deliberate act with an audit row behind it.
+ * The people who can use this console. An owner can do everything here, which is why there are meant
+ * to be few of them and why adding one is a deliberate act with an audit row behind it. A support
+ * account is the narrow one: it sees the fleet and unsticks people, and changes nothing that is sold.
  *
  * An owner is invited, never given a password by someone else: they receive a link and choose their
  * own, then have to set up an authenticator before the console will let them do anything.
@@ -18,10 +19,12 @@ import {
   ShieldCheck,
   ShieldAlert,
   UserCheck,
+  UserCog,
   UserPlus,
   UserX,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { CONSOLE_ROLES, CONSOLE_ROLE_COPY, consoleRoleOf, type ConsoleRole } from '@crm/shared';
 import {
   Badge,
   Button,
@@ -30,6 +33,7 @@ import {
   DropdownMenu,
   IconButton,
   Input,
+  Segmented,
   toast,
   type MenuItemDef,
 } from '@crm/ui';
@@ -136,6 +140,7 @@ export function OwnersScreen() {
   const queryClient = useQueryClient();
   const [inviting, setInviting] = useState(false);
   const [pending, setPending] = useState<{ owner: Owner; action: OwnerAction } | null>(null);
+  const [roleChange, setRoleChange] = useState<{ owner: Owner; role: ConsoleRole } | null>(null);
 
   const me = useQuery(meQuery);
   const owners = useQuery({
@@ -159,6 +164,26 @@ export function OwnersScreen() {
     },
   });
 
+  /**
+   * Its own mutation rather than another entry in `run`: this one carries a body, and the sessions
+   * it ends are the reason it is worth confirming separately.
+   */
+  const changeRole = useMutation({
+    mutationFn: ({ owner, role }: { owner: Owner; role: ConsoleRole }) =>
+      http.post(`/api/v1/owners/${owner.id}/role`, { role }),
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({ queryKey: qk.owners() });
+      toast({
+        tone: 'success',
+        title: `${variables.owner.name} is now ${CONSOLE_ROLE_COPY[variables.role].label.toLowerCase()}`,
+        description: 'They were signed out, so the change applies the moment they sign back in.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'Could not change that role', description: error.message });
+    },
+  });
+
   const columns: Column<Owner>[] = [
     {
       key: 'name',
@@ -171,6 +196,15 @@ export function OwnersScreen() {
           </span>
           <span className="text-sm text-muted">{owner.email}</span>
         </span>
+      ),
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      cell: (owner) => (
+        <Badge tone={consoleRoleOf(owner.role) === 'owner' ? 'flare' : 'neutral'}>
+          {CONSOLE_ROLE_COPY[consoleRoleOf(owner.role)].label}
+        </Badge>
       ),
     },
     {
@@ -213,6 +247,9 @@ export function OwnersScreen() {
           onPick={(action) => {
             setPending({ owner, action });
           }}
+          onPickRole={(role) => {
+            setRoleChange({ owner, role });
+          }}
         />
       ),
     },
@@ -224,7 +261,7 @@ export function OwnersScreen() {
     <>
       <PageHeader
         title="Owners"
-        description="Everyone here can change every customer's plan. Keep the list short."
+        description="An owner can change every customer's plan, so keep that list short. A support account sees the fleet and unsticks people, and nothing else."
         actions={
           <Button
             variant="primary"
@@ -275,6 +312,43 @@ export function OwnersScreen() {
           setPending(null);
         }}
       />
+
+      <ConfirmDialog
+        open={roleChange !== null}
+        onOpenChange={(v) => {
+          if (!v) setRoleChange(null);
+        }}
+        title={
+          roleChange === null
+            ? ''
+            : roleChange.role === 'owner'
+              ? `Make ${roleChange.owner.name} an owner?`
+              : `Narrow ${roleChange.owner.name} to support?`
+        }
+        description={roleChange === null ? '' : CONSOLE_ROLE_COPY[roleChange.role].description}
+        consequences={
+          roleChange === null
+            ? []
+            : roleChange.role === 'owner'
+              ? [
+                  'They gain every permission here, on every customer',
+                  'They are signed out now, so it applies at their next sign-in',
+                  'Their password and authenticator are untouched',
+                ]
+              : [
+                  'They can no longer change plans, prices, entitlements or accounts',
+                  'They keep the fleet, the alerts and the support actions',
+                  'They are signed out now, so it applies at their next sign-in',
+                ]
+        }
+        confirmLabel={roleChange?.role === 'owner' ? 'Make them an owner' : 'Narrow to support'}
+        tone={roleChange?.role === 'owner' ? 'danger' : 'primary'}
+        loading={changeRole.isPending}
+        onConfirm={() => {
+          if (roleChange !== null) changeRole.mutate(roleChange);
+          setRoleChange(null);
+        }}
+      />
     </>
   );
 }
@@ -287,15 +361,30 @@ function RowActions({
   owner,
   isMe,
   onPick,
+  onPickRole,
 }: {
   owner: Owner;
   isMe: boolean;
   onPick: (action: OwnerAction) => void;
+  onPickRole: (role: ConsoleRole) => void;
 }) {
   const anchor = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
+  const role = consoleRoleOf(owner.role);
+  const otherRole: ConsoleRole = role === 'owner' ? 'support' : 'owner';
 
   const items: MenuItemDef[] = [
+    {
+      id: 'role',
+      label: role === 'owner' ? 'Narrow to support' : 'Make them an owner',
+      icon: UserCog,
+      // Changing your own role is the one way to lock yourself out of the console you are using.
+      disabled: isMe,
+      title: isMe ? 'You cannot change your own role' : undefined,
+      onSelect: () => {
+        onPickRole(otherRole);
+      },
+    },
     {
       id: 'revoke-sessions',
       label: 'Sign out everywhere',
@@ -384,11 +473,16 @@ function InviteDialog({
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<ConsoleRole>('owner');
   const [error, setError] = useState<string | undefined>(undefined);
 
   const invite = useMutation({
     mutationFn: () =>
-      http.post<{ id: string }>('/api/v1/owners', { name: name.trim(), email: email.trim() }),
+      http.post<{ id: string }>('/api/v1/owners', {
+        name: name.trim(),
+        email: email.trim(),
+        role,
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.owners() });
       toast({
@@ -399,6 +493,7 @@ function InviteDialog({
       });
       setName('');
       setEmail('');
+      setRole('owner');
       onOpenChange(false);
     },
     onError: (err: Error) => {
@@ -410,7 +505,7 @@ function InviteDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Invite an owner"
+      title="Invite somebody"
       description="They receive a link to set their own password. Nobody, including you, ever sees it."
       footer={
         <>
@@ -453,6 +548,18 @@ function InviteDialog({
             setEmail(e.target.value);
           }}
         />
+        <div className="flex flex-col gap-1">
+          <Segmented<ConsoleRole>
+            ariaLabel="Role"
+            value={role}
+            onChange={setRole}
+            options={CONSOLE_ROLES.map((value) => ({
+              value,
+              label: CONSOLE_ROLE_COPY[value].label,
+            }))}
+          />
+          <p className="text-sm text-muted">{CONSOLE_ROLE_COPY[role].description}</p>
+        </div>
       </div>
     </Dialog>
   );

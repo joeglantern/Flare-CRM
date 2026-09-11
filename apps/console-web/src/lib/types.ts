@@ -157,6 +157,8 @@ export interface Owner {
   id: string;
   name: string;
   email: string;
+  /** `owner` or `support`; an account created before the second role existed reads as an owner. */
+  role: string;
   isActive: boolean;
   twoFactorEnabled: boolean;
   lastSeenAt: string | null;

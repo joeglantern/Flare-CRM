@@ -14,6 +14,7 @@ import { Field, Fields, IssueStatusBadge } from '@/components/Bits';
 import { Section } from '@/components/Page';
 import { http } from '@/lib/api';
 import { dateTime, daysUntil, fromMinor, money, toMinor } from '@/lib/format';
+import { usePermissions } from '@/lib/permissions';
 import { qk } from '@/lib/query';
 import type { CustomerEntitlements, Issue, Plan, Stack } from '@/lib/types';
 import {
@@ -45,6 +46,10 @@ export function EntitlementsTab({
   issues: Issue[];
 }) {
   const queryClient = useQueryClient();
+  // What a customer is sold is an owner's decision. Support sees the agreement and changes none of
+  // it, so the fields are shown filled in and fixed rather than hidden.
+  const { can } = usePermissions();
+  const mayIssue = can('entitlement:issue');
   const [saved, setSaved] = useState<EditorState>(() => fromServer(entitlements));
   const [state, setState] = useState<EditorState>(() => fromServer(entitlements));
   const [source, setSource] = useState(entitlements);
@@ -122,23 +127,28 @@ export function EntitlementsTab({
       >
         <Fields columns={3}>
           <Field label="Plan">
-            <Select
-              ariaLabel="Plan"
-              value={state.planId}
-              onChange={(planId) => {
-                setState({ ...state, planId });
-              }}
-              options={(plans.data ?? []).map((p) => ({
-                value: p.id,
-                label: p.isDefault ? `${p.name} (default)` : p.name,
-              }))}
-              placeholder="No plan"
-            />
+            {mayIssue ? (
+              <Select
+                ariaLabel="Plan"
+                value={state.planId}
+                onChange={(planId) => {
+                  setState({ ...state, planId });
+                }}
+                options={(plans.data ?? []).map((p) => ({
+                  value: p.id,
+                  label: p.isDefault ? `${p.name} (default)` : p.name,
+                }))}
+                placeholder="No plan"
+              />
+            ) : (
+              <span className="text-base">{plan?.name ?? 'No plan'}</span>
+            )}
           </Field>
           <Field label="Expires">
             <Input
               type="date"
               aria-label="Expiry date"
+              disabled={!mayIssue}
               value={state.expiryDay}
               onChange={(e) => {
                 setState({ ...state, expiryDay: e.target.value });
@@ -154,6 +164,7 @@ export function EntitlementsTab({
             <Input
               aria-label="Price a month"
               inputMode="decimal"
+              disabled={!mayIssue}
               placeholder={fromMinor(plan?.priceMonthlyMinor ?? null, currency) || 'Not sold'}
               error={priceError}
               value={state.priceMajor}
@@ -185,6 +196,7 @@ export function EntitlementsTab({
             label="Agreement notes"
             description="What was agreed, and with whom. Only owners see this."
             rows={3}
+            disabled={!mayIssue}
             value={state.agreementNotes}
             onChange={(e) => {
               setState({ ...state, agreementNotes: e.target.value });
@@ -206,6 +218,7 @@ export function EntitlementsTab({
               overridden={state.featureOverrides[key] !== undefined}
               blocked={blockedBy(key, features)}
               dependants={dependents(key).filter((d) => features[d])}
+              readOnly={!mayIssue}
               onChange={(next) => {
                 setState(setFeature(state, plan, key, next));
               }}
@@ -226,6 +239,7 @@ export function EntitlementsTab({
               value={limits[key]}
               fromPlan={baseLimits[key]}
               overridden={state.limitOverrides[key] !== undefined}
+              readOnly={!mayIssue}
               onChange={(next) => {
                 setState(setLimit(state, plan, key, next));
               }}
@@ -253,7 +267,12 @@ export function EntitlementsTab({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {dirty && (
+          {!mayIssue && (
+            <span className="text-base text-muted">
+              Changing this needs an owner. You are seeing what was agreed.
+            </span>
+          )}
+          {mayIssue && dirty && (
             <Button
               icon={Undo2}
               onClick={() => {
@@ -263,31 +282,35 @@ export function EntitlementsTab({
               Discard
             </Button>
           )}
-          <Button
-            loading={save.isPending}
-            disabled={!dirty}
-            onClick={() => {
-              save.mutate();
-            }}
-          >
-            Save
-          </Button>
-          <Button
-            variant="primary"
-            icon={Send}
-            loading={issue.isPending}
-            disabled={dirty || stacks.filter((s) => s.revokedAt === null).length === 0}
-            title={
-              dirty
-                ? 'Save first: issuing signs what is stored, not what is on screen'
-                : 'Sign the current entitlements and send them'
-            }
-            onClick={() => {
-              issue.mutate();
-            }}
-          >
-            Issue and push
-          </Button>
+          {mayIssue && (
+            <Button
+              loading={save.isPending}
+              disabled={!dirty}
+              onClick={() => {
+                save.mutate();
+              }}
+            >
+              Save
+            </Button>
+          )}
+          {mayIssue && (
+            <Button
+              variant="primary"
+              icon={Send}
+              loading={issue.isPending}
+              disabled={dirty || stacks.filter((s) => s.revokedAt === null).length === 0}
+              title={
+                dirty
+                  ? 'Save first: issuing signs what is stored, not what is on screen'
+                  : 'Sign the current entitlements and send them'
+              }
+              onClick={() => {
+                issue.mutate();
+              }}
+            >
+              Issue and push
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -300,6 +323,7 @@ function FeatureRow({
   overridden,
   blocked,
   dependants,
+  readOnly,
   onChange,
   onClearOverride,
 }: {
@@ -308,6 +332,7 @@ function FeatureRow({
   overridden: boolean;
   blocked: FeatureKey[];
   dependants: FeatureKey[];
+  readOnly: boolean;
   onChange: (next: boolean) => void;
   onClearOverride: () => void;
 }) {
@@ -319,13 +344,17 @@ function FeatureRow({
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-base font-medium">{definition.label}</span>
           {overridden ? (
-            <button
-              type="button"
-              className="text-sm text-flare-link underline underline-offset-2"
-              onClick={onClearOverride}
-            >
-              Overridden, back to plan
-            </button>
+            readOnly ? (
+              <Badge tone="neutral">Overridden</Badge>
+            ) : (
+              <button
+                type="button"
+                className="text-sm text-flare-link underline underline-offset-2"
+                onClick={onClearOverride}
+              >
+                Overridden, back to plan
+              </button>
+            )
           ) : (
             <Badge tone="neutral">From plan</Badge>
           )}
@@ -347,7 +376,7 @@ function FeatureRow({
       <Switch
         checked={effective}
         onChange={onChange}
-        disabled={prerequisiteOff}
+        disabled={prerequisiteOff || readOnly}
         ariaLabel={definition.label}
       />
     </li>
@@ -359,12 +388,14 @@ function LimitRow({
   value,
   fromPlan,
   overridden,
+  readOnly,
   onChange,
 }: {
   limitKey: LimitKey;
   value: number | null;
   fromPlan: number | null;
   overridden: boolean;
+  readOnly: boolean;
   onChange: (next: number | null) => void;
 }) {
   const definition = LIMITS[limitKey];
@@ -372,19 +403,24 @@ function LimitRow({
     <Input
       type="number"
       min={0}
+      disabled={readOnly}
       label={
         <span className="flex items-center gap-2">
           {definition.label}
           {overridden ? (
-            <button
-              type="button"
-              className="text-sm text-flare-link underline underline-offset-2"
-              onClick={() => {
-                onChange(fromPlan);
-              }}
-            >
-              back to plan
-            </button>
+            readOnly ? (
+              <Badge tone="neutral">Overridden</Badge>
+            ) : (
+              <button
+                type="button"
+                className="text-sm text-flare-link underline underline-offset-2"
+                onClick={() => {
+                  onChange(fromPlan);
+                }}
+              >
+                back to plan
+              </button>
+            )
           ) : (
             <Badge tone="neutral">From plan</Badge>
           )}

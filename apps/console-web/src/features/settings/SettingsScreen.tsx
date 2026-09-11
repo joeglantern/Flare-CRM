@@ -14,6 +14,7 @@ import { CopyLine, Field, Fields } from '@/components/Bits';
 import { PageHeader, Section, StateSlot } from '@/components/Page';
 import { http } from '@/lib/api';
 import { ago } from '@/lib/format';
+import { usePermissions } from '@/lib/permissions';
 import { qk } from '@/lib/query';
 import { useSocketStatus } from '@/lib/socket';
 import type { ConsoleSettings } from '@/lib/types';
@@ -22,6 +23,10 @@ import { humanise, readReadiness, showValue, type ReadinessCheck } from './readi
 export function SettingsScreen() {
   const queryClient = useQueryClient();
   const connected = useSocketStatus((s) => s.connected);
+  // The contact travels inside every signed document, so changing it changes what every customer is
+  // told to do when something is switched off. That is an owner's call.
+  const { can } = usePermissions();
+  const mayManage = can('settings:manage');
   const settings = useQuery({
     queryKey: qk.settings(),
     queryFn: () => http.get<ConsoleSettings>('/api/v1/console/settings'),
@@ -99,6 +104,7 @@ export function SettingsScreen() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <Input
                   label="Name"
+                  disabled={!mayManage}
                   value={contactName}
                   onChange={(e) => {
                     setContactName(e.target.value);
@@ -107,6 +113,7 @@ export function SettingsScreen() {
                 <Input
                   label="Email"
                   type="email"
+                  disabled={!mayManage}
                   value={contactEmail}
                   onChange={(e) => {
                     setContactEmail(e.target.value);
@@ -115,24 +122,27 @@ export function SettingsScreen() {
                 <Input
                   label="Phone"
                   description="Optional."
+                  disabled={!mayManage}
                   value={contactPhone}
                   onChange={(e) => {
                     setContactPhone(e.target.value);
                   }}
                 />
               </div>
-              <div className="mt-4 flex justify-end">
-                <Button
-                  variant="primary"
-                  loading={save.isPending}
-                  disabled={!dirty || contactName.trim() === '' || contactEmail.trim() === ''}
-                  onClick={() => {
-                    save.mutate();
-                  }}
-                >
-                  Save contact
-                </Button>
-              </div>
+              {mayManage && (
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    variant="primary"
+                    loading={save.isPending}
+                    disabled={!dirty || contactName.trim() === '' || contactEmail.trim() === ''}
+                    onClick={() => {
+                      save.mutate();
+                    }}
+                  >
+                    Save contact
+                  </Button>
+                </div>
+              )}
             </Section>
 
             <Section

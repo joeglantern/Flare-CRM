@@ -12,7 +12,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { ConsoleSettings, CustomerDetail } from '@/lib/types';
+import type { ConsoleSettings, CustomerDetail, Me } from '@/lib/types';
 import { renderWithQuery, stubFetch, type FetchStub } from '@/test/render';
 import { OverviewTab } from './OverviewTab';
 
@@ -61,10 +61,21 @@ const settings: ConsoleSettings = {
   signingKey: { keyId: 'key_1', publicKeySpkiBase64: 'AAAA', algorithm: 'Ed25519' },
 };
 
+/** Editing a customer and holding a stack's credentials are an owner's, so the tab asks first. */
+const me: Me = {
+  id: '33333333-3333-4333-8333-333333333333',
+  name: 'Liban',
+  email: 'liban@example.com',
+  role: 'owner',
+  twoFactorEnabled: true,
+  permissions: ['customer:read', 'customer:write', 'stack:read', 'stack:manage', 'stack:operate'],
+};
+
 let fetchStub: FetchStub | null = null;
 
 function renderTab(customer: Partial<CustomerDetail['customer']> = {}) {
   fetchStub = stubFetch({
+    'GET /api/v1/me': me,
     'GET /api/v1/console/settings': settings,
     [`PATCH ${CUSTOMER_PATH}`]: { ...detail.customer, ...customer },
     [`POST ${CUSTOMER_PATH}/issue`]: { issues: [] },
@@ -84,7 +95,7 @@ describe('the customer overview tab', () => {
     const user = userEvent.setup();
     renderTab();
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
     const dialog = within(await screen.findByRole('dialog'));
     await user.clear(dialog.getByLabelText('Person'));
     await user.type(dialog.getByLabelText('Person'), 'John Doe');
@@ -99,7 +110,7 @@ describe('the customer overview tab', () => {
     const user = userEvent.setup();
     renderTab();
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
     const dialog = within(await screen.findByRole('dialog'));
     await user.clear(dialog.getByLabelText('Phone'));
     await user.click(dialog.getByRole('button', { name: 'Save' }));
@@ -113,7 +124,7 @@ describe('the customer overview tab', () => {
     const user = userEvent.setup();
     renderTab();
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit' }));
     const dialog = within(await screen.findByRole('dialog'));
     expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
@@ -122,7 +133,7 @@ describe('the customer overview tab', () => {
     const user = userEvent.setup();
     renderTab();
 
-    await user.click(screen.getByRole('tab', { name: 'Suspended' }));
+    await user.click(await screen.findByRole('tab', { name: 'Suspended' }));
 
     const dialog = within(await screen.findByRole('dialog'));
     expect(dialog.getByText(/still sign in and read everything/)).toBeVisible();
@@ -136,7 +147,7 @@ describe('the customer overview tab', () => {
     const user = userEvent.setup();
     renderTab();
 
-    await user.click(screen.getByRole('tab', { name: 'Suspended' }));
+    await user.click(await screen.findByRole('tab', { name: 'Suspended' }));
 
     const dialog = within(await screen.findByRole('dialog'));
     expect(
@@ -147,13 +158,14 @@ describe('the customer overview tab', () => {
   it('promises instead that an offline stack collects it later', async () => {
     const user = userEvent.setup();
     fetchStub = stubFetch({
+      'GET /api/v1/me': me,
       'GET /api/v1/console/settings': settings,
       [`PATCH ${CUSTOMER_PATH}`]: detail.customer,
     });
     const offline = detail.stacks.map((stack) => ({ ...stack, connected: false }));
     renderWithQuery(<OverviewTab detail={{ ...detail, stacks: offline }} />);
 
-    await user.click(screen.getByRole('tab', { name: 'Suspended' }));
+    await user.click(await screen.findByRole('tab', { name: 'Suspended' }));
 
     const dialog = within(await screen.findByRole('dialog'));
     expect(dialog.getByText(/applies the new document when it next connects/)).toBeVisible();
@@ -163,7 +175,7 @@ describe('the customer overview tab', () => {
     const user = userEvent.setup();
     renderTab();
 
-    await user.click(screen.getByRole('tab', { name: 'Suspended' }));
+    await user.click(await screen.findByRole('tab', { name: 'Suspended' }));
     await user.click(await screen.findByRole('button', { name: 'Suspended' }));
 
     await waitFor(() => {

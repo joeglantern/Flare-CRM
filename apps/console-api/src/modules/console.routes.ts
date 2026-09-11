@@ -20,7 +20,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { ConflictError, NotFoundError } from '../lib/errors.js';
 import { newId } from '../lib/ids.js';
-import { permissionsFor } from '../auth/permissions.js';
+import { permissionsFor, ROLE_NAMES } from '../auth/permissions.js';
 import { auditContext, requireUser } from '../lib/request.js';
 import { OWNER_CONTACT_KEY, readOwnerContact } from '../lib/owner-contact.js';
 import { planMaps } from './entitlements.service.js';
@@ -85,6 +85,7 @@ const ownerDto = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string(),
+  role: z.string(),
   isActive: z.boolean(),
   twoFactorEnabled: z.boolean(),
   lastSeenAt: z.string().nullable(),
@@ -798,7 +799,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
   });
 
   app.post('/stacks/:stackId/ping', {
-    config: { auth: { permission: 'stack:read' } },
+    config: { auth: { permission: 'stack:operate' } },
     schema: {
       tags: ['console'],
       params: z.object({ stackId: z.string().min(4).max(64) }),
@@ -1152,18 +1153,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     config: { auth: { permission: 'owner:manage' } },
     schema: {
       tags: ['console'],
-      response: {
-        200: offsetListResponse(
-          z.object({
-            id: z.string(),
-            name: z.string(),
-            email: z.string(),
-            isActive: z.boolean(),
-            twoFactorEnabled: z.boolean(),
-            lastSeenAt: z.string().nullable(),
-          }),
-        ),
-      },
+      response: { 200: offsetListResponse(ownerDto) },
     },
     handler: async () => {
       const rows = await app.db.user.findMany({ orderBy: { name: 'asc' } });
@@ -1171,6 +1161,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         id: u.id,
         name: u.name,
         email: u.email,
+        role: u.role ?? 'owner',
         isActive: u.isActive,
         twoFactorEnabled: u.twoFactorEnabled === true,
         lastSeenAt: u.lastSeenAt?.toISOString() ?? null,
@@ -1184,24 +1175,51 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     schema: {
       tags: ['console'],
       body: z
-        .object({ name: z.string().trim().min(1).max(120), email: z.email().max(254) })
+        .object({
+          name: z.string().trim().min(1).max(120),
+          email: z.email().max(254),
+          role: z.enum(ROLE_NAMES).default('owner'),
+        })
         .strict(),
       response: { 201: dataResponse(z.object({ id: z.string() })) },
     },
     handler: async (request, reply) => {
-      const { name, email } = request.body;
+      const { name, email, role } = request.body;
       if (await app.db.user.findUnique({ where: { email } })) {
-        throw new ConflictError('An owner with this email already exists');
+        throw new ConflictError('An account with this email already exists');
       }
-      const created = await app.inviteOwner(name, email, request.headers);
+      const created = await app.inviteOwner(name, email, request.headers, role);
       await app.audit.write(auditContext(request), {
         action: 'owner.create',
         entity: 'owner',
         entityId: created.id,
-        after: { name, email },
+        after: { name, email, role },
       });
       return reply.status(201).send({ data: { id: created.id } });
     },
+  });
+
+  /**
+   * Promoting somebody, or narrowing them to support. Their sessions end with it, so the change is
+   * true in every tab they have open rather than at their next sign-in.
+   */
+  app.post('/owners/:id/role', {
+    config: { auth: { permission: 'owner:manage' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      body: z.object({ role: z.enum(ROLE_NAMES) }).strict(),
+      response: { 200: dataResponse(ownerDto) },
+    },
+    handler: async (request) => ({
+      data: await app.owners.setRole(
+        request.params.id,
+        request.body.role,
+        requireUser(request).id,
+        request.headers,
+        auditContext(request),
+      ),
+    }),
   });
 
   app.post('/owners/:id/deactivate', {

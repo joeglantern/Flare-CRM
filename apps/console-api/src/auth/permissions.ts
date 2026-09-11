@@ -1,21 +1,32 @@
 /**
  * Console access control (docs/21).
  *
- * One role: owner. Everyone who can sign in here can do everything here, because the console has
- * a handful of users who are all the provider. Roles exist as a structure so a narrower one can
- * be added later without changing every route.
+ * Two roles. `owner` is the provider: everything here, including what every customer is entitled to
+ * and who else may sign in. `support` is for somebody who answers the phone: they see the fleet,
+ * unstick a person who is locked out, acknowledge an alert and write a note, and they cannot touch
+ * a plan, a price, an entitlement, a stack credential or another account.
+ *
+ * The actions are split finer than the screens are, because that split is what makes the second
+ * role expressible at all. Correcting a customer's phone number and suspending their CRM used to be
+ * the same permission, and they are not the same act.
  */
 import { createAccessControl } from 'better-auth/plugins/access';
 import { adminAc, defaultStatements } from 'better-auth/plugins/admin/access';
+import { CONSOLE_ROLES, CONSOLE_ROLE_COPY, type ConsoleRole } from '@crm/shared';
 
 export const statement = {
   ...defaultStatements,
-  customer: ['read', 'write'],
+  /** `write` is the details, `archive` is the lifecycle act, `note` is adding to the timeline. */
+  customer: ['read', 'write', 'archive', 'note'],
   plan: ['read', 'write'],
   entitlement: ['read', 'issue'],
-  stack: ['read', 'manage'],
+  /** `operate` asks a stack to do something harmless; `manage` holds its credentials. */
+  stack: ['read', 'manage', 'operate'],
+  /** `ack` acknowledges, snoozes and closes; `manage` sets thresholds, recipients and mutes. */
+  alert: ['read', 'ack', 'manage'],
   owner: ['manage'],
-  audit: ['read'],
+  /** Reading the log is routine; taking a copy of it out of here is not. */
+  audit: ['read', 'export'],
   announce: ['send'],
   analytics: ['read'],
   /** Reaching into a customer's own CRM to unstick somebody, and nothing else (docs/21 §9). */
@@ -32,20 +43,43 @@ export const ac = createAccessControl(statement);
 
 export const owner = ac.newRole({
   ...adminAc.statements,
-  customer: ['read', 'write'],
+  customer: ['read', 'write', 'archive', 'note'],
   plan: ['read', 'write'],
   entitlement: ['read', 'issue'],
-  stack: ['read', 'manage'],
+  stack: ['read', 'manage', 'operate'],
+  alert: ['read', 'ack', 'manage'],
   owner: ['manage'],
-  audit: ['read'],
+  audit: ['read', 'export'],
   announce: ['send'],
   analytics: ['read'],
   support: ['run'],
   settings: ['read', 'manage'],
 });
 
-export const roles = { owner } as const;
-export type RoleName = keyof typeof roles;
+/**
+ * Deliberately without Better Auth's admin statements: those carry ban, impersonate and set-role,
+ * which is the whole of what this role is for not having. A support account can look at anything
+ * here and change almost nothing.
+ */
+export const support = ac.newRole({
+  customer: ['read', 'note'],
+  plan: ['read'],
+  entitlement: ['read'],
+  stack: ['read', 'operate'],
+  alert: ['read', 'ack'],
+  audit: ['read'],
+  announce: ['send'],
+  analytics: ['read'],
+  support: ['run'],
+  settings: ['read'],
+});
+
+export const roles = { owner, support } as const;
+
+// The names and their wording are shared with the screens, which cannot import this file.
+export const ROLE_NAMES = CONSOLE_ROLES;
+export const ROLE_COPY = CONSOLE_ROLE_COPY;
+export type RoleName = ConsoleRole;
 
 /** Every permission the console defines, in `resource:action` form. */
 export const allPermissions: Permission[] = Object.entries(statement).flatMap(

@@ -14,6 +14,7 @@ import { CopyLine, Field, Fields, StatusDot } from '@/components/Bits';
 import { Section } from '@/components/Page';
 import { http } from '@/lib/api';
 import { ago, bytes, dateTime } from '@/lib/format';
+import { usePermissions } from '@/lib/permissions';
 import { qk } from '@/lib/query';
 import type {
   ConsoleSettings,
@@ -40,6 +41,12 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
   const [credentials, setCredentials] = useState<NewStackCredentials | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // Support may ask a stack to report in, because that changes nothing. Holding its credentials,
+  // and deciding who this customer is, are an owner's.
+  const { can } = usePermissions();
+  const mayEdit = can('customer:write');
+  const mayManageStacks = can('stack:manage');
+  const mayOperate = can('stack:operate');
 
   const settings = useQuery({
     queryKey: qk.settings(),
@@ -123,14 +130,16 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
       <Section
         title="Contact"
         actions={
-          <Button
-            icon={Pencil}
-            onClick={() => {
-              setEditing(true);
-            }}
-          >
-            Edit
-          </Button>
+          mayEdit ? (
+            <Button
+              icon={Pencil}
+              onClick={() => {
+                setEditing(true);
+              }}
+            >
+              Edit
+            </Button>
+          ) : undefined
         }
       >
         <Fields columns={3}>
@@ -163,15 +172,17 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
         title="Stacks"
         description="One per server running this customer's CRM."
         actions={
-          <Button
-            icon={Server}
-            loading={createStack.isPending}
-            onClick={() => {
-              createStack.mutate();
-            }}
-          >
-            Create stack
-          </Button>
+          mayManageStacks ? (
+            <Button
+              icon={Server}
+              loading={createStack.isPending}
+              onClick={() => {
+                createStack.mutate();
+              }}
+            >
+              Create stack
+            </Button>
+          ) : undefined
         }
       >
         {live.length === 0 ? (
@@ -190,40 +201,46 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
                     {stack.version !== null && <Badge tone="neutral">{stack.version}</Badge>}
                   </span>
                   <span className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      icon={Radio}
-                      disabled={!stack.connected}
-                      title={
-                        stack.connected ? undefined : 'It is offline, so there is nothing to ask'
-                      }
-                      loading={ping.isPending && ping.variables === stack.id}
-                      onClick={() => {
-                        ping.mutate(stack.id);
-                      }}
-                    >
-                      Refresh now
-                    </Button>
-                    <Button
-                      size="sm"
-                      icon={RefreshCw}
-                      loading={rotate.isPending && rotate.variables === stack.id}
-                      onClick={() => {
-                        rotate.mutate(stack.id);
-                      }}
-                    >
-                      Rotate secret
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      icon={ShieldOff}
-                      onClick={() => {
-                        setRevoking(stack.id);
-                      }}
-                    >
-                      Revoke
-                    </Button>
+                    {mayOperate && (
+                      <Button
+                        size="sm"
+                        icon={Radio}
+                        disabled={!stack.connected}
+                        title={
+                          stack.connected ? undefined : 'It is offline, so there is nothing to ask'
+                        }
+                        loading={ping.isPending && ping.variables === stack.id}
+                        onClick={() => {
+                          ping.mutate(stack.id);
+                        }}
+                      >
+                        Refresh now
+                      </Button>
+                    )}
+                    {mayManageStacks && (
+                      <>
+                        <Button
+                          size="sm"
+                          icon={RefreshCw}
+                          loading={rotate.isPending && rotate.variables === stack.id}
+                          onClick={() => {
+                            rotate.mutate(stack.id);
+                          }}
+                        >
+                          Rotate secret
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          icon={ShieldOff}
+                          onClick={() => {
+                            setRevoking(stack.id);
+                          }}
+                        >
+                          Revoke
+                        </Button>
+                      </>
+                    )}
                   </span>
                 </div>
                 <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-4">
@@ -323,6 +340,8 @@ function Checklist({ done, label }: { done: boolean; label: string }) {
 
 function DomainSection({ customer }: { customer: CustomerDetail['customer'] }) {
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const mayEdit = can('customer:write');
   const [domain, setDomain] = useState(customer.customDomain ?? '');
   const [records, setRecords] = useState<DomainRecords | null>(null);
   const [check, setCheck] = useState<DomainCheck | null>(null);
@@ -382,36 +401,38 @@ function DomainSection({ customer }: { customer: CustomerDetail['customer'] }) {
         </Field>
       </Fields>
 
-      <div className="mt-4 flex flex-wrap items-end gap-2">
-        <Input
-          label="Their domain"
-          placeholder="crm.theircompany.co.ke"
-          mono
-          containerClassName="w-72"
-          value={domain}
-          onChange={(e) => {
-            setDomain(e.target.value);
-          }}
-        />
-        <Button
-          loading={save.isPending}
-          onClick={() => {
-            save.mutate();
-          }}
-        >
-          Save
-        </Button>
-        <Button
-          variant="primary"
-          loading={verify.isPending}
-          disabled={customer.customDomain === null}
-          onClick={() => {
-            verify.mutate();
-          }}
-        >
-          Check DNS
-        </Button>
-      </div>
+      {mayEdit && (
+        <div className="mt-4 flex flex-wrap items-end gap-2">
+          <Input
+            label="Their domain"
+            placeholder="crm.theircompany.co.ke"
+            mono
+            containerClassName="w-72"
+            value={domain}
+            onChange={(e) => {
+              setDomain(e.target.value);
+            }}
+          />
+          <Button
+            loading={save.isPending}
+            onClick={() => {
+              save.mutate();
+            }}
+          >
+            Save
+          </Button>
+          <Button
+            variant="primary"
+            loading={verify.isPending}
+            disabled={customer.customDomain === null}
+            onClick={() => {
+              verify.mutate();
+            }}
+          >
+            Check DNS
+          </Button>
+        </div>
+      )}
 
       {txtName !== null && txtValue !== null && (
         <div className="mt-4 flex flex-col gap-2">
@@ -525,6 +546,8 @@ function StackCredentials({
  */
 function StatusSection({ customer, stacks }: { customer: Customer; stacks: Stack[] }) {
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const mayEdit = can('customer:write');
   const [choosing, setChoosing] = useState<CustomerStatus | null>(null);
 
   const current = (CUSTOMER_STATUSES as readonly string[]).includes(customer.status)
@@ -558,17 +581,25 @@ function StatusSection({ customer, stacks }: { customer: Customer; stacks: Stack
   return (
     <Section title="Status" description="What this customer's own people can do right now.">
       <div className="flex flex-col gap-3">
-        <Segmented<CustomerStatus>
-          ariaLabel="Customer status"
-          value={current}
-          onChange={(next) => {
-            if (next !== current) setChoosing(next);
-          }}
-          options={CUSTOMER_STATUSES.map((status) => ({
-            value: status,
-            label: STATUSES[status].label,
-          }))}
-        />
+        {mayEdit ? (
+          <Segmented<CustomerStatus>
+            ariaLabel="Customer status"
+            value={current}
+            onChange={(next) => {
+              if (next !== current) setChoosing(next);
+            }}
+            options={CUSTOMER_STATUSES.map((status) => ({
+              value: status,
+              label: STATUSES[status].label,
+            }))}
+          />
+        ) : (
+          <span>
+            <Badge tone={current === 'active' ? 'success' : 'warning'}>
+              {STATUSES[current].label}
+            </Badge>
+          </span>
+        )}
         <p className="text-base text-muted">{STATUSES[current].short}</p>
         {customer.suspendedAt !== null && (
           <p className="text-base text-warning">

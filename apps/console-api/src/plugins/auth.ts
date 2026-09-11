@@ -11,6 +11,9 @@ import { z } from 'zod';
 import { randomBytes } from 'node:crypto';
 import { createAuth, WELCOME_FLAG_PREFIX, type AuthSession } from '../auth/auth.js';
 import { AuditService } from '../modules/audit.service.js';
+import { NotFoundError } from '../lib/errors.js';
+import { auditContext } from '../lib/request.js';
+import type { RoleName } from '../auth/permissions.js';
 
 const AUDITED: Record<string, string> = {
   '/api/auth/sign-in/email': 'auth.sign_in',
@@ -21,8 +24,6 @@ const AUDITED: Record<string, string> = {
   '/api/auth/two-factor/enable': 'auth.two_factor_enabled',
   '/api/auth/two-factor/disable': 'auth.two_factor_disabled',
   '/api/auth/two-factor/verify-totp': 'auth.two_factor_verified',
-  '/api/auth/admin/create-user': 'owner.created_via_auth',
-  '/api/auth/admin/revoke-user-sessions': 'owner.sessions_revoked',
 };
 
 const bodyEmail = z.object({ email: z.string().max(254).optional() });
@@ -53,6 +54,26 @@ export default fp(
       schema: { hide: true },
       async handler(request, reply) {
         const url = new URL(request.url, app.config.CONSOLE_URL);
+
+        /**
+         * Better Auth's admin plugin is mounted because this service calls two of its methods in
+         * process: `createUser` when an owner is invited, and `revokeUserSessions` when somebody is
+         * signed out. Nothing needs its HTTP surface, and that surface reaches banning,
+         * impersonation, setting another person's password and deleting an account, none of which
+         * this console will do and none of which would carry an audit row of ours. It is shut here,
+         * and answered as a route that does not exist rather than as one you are not allowed to use.
+         */
+        if (url.pathname.startsWith('/api/auth/admin/')) {
+          await audit
+            .write(auditContext(request), {
+              action: 'access.denied',
+              entity: 'auth',
+              after: { method: request.method, url: url.pathname },
+            })
+            .catch(() => undefined);
+          throw new NotFoundError('Route');
+        }
+
         const headers = fromNodeHeaders(request.headers);
         headers.set('x-forwarded-for', request.ip);
         const init: RequestInit = { method: request.method, headers };
@@ -113,11 +134,16 @@ export default fp(
     // and never shown: the link is how they choose their own.
     app.decorate(
       'inviteOwner',
-      async (name: string, email: string, actorHeaders: IncomingHttpHeaders) => {
+      async (
+        name: string,
+        email: string,
+        actorHeaders: IncomingHttpHeaders,
+        role: RoleName = 'owner',
+      ) => {
         const password = randomBytes(24).toString('base64url');
         const created = await auth.api.createUser({
           headers: fromNodeHeaders(actorHeaders),
-          body: { email, name, password, role: 'owner' },
+          body: { email, name, password, role },
         });
         await app.valkey.set(`${WELCOME_FLAG_PREFIX}${created.user.id}`, '1', 'EX', 60 * 60 * 24);
         await auth.api.requestPasswordReset({

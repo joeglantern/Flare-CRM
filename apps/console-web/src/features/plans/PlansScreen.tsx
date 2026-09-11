@@ -25,6 +25,7 @@ import { Table, type Column } from '@/components/Bits';
 import { EmptyState, PageHeader, StateSlot, Section } from '@/components/Page';
 import { http } from '@/lib/api';
 import { fromMinor, isCurrency, limitLabel, money, toMinor } from '@/lib/format';
+import { usePermissions } from '@/lib/permissions';
 import { qk } from '@/lib/query';
 import type { Plan } from '@/lib/types';
 
@@ -32,6 +33,10 @@ export function PlansScreen() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   const [deleting, setDeleting] = useState<Plan | null>(null);
+  // What is sold is an owner's decision. A support account reaching this screen by its address
+  // reads the shelf and changes nothing on it.
+  const { can } = usePermissions();
+  const mayWrite = can('plan:write');
 
   const plans = useQuery({
     queryKey: qk.plans(),
@@ -49,7 +54,7 @@ export function PlansScreen() {
     },
   });
 
-  const columns: Column<Plan>[] = [
+  const allColumns: Column<Plan>[] = [
     {
       key: 'name',
       header: 'Plan',
@@ -127,6 +132,7 @@ export function PlansScreen() {
       ),
     },
   ];
+  const columns = allColumns.filter((column) => column.key !== 'actions' || mayWrite);
 
   return (
     <>
@@ -134,15 +140,17 @@ export function PlansScreen() {
         title="Plans"
         description="What a customer gets by default. Anything specific to one customer is an override on their own screen."
         actions={
-          <Button
-            variant="primary"
-            icon={Plus}
-            onClick={() => {
-              setEditing('new');
-            }}
-          >
-            New plan
-          </Button>
+          mayWrite ? (
+            <Button
+              variant="primary"
+              icon={Plus}
+              onClick={() => {
+                setEditing('new');
+              }}
+            >
+              New plan
+            </Button>
+          ) : undefined
         }
       />
 
@@ -155,15 +163,17 @@ export function PlansScreen() {
             title="No plans yet"
             description="A plan is a starting point for every customer put on it."
             action={
-              <Button
-                variant="primary"
-                icon={Plus}
-                onClick={() => {
-                  setEditing('new');
-                }}
-              >
-                New plan
-              </Button>
+              mayWrite ? (
+                <Button
+                  variant="primary"
+                  icon={Plus}
+                  onClick={() => {
+                    setEditing('new');
+                  }}
+                >
+                  New plan
+                </Button>
+              ) : undefined
             }
           />
         }

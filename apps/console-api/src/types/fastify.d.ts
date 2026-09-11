@@ -2,6 +2,7 @@ import type { IncomingHttpHeaders } from 'node:http';
 import type { Redis } from 'ioredis';
 import type { Server } from 'socket.io';
 import type { Auth, AuthSession, AuthUser } from '../auth/auth.js';
+import type { RoleName } from '../auth/permissions.js';
 import type { Env } from '../config/env.js';
 import type { Signer } from '../lib/signing.js';
 import type { AlertsService } from '../modules/alerts.service.js';
@@ -45,11 +46,12 @@ declare module 'fastify' {
     dnsResolver: DnsResolver;
     io: Server;
     link: ConsoleLink;
-    /** Creates an owner and emails them a set-password link. */
+    /** Creates an account and emails them a set-password link. */
     inviteOwner: (
       name: string,
       email: string,
       actorHeaders: IncomingHttpHeaders,
+      role?: RoleName,
     ) => Promise<{ id: string }>;
   }
   interface FastifyRequest {

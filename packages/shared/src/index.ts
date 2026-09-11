@@ -6,6 +6,7 @@ export * from './socket-events.js';
 export * from './entitlements.js';
 export * from './console-link.js';
 export * from './console-analytics.js';
+export * from './console-roles.js';
 export * from './two-factor-step.js';
 export * from './email.js';
 export * from './schemas/common.js';

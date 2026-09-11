@@ -106,9 +106,9 @@ export class TestContext {
     await this.app.close();
   }
 
-  /** Creates an owner, signs in, and enrols two-factor the way the console demands. */
+  /** Creates an account, signs in, and enrols two-factor the way the console demands. */
   async createOwner(
-    input: { email?: string; name?: string; enrol?: boolean } = {},
+    input: { email?: string; name?: string; enrol?: boolean; role?: 'owner' | 'support' } = {},
   ): Promise<TestOwner> {
     const id = newId();
     const email = input.email ?? `owner-${id.slice(-8)}@example.com`;
@@ -118,7 +118,7 @@ export class TestContext {
         id,
         email,
         name: input.name ?? 'Test Owner',
-        role: 'owner',
+        role: input.role ?? 'owner',
         emailVerified: true,
         isActive: true,
       },

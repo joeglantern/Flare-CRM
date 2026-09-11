@@ -29,6 +29,7 @@ const liban: Owner = {
   id: ME_ID,
   name: 'Liban',
   email: 'liban@example.com',
+  role: 'owner',
   isActive: true,
   twoFactorEnabled: true,
   lastSeenAt: '2026-09-10T09:00:00.000Z',
@@ -38,6 +39,7 @@ const amina: Owner = {
   id: OTHER_ID,
   name: 'Amina',
   email: 'amina@example.com',
+  role: 'owner',
   isActive: true,
   twoFactorEnabled: true,
   lastSeenAt: '2026-09-09T09:00:00.000Z',
@@ -55,6 +57,7 @@ function renderScreen(rows: Owner[] = owners) {
     [`POST /api/v1/owners/${OTHER_ID}/revoke-sessions`]: { ok: true },
     [`POST /api/v1/owners/${OTHER_ID}/deactivate`]: { ok: true },
     [`POST /api/v1/owners/${OTHER_ID}/reactivate`]: { ok: true },
+    [`POST /api/v1/owners/${OTHER_ID}/role`]: { ...amina, role: 'support' },
   });
   return renderWithRouter(<OwnersScreen />);
 }
@@ -161,6 +164,33 @@ describe('the owners screen', () => {
         ),
       ).toBe(true);
     });
+  });
+
+  it('says what narrowing somebody to support costs, then posts it', async () => {
+    renderScreen();
+    const user = await pick('Amina', 'Narrow to support');
+
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(
+      dialog.getByText(/can no longer change plans, prices, entitlements or accounts/),
+    ).toBeVisible();
+    expect(dialog.getByText(/signed out now/)).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Narrow to support' }));
+
+    await waitFor(() => {
+      expect(fetchStub?.lastBody('POST', `/api/v1/owners/${OTHER_ID}/role`)).toEqual({
+        role: 'support',
+      });
+    });
+  });
+
+  it('will not let somebody change their own role', async () => {
+    renderScreen();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Actions for Liban' }));
+
+    expect(await screen.findByRole('menuitem', { name: 'Narrow to support' })).toBeDisabled();
   });
 
   it('will not let an owner deactivate their own account', async () => {

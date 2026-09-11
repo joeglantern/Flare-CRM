@@ -19,6 +19,8 @@ export interface OwnerDto {
   id: string;
   name: string;
   email: string;
+  /** `owner` or `support`; a row written before the second role existed reads as an owner. */
+  role: string;
   isActive: boolean;
   twoFactorEnabled: boolean;
   lastSeenAt: string | null;
@@ -44,6 +46,7 @@ export class OwnersService {
       id: u.id,
       name: u.name,
       email: u.email,
+      role: u.role ?? 'owner',
       isActive: u.isActive,
       twoFactorEnabled: u.twoFactorEnabled === true,
       lastSeenAt: u.lastSeenAt?.toISOString() ?? null,
@@ -57,6 +60,7 @@ export class OwnersService {
       id: row.id,
       name: row.name,
       email: row.email,
+      role: row.role ?? 'owner',
       isActive: row.isActive,
       twoFactorEnabled: row.twoFactorEnabled === true,
       lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
@@ -117,6 +121,46 @@ export class OwnersService {
     } catch (err: unknown) {
       this.deps.log?.warn({ err, ownerId: owner.id }, 'could not email a two-factor reset notice');
     }
+  }
+
+  /**
+   * Changes what somebody may do here, and ends their sessions so it takes effect now rather than
+   * whenever they next sign in. A tab open on a screen the account may no longer use is the sort of
+   * thing that looks like a bug and is really a stale permission set.
+   *
+   * The last active owner cannot be demoted: a console whose every account is support is a console
+   * nobody can issue a document from, and there is nobody above an owner here to put it right.
+   */
+  async setRole(
+    id: string,
+    role: string,
+    actorId: string,
+    actorHeaders: IncomingHttpHeaders,
+    ctx: AuditContext,
+  ): Promise<OwnerDto> {
+    if (id === actorId) throw new ConflictError('You cannot change your own role');
+    const before = await this.get(id);
+    if (before.role === role) return before;
+    if (before.role === 'owner') {
+      // Counted without this account, so demoting somebody already deactivated is not refused on
+      // the grounds that they were propping the console up.
+      const others = await this.deps.db.user.count({
+        where: { role: 'owner', isActive: true, id: { not: id } },
+      });
+      if (others === 0) {
+        throw new ConflictError('This is the last active owner. Make somebody else an owner first');
+      }
+    }
+    await this.deps.db.user.update({ where: { id }, data: { role } });
+    await this.revokeSessionsOf(id, actorHeaders);
+    await this.deps.audit.write(ctx, {
+      action: 'owner.role_change',
+      entity: 'owner',
+      entityId: id,
+      before: { role: before.role },
+      after: { role },
+    });
+    return this.get(id);
   }
 
   async setActive(
