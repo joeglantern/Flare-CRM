@@ -62,8 +62,16 @@
     var number = document.querySelector('[data-count]');
     var started = Date.now();
     var LONGEST = 1400;
+    /*
+     * A floor as well as a ceiling. On a fast connection the hero decodes in under a tenth of a
+     * second and the count is gone before it is read, which is a flicker of charcoal rather than a
+     * beat. On a slow one the ceiling is what matters and this never applies.
+     */
+    var SHORTEST = 600;
 
+    var counting = true;
     var tick = function () {
+      if (!counting) return;
       var through = Math.min(1, (Date.now() - started) / LONGEST);
       if (number) number.textContent = String(Math.round(through * 100)).padStart(3, '0');
       if (through < 1) requestAnimationFrame(tick);
@@ -72,6 +80,13 @@
 
     var letGo = function () {
       if (root.getAttribute('data-preload') === 'done') return;
+      var early = SHORTEST - (Date.now() - started);
+      if (early > 0) {
+        setTimeout(letGo, early);
+        return;
+      }
+      // Stopped before the hand-over, or the next frame writes the running count back over the 100.
+      counting = false;
       if (number) number.textContent = '100';
       root.setAttribute('data-preload', 'done');
       try {

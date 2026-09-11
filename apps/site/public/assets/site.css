@@ -239,7 +239,12 @@
   display: none;
 }
 
-[data-preload='on'] .preloader {
+/*
+ * Matches while the attribute is either "on" or "done", not only "on". Gated on "on" alone the rule
+ * stops matching the instant the script hands over, the element goes back to display: none, and the
+ * fade below never runs: the charcoal is simply cut away mid-frame.
+ */
+[data-preload] .preloader {
   position: fixed;
   inset: 0;
   z-index: 100;
@@ -247,11 +252,14 @@
   align-items: center;
   justify-content: center;
   background: #17171a;
-  transition: opacity 380ms var(--ease-out);
+  transition:
+    opacity 380ms var(--ease-out),
+    visibility 0s linear 380ms;
 }
 
 [data-preload='done'] .preloader {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
