@@ -17,12 +17,7 @@ import { ago } from '@/lib/format';
 import { qk } from '@/lib/query';
 import { useSocketStatus } from '@/lib/socket';
 import type { ConsoleSettings } from '@/lib/types';
-import {
-  humanise,
-  readReadiness,
-  showValue,
-  type ReadinessCheck,
-} from './readiness';
+import { humanise, readReadiness, showValue, type ReadinessCheck } from './readiness';
 
 export function SettingsScreen() {
   const queryClient = useQueryClient();

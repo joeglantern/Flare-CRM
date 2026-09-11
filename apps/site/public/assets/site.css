@@ -210,37 +210,6 @@
   mix-blend-mode: screen;
 }
 
-/*
- * A strip of tape with the time written on it, stuck to the sky. It replaces an instrument readout
- * of altitude, which named a number nobody could check and read like set dressing.
- */
-.tape {
-  display: inline-block;
-  padding: 6px 14px 5px;
-  background: rgba(242, 241, 239, 0.88);
-  color: #17171a;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  rotate: -1.4deg;
-  /* Torn rather than cut: the ends are ragged, which is the whole tell. */
-  clip-path: polygon(
-    0% 8%,
-    3% 0%,
-    97% 4%,
-    100% 0%,
-    100% 92%,
-    96% 100%,
-    4% 96%,
-    0% 100%
-  );
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
-}
-
-.tape-right {
-  rotate: 1.2deg;
-}
-
 /* ── page frame ─────────────────────────────────────────────────────────────────────── */
 
 .wrap {
@@ -404,13 +373,6 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-}
-
-.hero .tape {
-  position: absolute;
-  top: 104px;
-  left: 48px;
-  z-index: 3;
 }
 
 .hero-copy {
@@ -1626,11 +1588,6 @@
   .hero {
     min-height: 0;
     padding: 128px 0 64px;
-  }
-
-  .hero .tape {
-    left: 24px;
-    top: 88px;
   }
 
   .hero-shot {
