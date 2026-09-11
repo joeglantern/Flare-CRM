@@ -104,15 +104,26 @@
 
   /* ── the handset answers the cursor ─────────────────────────────────────────────────── */
 
-  var object = document.querySelector('[data-drift]');
-  if (object && !still && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+  /*
+   * One listener, one number, and the stylesheet decides how far each thing travels through its own
+   * --depth. The object nearest the reader barely moves and the small ones at the edges move most,
+   * which is what makes a flat page read as having a front and a back.
+   */
+  var drifters = document.querySelectorAll('[data-drift]');
+  if (
+    drifters.length > 0 &&
+    !still &&
+    window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  ) {
     window.addEventListener(
       'pointermove',
       function (event) {
-        var x = (event.clientX / window.innerWidth - 0.5) * 2;
-        var y = (event.clientY / window.innerHeight - 0.5) * 2;
-        object.style.setProperty('--drift-x', (x * 12).toFixed(1) + 'px');
-        object.style.setProperty('--drift-y', (y * 12).toFixed(1) + 'px');
+        var x = ((event.clientX / window.innerWidth - 0.5) * 2 * 12).toFixed(1) + 'px';
+        var y = ((event.clientY / window.innerHeight - 0.5) * 2 * 12).toFixed(1) + 'px';
+        for (var el of drifters) {
+          el.style.setProperty('--drift-x', x);
+          el.style.setProperty('--drift-y', y);
+        }
       },
       { passive: true },
     );
