@@ -6,9 +6,12 @@
 import { promises as dns } from 'node:dns';
 import { randomBytes } from 'node:crypto';
 import {
+  CHURN_REASONS,
   FEATURES,
   LIMITS,
+  ONBOARDING_STAGES,
   dataResponse,
+  onboardingChecklist,
   featureKeys,
   limitKeys,
   normaliseFeatures,
@@ -63,6 +66,13 @@ const customerDto = z.object({
   customDomainVerifiedAt: z.string().nullable(),
   /** Set while the provider is holding this customer read only (docs/21 §5). */
   suspendedAt: z.string().nullable(),
+  /** Filed away: out of the fleet by default, and nothing of theirs removed. */
+  archivedAt: z.string().nullable(),
+  archiveReason: z.string().nullable(),
+  churnReason: z.string().nullable(),
+  churnedAt: z.string().nullable(),
+  onboardingStage: z.string(),
+  onboardingChecklist: z.record(z.string(), z.boolean()),
   createdAt: z.string(),
 });
 
@@ -153,11 +163,20 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     customDomain: string | null;
     customDomainVerifiedAt: Date | null;
     suspendedAt: Date | null;
+    archivedAt: Date | null;
+    archiveReason: string | null;
+    churnReason: string | null;
+    churnedAt: Date | null;
+    onboardingStage: string;
+    onboardingChecklist: unknown;
     createdAt: Date;
   }) => ({
     ...c,
     customDomainVerifiedAt: c.customDomainVerifiedAt?.toISOString() ?? null,
     suspendedAt: c.suspendedAt?.toISOString() ?? null,
+    archivedAt: c.archivedAt?.toISOString() ?? null,
+    churnedAt: c.churnedAt?.toISOString() ?? null,
+    onboardingChecklist: (c.onboardingChecklist ?? {}) as Record<string, boolean>,
     createdAt: c.createdAt.toISOString(),
   });
 
@@ -323,6 +342,9 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           contactEmail: z.email().max(254).optional(),
           contactPhone: z.string().trim().max(32).nullable().optional(),
           notes: z.string().max(4000).optional(),
+          churnReason: z.enum(CHURN_REASONS).nullable().optional(),
+          onboardingStage: z.enum(ONBOARDING_STAGES).optional(),
+          onboardingChecklist: onboardingChecklist.optional(),
         })
         .strict(),
       response: { 200: dataResponse(customerDto) },
@@ -335,6 +357,14 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
       const data = Object.fromEntries(
         Object.entries(request.body).filter(([, v]) => v !== undefined),
       );
+      // The checklist is merged rather than replaced: a screen that ticks one box should not clear
+      // the three somebody else ticked last week.
+      if (request.body.onboardingChecklist !== undefined) {
+        data.onboardingChecklist = {
+          ...((before.onboardingChecklist ?? {}) as Record<string, boolean>),
+          ...request.body.onboardingChecklist,
+        };
+      }
       await app.db.customer.update({ where: { id: request.params.id }, data });
 
       // A status is only a word until the customer's own server hears about it. Anything other
@@ -368,6 +398,48 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
       });
       return { data: toCustomer(after) };
     },
+  });
+
+  /**
+   * Filing a customer away. Nothing of theirs is removed, here or in the database, which refuses to
+   * delete a customer row at all. Their CRM goes read only, because that is what churned means.
+   */
+  app.post('/customers/:id/archive', {
+    config: { auth: { permission: 'customer:archive' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      body: z
+        .object({
+          reason: z.enum(CHURN_REASONS),
+          note: z.string().trim().max(500).optional(),
+        })
+        .strict(),
+      response: { 200: dataResponse(customerDto) },
+    },
+    handler: async (request) => ({
+      data: toCustomer(
+        await app.customers.archive({
+          customerId: request.params.id,
+          reason: request.body.reason,
+          note: request.body.note,
+          actorId: requireUser(request).id,
+          ctx: auditContext(request),
+        }),
+      ),
+    }),
+  });
+
+  app.post('/customers/:id/unarchive', {
+    config: { auth: { permission: 'customer:archive' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      response: { 200: dataResponse(customerDto) },
+    },
+    handler: async (request) => ({
+      data: toCustomer(await app.customers.unarchive(request.params.id, auditContext(request))),
+    }),
   });
 
   // ── the fleet ────────────────────────────────────────────────────────────────────────

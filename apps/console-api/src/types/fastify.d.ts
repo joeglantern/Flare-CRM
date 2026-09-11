@@ -8,6 +8,7 @@ import type { Signer } from '../lib/signing.js';
 import type { AlertsService } from '../modules/alerts.service.js';
 import type { AnalyticsService } from '../modules/analytics.service.js';
 import type { AuditService } from '../modules/audit.service.js';
+import type { CustomersService } from '../modules/customers.service.js';
 import type { OwnersService } from '../modules/owners.service.js';
 import type { RollupService } from '../modules/rollup.service.js';
 import type { SupportService } from '../modules/support.service.js';
@@ -39,6 +40,7 @@ declare module 'fastify' {
     rollup: RollupService;
     alerts: AlertsService;
     owners: OwnersService;
+    customers: CustomersService;
     support: SupportService;
     signer: Signer;
     entitlements: ConsoleEntitlementsService;

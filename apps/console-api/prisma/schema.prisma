@@ -128,6 +128,16 @@ model Customer {
   customDomainVerifiedAt DateTime? @map("custom_domain_verified_at") @db.Timestamptz(3)
   /// Set while the provider is holding this customer read only, and cleared when it is lifted.
   suspendedAt  DateTime? @map("suspended_at") @db.Timestamptz(3)
+  /// Filed away: out of the fleet by default, every row kept. Deliberately not a status, because
+  /// status is what their own CRM enforces and archiving is only what we have stopped doing.
+  archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
+  archivedById  String?   @map("archived_by_id") @db.Uuid
+  archiveReason String?   @map("archive_reason")
+  churnReason   String?   @map("churn_reason")
+  churnedAt     DateTime? @map("churned_at") @db.Timestamptz(3)
+  /// How far along setting them up is, in the part only a person knows.
+  onboardingStage     String @default("signed_up") @map("onboarding_stage")
+  onboardingChecklist Json   @default("{}") @map("onboarding_checklist")
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -136,9 +146,50 @@ model Customer {
   issues        EntitlementIssue[]
   alerts        ConsoleAlert[]
   announcements Announcement[]
+  contacts      CustomerContact[]
+  noteEntries   CustomerNote[]
 
   @@index([status])
+  @@index([archivedAt])
+  @@index([status, archivedAt])
   @@map("customers")
+}
+
+/// Somebody at the customer worth being able to ring. The contact on `customers` is the one we
+/// bill and the one carried into a signed document; these are everybody else.
+model CustomerContact {
+  id         String   @id @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  name       String
+  email      String   @default("")
+  phone      String?
+  /// What they do there, in their own words rather than a fixed list.
+  role       String   @default("")
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  notes      String   @default("")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, isPrimary])
+  @@map("customer_contacts")
+}
+
+/// What happened with this customer, written down at the time. The `notes` column on `customers` is
+/// one standing paragraph; these are dated entries that accumulate.
+model CustomerNote {
+  id         String   @id @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  body       String
+  authorId   String?  @map("author_id") @db.Uuid
+  pinned     Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt(sort: Desc)])
+  @@map("customer_notes")
 }
 
 model Plan {

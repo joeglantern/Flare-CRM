@@ -7,8 +7,10 @@ import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { ownerContact as ownerContactSchema } from '@crm/shared';
 import { AlertsService } from '../modules/alerts.service.js';
+import { CustomersService } from '../modules/customers.service.js';
 import { OwnersService } from '../modules/owners.service.js';
 import { SupportService } from '../modules/support.service.js';
+import { readOwnerContact } from '../lib/owner-contact.js';
 
 const OWNER_CONTACT_KEY = 'ownerContact';
 
@@ -27,6 +29,18 @@ export default fp(
       }),
     );
     app.decorate('support', new SupportService({ db: app.db, link: app.link, audit: app.audit }));
+    // Here rather than in `services`, because filing a customer away ends in a signed document
+    // going down the link, and the link does not exist that early.
+    app.decorate(
+      'customers',
+      new CustomersService({
+        db: app.db,
+        audit: app.audit,
+        entitlements: app.entitlements,
+        link: app.link,
+        ownerContact: () => readOwnerContact(app.db),
+      }),
+    );
     app.decorate(
       'alerts',
       new AlertsService({
