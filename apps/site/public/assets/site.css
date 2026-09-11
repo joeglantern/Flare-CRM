@@ -102,7 +102,7 @@
  * size that made one of them wrap would put a half line in the middle of the reveal.
  */
 .display {
-  font-size: clamp(34px, 7.4vw, 108px);
+  font-size: clamp(32px, 6.6vw, 96px);
   line-height: 0.98;
   letter-spacing: -0.045em;
   font-weight: 600;
@@ -380,24 +380,59 @@
 /* ── 3. the hero ─────────────────────────────────────────────────────────────────────── */
 
 /*
- * Centred, so the handset is on the same axis here as it is in the stage below. Left-aligned copy
- * with the object beside it made the object jump across the screen the moment the visitor started
- * scrolling, which is the one thing a page built on a single continuous object must not do.
+ * Sky, then words, then the cast standing in front of it. The three layers are stacked rather than
+ * placed, so there is nothing to re-position at a narrower width: the column gets narrower, the
+ * cast gets shorter, and the composition holds all the way down to 320.
  */
 .hero {
+  position: relative;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  /*
-   * From the top, not centred. Centred, a hero taller than the viewport overflows at both ends and
-   * takes the first line of the headline with it; from the top, the only thing that runs past the
-   * fold is the object, which is the invitation to keep going.
-   */
+  /* From the top: any pixel the hero is short of goes off the bottom, never off the headline. */
   justify-content: flex-start;
   text-align: center;
-  padding: clamp(96px, 13vh, 128px) 0 72px;
+  gap: clamp(16px, 3vh, 40px);
+  padding: clamp(84px, 11vh, 112px) 0 clamp(48px, 7vh, 72px);
   overflow: hidden;
+}
+
+.hero-sky {
+  position: absolute;
+  inset: 0;
+  display: block;
+  z-index: 0;
+}
+
+.hero-sky img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 34%;
+  opacity: 0.85;
+}
+
+/*
+ * Two jobs, and the second is not taste. The radial darkens the middle of the frame until the
+ * headline has the contrast it needs over a photograph. The vertical one reaches solid black before
+ * the cast does, because everything standing down there is composited with screen: over a sky
+ * rather than over black, the near-black each asset was rendered on shows as a pale box around it.
+ */
+.hero-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 62% 48% at 50% 32%, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0) 100%),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.45),
+      rgba(0, 0, 0, 0) 26%,
+      rgba(0, 0, 0, 0.55) 48%,
+      #000 64%
+    );
+  pointer-events: none;
 }
 
 .hero-copy {
@@ -406,13 +441,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
+  gap: clamp(18px, 2.6vh, 32px);
+  width: 100%;
   max-width: 1100px;
   margin-inline: auto;
 }
 
 .hero-copy .lead {
-  max-width: 46ch;
+  max-width: 44ch;
+  margin-inline: auto;
+}
+
+/* The line the whole page is about, in the one other colour this site has. */
+.accent {
+  color: var(--flare);
 }
 
 .hero-actions {
@@ -423,103 +465,122 @@
 }
 
 /*
- * Below the words and slightly under them: screen-blended on black, an overlap reads as depth
- * rather than as a collision, and letting it run past the fold is the invitation to scroll.
+ * Everybody in the hero stands on one line: the mascot, the object the page is built on, and three
+ * of the things that land on a timeline. Sized from the box rather than the viewport, so the group
+ * keeps its arrangement as it shrinks instead of coming apart.
  */
-.hero-object {
+/*
+ * Given a height and allowed to give it back. Everything inside is placed as a percentage of this
+ * box, so when a short window squeezes it the whole group scales together rather than the objects
+ * sliding out from under each other. That is what makes one arrangement work from 320 to 2560.
+ */
+.hero-cast {
   position: relative;
   z-index: 2;
-  height: min(38vh, 340px);
-  width: auto;
-  margin-top: 1vh;
+  width: min(1000px, 100%);
+  height: clamp(160px, 27vh, 260px);
+  min-height: 128px;
+  flex-shrink: 1;
+  /* Takes whatever room is spare, so a tall phone does not leave a hole under the buttons. */
+  margin-top: auto;
+}
+
+.cast {
+  position: absolute;
+  display: block;
   pointer-events: none;
 }
 
-/* The things that answer the cursor rather than the scroll, each at its own depth. */
-.hero-object,
-.orbit {
+.cast img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+}
+
+/* On the centre line, because the stage below opens it on the centre line. */
+.cast-handset {
+  left: 50%;
+  bottom: 0;
+  height: 100%;
+  width: 22%;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+
+.cast-mascot {
+  left: 1%;
+  bottom: 4%;
+  width: 31%;
+  height: 74%;
+  z-index: 2;
+}
+
+.cast-object {
+  z-index: 1;
+  opacity: 0.92;
+  rotate: var(--rot, 0deg);
+}
+
+.cast-1 {
+  right: 4%;
+  bottom: 30%;
+  width: 11%;
+  height: 34%;
+  --rot: -9deg;
+}
+
+.cast-2 {
+  right: 22%;
+  top: 0;
+  width: 9%;
+  height: 28%;
+  --rot: 12deg;
+}
+
+.cast-3 {
+  left: 31%;
+  bottom: 2%;
+  width: 8%;
+  height: 22%;
+  --rot: -14deg;
+}
+
+/* Each answers the cursor by a different amount, which is what gives a flat page a front and back. */
+.cast {
   transition: translate 700ms cubic-bezier(0.2, 0.8, 0.3, 1);
   translate: calc(var(--drift-x, 0px) * var(--depth, 1)) calc(var(--drift-y, 0px) * var(--depth, 1));
 }
 
-/*
- * The furniture of the work, scattered wide of the words. Every one of them sits outside the
- * column the type occupies, because a headline is the one thing on this page that may not be
- * competed with.
- */
-.orbit {
-  position: absolute;
-  z-index: 1;
-  display: block;
-  width: var(--size, 80px);
-  rotate: var(--rot, 0deg);
-  opacity: 0.9;
-  pointer-events: none;
+.cast-handset {
+  --depth: 0.5;
 }
 
-.orbit img {
-  width: 100%;
-  height: auto;
+.cast-mascot {
+  --depth: 1.1;
 }
 
-/* Where each one sits, and how far it answers the cursor. Nothing inside 22 to 78 percent. */
-.orbit-1 {
-  left: 6%;
-  top: 26%;
-  --size: 92px;
-  --rot: -14deg;
-  --depth: 1.5;
+.cast-1 {
+  --depth: 2;
 }
 
-.orbit-2 {
-  left: 84%;
-  top: 19%;
-  --size: 104px;
-  --rot: 12deg;
-  --depth: 1.9;
+.cast-2 {
+  --depth: 2.6;
 }
 
-.orbit-3 {
-  left: 13%;
-  top: 66%;
-  --size: 78px;
-  --rot: 9deg;
-  --depth: 2.4;
-}
-
-.orbit-4 {
-  left: 82%;
-  top: 63%;
-  --size: 88px;
-  --rot: -10deg;
-  --depth: 1.2;
-}
-
-.orbit-5 {
-  left: 6%;
-  top: 8%;
-  --size: 70px;
-  --rot: 18deg;
-  --depth: 2.8;
-}
-
-.orbit-6 {
-  left: 78%;
-  top: 86%;
-  --size: 74px;
-  --rot: -22deg;
+.cast-3 {
   --depth: 1.7;
 }
 
-/* In the corner, not on the centre line: the object runs off the bottom of the screen there. */
 .hero-hint {
   position: absolute;
-  left: 48px;
-  bottom: 32px;
+  left: 50%;
+  bottom: clamp(16px, 3vh, 28px);
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 10px;
-  z-index: 3;
+  z-index: 4;
 }
 
 .hero-hint i {
@@ -2783,17 +2844,8 @@
   }
 
   .hero {
-    min-height: 100vh;
-    padding: 92px 0 64px;
-  }
-
-  .hero-copy {
-    gap: 22px;
-  }
-
-  .hero-object {
-    height: clamp(210px, 30vh, 300px);
-    margin-top: 8px;
+    padding: 80px 0 40px;
+    gap: 18px;
   }
 
   .hero-actions {
@@ -2804,28 +2856,43 @@
     flex: 1 1 auto;
   }
 
-  /* Two of the six, and both below the words: at this width the words reach everywhere. */
-  .orbit {
-    --size: 58px;
+  /*
+   * The cast keeps its arrangement; it only gets shorter and a little wider, and the smallest of
+   * the objects goes, because below four hundred pixels it is a smudge rather than a thing.
+   */
+  /* A shorter line than the copy needs, so the cast is what gives when the window is small. */
+  .hero-copy .lead {
+    font-size: 16px;
+    max-width: 32ch;
   }
 
-  .orbit-1 {
-    left: 3%;
-    top: 72%;
+  .hero-cast {
+    height: clamp(150px, 24vh, 210px);
+    min-height: 112px;
   }
 
-  .orbit-4 {
-    left: 80%;
-    top: 60%;
+  .cast-handset {
+    width: 30%;
   }
 
-  .orbit:not(.orbit-1):not(.orbit-4) {
+  .cast-mascot {
+    left: 4%;
+    width: 34%;
+    height: 58%;
+  }
+
+  .cast-1 {
+    right: 0;
+    width: 15%;
+  }
+
+  .cast-2 {
+    right: 20%;
+    width: 13%;
+  }
+
+  .cast-3 {
     display: none;
-  }
-
-  .hero-hint {
-    left: 20px;
-    bottom: 20px;
   }
 
   /* Two viewport heights of held scroll rather than three: a thumb travels further per stroke. */
@@ -3154,8 +3221,7 @@
     transform: none;
   }
 
-  .hero-object,
-  .orbit {
+  .cast {
     transition: none;
     translate: none;
   }

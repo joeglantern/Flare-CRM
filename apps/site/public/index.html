@@ -130,13 +130,20 @@
     </div>
     <main>
       <section class="hero ink">
+        <picture class="hero-sky"
+          ><source type="image/avif" srcset="/plates/cloud-layers.avif" />
+          <img src="/plates/cloud-layers.webp" alt="" width="828" height="458"
+        /></picture>
+        <div class="hero-scrim"></div>
         <div class="grain"></div>
         <div class="wrap">
           <div class="hero-copy">
             <h1 class="display">
               <span class="rise"><span style="--i: 0">The phone rings and</span></span
               ><span class="rise"><span style="--i: 1">the customer is</span></span
-              ><span class="rise"><span style="--i: 2">already on screen.</span></span>
+              ><span class="rise"
+                ><span style="--i: 2" class="accent">already on screen.</span></span
+              >
             </h1>
             <p class="lead settle">
               Calls, WhatsApp, deals and notes for one customer, on one timeline, on a server you
@@ -151,66 +158,51 @@
             </div>
           </div>
         </div>
-        <picture
-          ><source type="image/avif" srcset="/handset/01-rest.avif" />
-          <img
-            src="/handset/01-rest.webp"
-            alt=""
-            width="418"
-            height="627"
-            class="scr hero-object"
-            data-drift
-            data-hero-image
-        /></picture>
-        <picture class="orbit orbit-1"
-          ><source type="image/avif" srcset="/objects/sim.avif" />
-          <img
-            src="/objects/sim.webp"
-            alt=""
-            width="512"
-            height="512"
-            class="scr"
-            data-drift /></picture
-        ><picture class="orbit orbit-2"
-          ><source type="image/avif" srcset="/objects/cassette.avif" />
-          <img
-            src="/objects/cassette.webp"
-            alt=""
-            width="512"
-            height="512"
-            class="scr"
-            data-drift /></picture
-        ><picture class="orbit orbit-3"
-          ><source type="image/avif" srcset="/objects/chat-bubble.avif" />
-          <img
-            src="/objects/chat-bubble.webp"
-            alt=""
-            width="512"
-            height="512"
-            class="scr"
-            data-drift /></picture
-        ><picture class="orbit orbit-4"
-          ><source type="image/avif" srcset="/objects/desk-bell.avif" />
-          <img
-            src="/objects/desk-bell.webp"
-            alt=""
-            width="260"
-            height="227"
-            class="scr"
-            data-drift /></picture
-        ><picture class="orbit orbit-5"
-          ><source type="image/avif" srcset="/objects/paper-plane.avif" />
-          <img
-            src="/objects/paper-plane.webp"
-            alt=""
-            width="303"
-            height="200"
-            class="scr"
-            data-drift /></picture
-        ><picture class="orbit orbit-6"
-          ><source type="image/avif" srcset="/objects/keys.avif" />
-          <img src="/objects/keys.webp" alt="" width="245" height="268" class="scr" data-drift
-        /></picture>
+        <div class="hero-cast">
+          <picture class="cast cast-mascot"
+            ><source type="image/avif" srcset="/mascot/flying.avif" />
+            <img src="/mascot/flying.webp" alt="" width="342" height="231" class="scr" data-drift
+          /></picture>
+          <picture class="cast cast-handset"
+            ><source type="image/avif" srcset="/handset/01-rest.avif" />
+            <img
+              src="/handset/01-rest.webp"
+              alt=""
+              width="418"
+              height="627"
+              class="scr"
+              data-drift
+              data-hero-image
+          /></picture>
+          <picture class="cast cast-object cast-1"
+            ><source type="image/avif" srcset="/objects/chat-bubble.avif" />
+            <img
+              src="/objects/chat-bubble.webp"
+              alt=""
+              width="512"
+              height="512"
+              class="scr"
+              data-drift /></picture
+          ><picture class="cast cast-object cast-2"
+            ><source type="image/avif" srcset="/objects/notebook.avif" />
+            <img
+              src="/objects/notebook.webp"
+              alt=""
+              width="279"
+              height="266"
+              class="scr"
+              data-drift /></picture
+          ><picture class="cast cast-object cast-3"
+            ><source type="image/avif" srcset="/objects/desk-bell.avif" />
+            <img
+              src="/objects/desk-bell.webp"
+              alt=""
+              width="260"
+              height="227"
+              class="scr"
+              data-drift
+          /></picture>
+        </div>
         <p class="tag hero-hint">SCROLL TO OPEN<i></i></p>
       </section>
 
@@ -784,7 +776,7 @@
         <img src="/brand/mark.svg" alt="" width="100" height="100" />
       </div>
       <div class="footer-feet">
-        <span>FLARE CRM · UPPERHILL, NAIROBI · HELLO@FLAREHUB.CO.KE</span>
+        <span>FLARE CRM</span>
         <nav aria-label="Legal">
           <a href="/privacy">PRIVACY</a>
           <a href="/terms">TERMS</a>
