@@ -405,10 +405,18 @@ function startOfDay(at: Date): Date {
   return new Date(`${dayKey(at, ROLLUP_TZ)}T00:00:00.000Z`);
 }
 
-/** Every day in the range, so a chart never has to guess what a gap meant. */
+/**
+ * Every day in the range, so a chart never has to guess what a gap meant.
+ *
+ * Both ends are days, not instants. `startOfDay` names a day in Nairobi and then stands it at
+ * midnight UTC, so comparing the walk against the raw `to` dropped the last day for the three hours
+ * each night when Nairobi is already on tomorrow's date and UTC is not: a fortnight came back
+ * thirteen days long between midnight and three in the morning, and correct the rest of the day.
+ */
 function denseDays(from: Date, to: Date): string[] {
   const out: string[] = [];
-  for (let t = from.getTime(); t <= to.getTime(); t += DAY_MS) {
+  const last = startOfDay(to).getTime();
+  for (let t = from.getTime(); t <= last; t += DAY_MS) {
     out.push(dayKey(new Date(t), 'UTC'));
   }
   return out;
