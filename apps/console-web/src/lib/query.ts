@@ -27,7 +27,12 @@ export function createQueryClient(): QueryClient {
 /** One place where every key is spelled, so invalidation cannot drift from fetching. */
 export const qk = {
   me: () => ['me'] as const,
-  fleet: () => ['fleet'] as const,
+  /**
+   * Keyed by the filter, because the fleet is now a page of a filtered list rather than everything.
+   * Invalidating with the bare key still clears every filtered variant of it.
+   */
+  fleet: (filter: Record<string, unknown> = {}) =>
+    Object.keys(filter).length === 0 ? (['fleet'] as const) : (['fleet', filter] as const),
   customers: () => ['customers'] as const,
   customer: (id: string) => ['customer', id] as const,
   entitlements: (id: string) => ['entitlements', id] as const,

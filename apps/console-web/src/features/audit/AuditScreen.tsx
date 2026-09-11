@@ -4,10 +4,10 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Badge, Button, Input, Select } from '@crm/ui';
-import { Table, type Column } from '@/components/Bits';
+import { Badge, Input, Select } from '@crm/ui';
+import { Pager, Table, type Column } from '@/components/Bits';
 import { EmptyState, PageHeader, StateSlot } from '@/components/Page';
-import { http, type OffsetList } from '@/lib/api';
+import { http } from '@/lib/api';
 import { dateTime } from '@/lib/format';
 import { qk } from '@/lib/query';
 import type { AuditRow } from '@/lib/types';
@@ -80,7 +80,6 @@ export function AuditScreen() {
   ];
 
   const total = audit.data?.page.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <>
@@ -130,7 +129,13 @@ export function AuditScreen() {
             rowKey={(row) => row.id}
           />
         </div>
-        <Pager page={page} pages={pages} total={total} onChange={setPage} list={audit.data} />
+        <Pager
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onChange={setPage}
+          labels={{ previous: 'Newer', next: 'Older' }}
+        />
       </StateSlot>
     </>
   );
@@ -165,48 +170,5 @@ function Change({ row }: { row: AuditRow }) {
         </pre>
       )}
     </span>
-  );
-}
-
-function Pager({
-  page,
-  pages,
-  total,
-  onChange,
-  list,
-}: {
-  page: number;
-  pages: number;
-  total: number;
-  onChange: (page: number) => void;
-  list: OffsetList<AuditRow> | undefined;
-}) {
-  if (list === undefined || total <= PAGE_SIZE) return null;
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-muted">
-        Page {page} of {pages}, {total} rows
-      </span>
-      <span className="flex gap-2">
-        <Button
-          size="sm"
-          disabled={page <= 1}
-          onClick={() => {
-            onChange(page - 1);
-          }}
-        >
-          Newer
-        </Button>
-        <Button
-          size="sm"
-          disabled={page >= pages}
-          onClick={() => {
-            onChange(page + 1);
-          }}
-        >
-          Older
-        </Button>
-      </span>
-    </div>
   );
 }

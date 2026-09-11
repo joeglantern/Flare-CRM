@@ -92,8 +92,12 @@ export function stubFetch(routes: Record<string, unknown>): FetchStub {
       );
     }
     const answer = routes[key];
+    // A paged endpoint answers with `data` and `page` side by side, so an answer that already has
+    // a `data` key is passed through as the whole envelope rather than wrapped in a second one.
+    const envelope =
+      typeof answer === 'object' && answer !== null && 'data' in answer ? answer : { data: answer };
     return Promise.resolve(
-      new Response(JSON.stringify({ data: answer }), {
+      new Response(JSON.stringify(envelope), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       }),

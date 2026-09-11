@@ -29,6 +29,13 @@ export interface Customer {
   customDomainVerifiedAt: string | null;
   /** Set while we are holding this customer read only, and null the rest of the time. */
   suspendedAt: string | null;
+  /** Filed away: out of the fleet by default, with nothing of theirs removed. */
+  archivedAt: string | null;
+  archiveReason: string | null;
+  churnReason: string | null;
+  churnedAt: string | null;
+  onboardingStage: string;
+  onboardingChecklist: Record<string, boolean>;
   createdAt: string;
 }
 

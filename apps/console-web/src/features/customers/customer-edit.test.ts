@@ -20,6 +20,12 @@ const customer: Customer = {
   customDomain: null,
   customDomainVerifiedAt: null,
   suspendedAt: null,
+  archivedAt: null,
+  archiveReason: null,
+  churnReason: null,
+  churnedAt: null,
+  onboardingStage: 'live',
+  onboardingChecklist: {},
   createdAt: '2026-09-01T00:00:00.000Z',
 };
 

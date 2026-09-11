@@ -4,7 +4,7 @@
  */
 import { Check, Copy } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { Badge, cn, IconButton, toast } from '@crm/ui';
+import { Badge, Button, cn, IconButton, toast } from '@crm/ui';
 
 export function StatusDot({ connected, label }: { connected: boolean; label?: string }) {
   return (
@@ -190,6 +190,59 @@ export function Table<T>({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * One page of something, and the way to the next.
+ *
+ * It draws nothing when everything fits on one page: a pager under a list of four rows is furniture
+ * that tells nobody anything. The labels are given by the caller because "older" is right for a log
+ * and wrong for a list of customers.
+ */
+export function Pager({
+  page,
+  pageSize,
+  total,
+  onChange,
+  labels = { previous: 'Previous', next: 'Next' },
+  noun = 'rows',
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  onChange: (page: number) => void;
+  labels?: { previous: string; next: string };
+  noun?: string;
+}) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  if (total <= pageSize) return null;
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm text-muted">
+        Page {page} of {pages}, {total} {noun}
+      </span>
+      <span className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={page <= 1}
+          onClick={() => {
+            onChange(page - 1);
+          }}
+        >
+          {labels.previous}
+        </Button>
+        <Button
+          size="sm"
+          disabled={page >= pages}
+          onClick={() => {
+            onChange(page + 1);
+          }}
+        >
+          {labels.next}
+        </Button>
+      </span>
     </div>
   );
 }

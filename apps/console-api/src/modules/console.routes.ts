@@ -7,9 +7,11 @@ import { promises as dns } from 'node:dns';
 import { randomBytes } from 'node:crypto';
 import {
   CHURN_REASONS,
+  CUSTOMER_STATUSES,
   FEATURES,
   LIMITS,
   ONBOARDING_STAGES,
+  customerFilterQuery,
   dataResponse,
   onboardingChecklist,
   featureKeys,
@@ -29,6 +31,8 @@ import { OWNER_CONTACT_KEY, readOwnerContact } from '../lib/owner-contact.js';
 import { planMaps } from './entitlements.service.js';
 
 const uuid = z.uuid();
+/** How many customers one bulk action may touch. Each one signs a document and pushes it. */
+const BULK_LIMIT = 100;
 const slug = z
   .string()
   .trim()
@@ -214,13 +218,14 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
   // ── customers ────────────────────────────────────────────────────────────────────────
   app.get('/customers', {
     config: { auth: { permission: 'customer:read' } },
-    schema: { tags: ['console'], response: { 200: offsetListResponse(customerDto) } },
-    handler: async () => {
-      const rows = await app.db.customer.findMany({ orderBy: { name: 'asc' } });
-      return {
-        data: rows.map(toCustomer),
-        page: { page: 1, pageSize: rows.length, total: rows.length },
-      };
+    schema: {
+      tags: ['console'],
+      querystring: customerFilterQuery,
+      response: { 200: offsetListResponse(customerDto) },
+    },
+    handler: async (request) => {
+      const { rows, page } = await app.customers.list(request.query);
+      return { data: rows.map(toCustomer), page };
     },
   });
 
@@ -337,7 +342,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
       body: z
         .object({
           name: z.string().trim().min(1).max(200).optional(),
-          status: z.enum(['active', 'suspended', 'churned']).optional(),
+          status: z.enum(CUSTOMER_STATUSES).optional(),
           contactName: z.string().trim().min(1).max(120).optional(),
           contactEmail: z.email().max(254).optional(),
           contactPhone: z.string().trim().max(32).nullable().optional(),
@@ -353,10 +358,11 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
       const before = await app.db.customer.findUnique({ where: { id: request.params.id } });
       if (!before) throw new NotFoundError('Customer');
       // exactOptionalPropertyTypes: an absent key and an explicit undefined are different
-      // things to Prisma, so only the keys actually sent are passed through.
-      const data = Object.fromEntries(
-        Object.entries(request.body).filter(([, v]) => v !== undefined),
-      );
+      // things to Prisma, so only the keys actually sent are passed through. Status is held back
+      // and given to the service below: writing it here first would leave that service comparing
+      // the new value against itself and concluding that nothing had changed.
+      const { status, ...fields } = request.body;
+      const data = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
       // The checklist is merged rather than replaced: a screen that ticks one box should not clear
       // the three somebody else ticked last week.
       if (request.body.onboardingChecklist !== undefined) {
@@ -367,26 +373,12 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
       }
       await app.db.customer.update({ where: { id: request.params.id }, data });
 
-      // A status is only a word until the customer's own server hears about it. Anything other
-      // than active is held read only by an expiry of now, and coming back to active gives back
-      // the expiry they had before.
-      const status = request.body.status;
-      let enforcement: { held: boolean; issues: number } | null = null;
-      if (status !== undefined && status !== before.status) {
-        const changed =
-          status === 'active'
-            ? await app.entitlements.release(before.id)
-            : await app.entitlements.hold(before.id);
-        if (changed) {
-          const issued = await app.entitlements.issue(
-            before.id,
-            requireUser(request).id,
-            await ownerContact(),
-          );
-          await app.link.deliver(issued);
-          enforcement = { held: status !== 'active', issues: issued.length };
-        }
-      }
+      // A status is only a word until the customer's own server hears about it. The service holds
+      // or releases their document and sends it, which is the same path a bulk change takes.
+      const enforcement =
+        status === undefined
+          ? null
+          : await app.customers.setStatus(before.id, status, requireUser(request).id);
 
       const after = await app.db.customer.findUniqueOrThrow({ where: { id: request.params.id } });
       await app.audit.write(auditContext(request), {
@@ -430,6 +422,206 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     }),
   });
 
+  /**
+   * The same acts, over a selection.
+   *
+   * One route per permission rather than one route with an action field, because `config.auth` is
+   * how this console says what a request needs and a single route would have to claim the widest
+   * of them. Everything is capped and sequential: each customer here means signing a document and
+   * pushing it down a socket, and this is one process.
+   */
+  const bulkBody = z.object({ ids: z.array(uuid).min(1).max(BULK_LIMIT) });
+  const bulkResult = dataResponse(
+    z.object({
+      ok: z.number().int(),
+      failed: z.number().int(),
+      results: z.array(
+        z.object({ customerId: z.string(), ok: z.boolean(), error: z.string().optional() }),
+      ),
+    }),
+  );
+
+  app.post('/customers/bulk/archive', {
+    config: { auth: { permission: 'customer:archive' } },
+    schema: {
+      tags: ['console'],
+      body: bulkBody
+        .extend({ reason: z.enum(CHURN_REASONS), note: z.string().trim().max(500).optional() })
+        .strict(),
+      response: { 200: bulkResult },
+    },
+    handler: async (request) => {
+      const actorId = requireUser(request).id;
+      const ctx = auditContext(request);
+      const outcome = await app.customers.bulk(request.body.ids, async (customerId) => {
+        await app.customers.archive({
+          customerId,
+          reason: request.body.reason,
+          note: request.body.note,
+          actorId,
+          ctx,
+        });
+      });
+      await app.audit.write(ctx, {
+        action: 'customer.bulk_archive',
+        entity: 'customer',
+        after: { asked: request.body.ids.length, ok: outcome.ok, failed: outcome.failed },
+      });
+      return { data: outcome };
+    },
+  });
+
+  app.post('/customers/bulk/status', {
+    config: { auth: { permission: 'customer:write' } },
+    schema: {
+      tags: ['console'],
+      body: bulkBody.extend({ status: z.enum(CUSTOMER_STATUSES) }).strict(),
+      response: { 200: bulkResult },
+    },
+    handler: async (request) => {
+      const actorId = requireUser(request).id;
+      const ctx = auditContext(request);
+      const outcome = await app.customers.bulk(request.body.ids, async (customerId) => {
+        const enforcement = await app.customers.setStatus(customerId, request.body.status, actorId);
+        await app.audit.write(ctx, {
+          action: 'customer.update',
+          entity: 'customer',
+          entityId: customerId,
+          after: { status: request.body.status, enforcement },
+        });
+      });
+      await app.audit.write(ctx, {
+        action: 'customer.bulk_status',
+        entity: 'customer',
+        after: {
+          asked: request.body.ids.length,
+          status: request.body.status,
+          ok: outcome.ok,
+          failed: outcome.failed,
+        },
+      });
+      return { data: outcome };
+    },
+  });
+
+  app.post('/customers/bulk/issue', {
+    config: { auth: { permission: 'entitlement:issue' } },
+    schema: { tags: ['console'], body: bulkBody.strict(), response: { 200: bulkResult } },
+    handler: async (request) => {
+      const actorId = requireUser(request).id;
+      const ctx = auditContext(request);
+      const contact = await ownerContact();
+      const outcome = await app.customers.bulk(request.body.ids, async (customerId) => {
+        const issued = await app.entitlements.issue(customerId, actorId, contact);
+        if (issued.length === 0) throw new ConflictError('No stack is registered for them yet');
+        await app.link.deliver(issued);
+        await app.audit.write(ctx, {
+          action: 'entitlement.issue',
+          entity: 'customer',
+          entityId: customerId,
+          after: { issues: issued.map((i) => ({ issueId: i.issueId, stackId: i.stackId })) },
+        });
+      });
+      await app.audit.write(ctx, {
+        action: 'entitlement.bulk_issue',
+        entity: 'customer',
+        after: { asked: request.body.ids.length, ok: outcome.ok, failed: outcome.failed },
+      });
+      return { data: outcome };
+    },
+  });
+
+  app.post('/customers/bulk/announce', {
+    config: { auth: { permission: 'announce:send' } },
+    schema: {
+      tags: ['console'],
+      body: bulkBody
+        .extend({
+          message: z.string().trim().min(1).max(500),
+          level: z.enum(['info', 'warning', 'error']).default('info'),
+        })
+        .strict(),
+      response: { 200: bulkResult },
+    },
+    handler: async (request) => {
+      const ctx = auditContext(request);
+      const sentById = requireUser(request).id;
+      const outcome = await app.customers.bulk(request.body.ids, async (customerId) => {
+        const stacks = await app.db.stack.findMany({
+          where: { customerId, revokedAt: null, connected: true },
+          select: { id: true },
+        });
+        if (stacks.length === 0) throw new ConflictError('None of their stacks are connected');
+        const delivered = app.link.announce(
+          stacks.map((s) => s.id),
+          { message: request.body.message, level: request.body.level },
+        );
+        await app.db.announcement.create({
+          data: {
+            id: newId(),
+            customerId,
+            message: request.body.message,
+            level: request.body.level,
+            delivered,
+            sentById,
+          },
+        });
+        await app.audit.write(ctx, {
+          action: 'customer.announce',
+          entity: 'customer',
+          entityId: customerId,
+          after: { message: request.body.message, level: request.body.level, delivered },
+        });
+      });
+      await app.audit.write(ctx, {
+        action: 'customer.bulk_announce',
+        entity: 'customer',
+        after: { asked: request.body.ids.length, ok: outcome.ok, failed: outcome.failed },
+      });
+      return { data: outcome };
+    },
+  });
+
+  app.post('/customers/bulk/plan', {
+    config: { auth: { permission: 'entitlement:issue' } },
+    schema: {
+      tags: ['console'],
+      body: bulkBody.extend({ planId: uuid, issue: z.boolean().default(true) }).strict(),
+      response: { 200: bulkResult },
+    },
+    handler: async (request) => {
+      const plan = await app.db.plan.findUnique({ where: { id: request.body.planId } });
+      if (!plan) throw new NotFoundError('Plan');
+      const actorId = requireUser(request).id;
+      const ctx = auditContext(request);
+      const contact = await ownerContact();
+      const outcome = await app.customers.bulk(request.body.ids, async (customerId) => {
+        const before = await app.db.customerEntitlement.findUnique({ where: { customerId } });
+        await app.db.customerEntitlement.update({
+          where: { customerId },
+          data: { planId: plan.id, updatedById: actorId },
+        });
+        await app.audit.write(ctx, {
+          action: 'entitlement.plan_move',
+          entity: 'customer',
+          entityId: customerId,
+          before: { planId: before?.planId ?? null },
+          after: { planId: plan.id },
+        });
+        if (!request.body.issue) return;
+        const issued = await app.entitlements.issue(customerId, actorId, contact);
+        await app.link.deliver(issued);
+      });
+      await app.audit.write(ctx, {
+        action: 'entitlement.bulk_plan_move',
+        entity: 'plan',
+        entityId: plan.id,
+        after: { asked: request.body.ids.length, ok: outcome.ok, failed: outcome.failed },
+      });
+      return { data: outcome };
+    },
+  });
+
   app.post('/customers/:id/unarchive', {
     config: { auth: { permission: 'customer:archive' } },
     schema: {
@@ -447,65 +639,62 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     config: { auth: { permission: 'customer:read' } },
     schema: {
       tags: ['console'],
+      querystring: customerFilterQuery,
       response: {
-        200: dataResponse(
-          z.array(
-            z.object({
-              customer: customerDto,
-              plan: z.object({ id: z.string(), name: z.string() }).nullable(),
-              expiresAt: z.string().nullable(),
-              stacks: z.array(stackDto),
-              connected: z.boolean(),
-              seats: z.object({ used: z.number().nullable(), max: z.number().nullable() }),
-              storageBytes: z.number().nullable(),
-              lastSeenAt: z.string().nullable(),
-              lastBackupAt: z.string().nullable(),
-              version: z.string().nullable(),
-            }),
-          ),
+        200: offsetListResponse(
+          z.object({
+            customer: customerDto,
+            plan: z.object({ id: z.string(), name: z.string() }).nullable(),
+            expiresAt: z.string().nullable(),
+            stacks: z.array(stackDto),
+            connected: z.boolean(),
+            seats: z.object({ used: z.number().nullable(), max: z.number().nullable() }),
+            storageBytes: z.number().nullable(),
+            lastSeenAt: z.string().nullable(),
+            lastBackupAt: z.string().nullable(),
+            version: z.string().nullable(),
+          }),
         ),
       },
     },
-    handler: async () => {
-      const customers = await app.db.customer.findMany({
-        orderBy: { name: 'asc' },
-        include: { stacks: { orderBy: { createdAt: 'asc' } } },
-      });
-      const rows = [];
-      for (const c of customers) {
-        const effective = await app.entitlements.effective(c.id);
-        const live = c.stacks.filter((s) => s.revokedAt === null);
-        const newest = live.find((s) => s.connected) ?? live[0];
-        const usage = (newest?.usage ?? null) as {
-          seatsActive?: number;
-          storageBytes?: number;
-        } | null;
-        rows.push({
-          customer: toCustomer(c),
-          plan: effective.plan,
-          expiresAt: effective.expiresAt,
-          stacks: live.map((s) => ({
-            id: s.id,
-            label: s.label,
-            connected: s.connected,
-            lastSeenAt: s.lastSeenAt?.toISOString() ?? null,
-            version: s.version,
-            domain: s.domain,
-            lastBackupAt: s.lastBackupAt?.toISOString() ?? null,
-            revokedAt: null,
-            currentIssueId: s.currentIssueId,
-            usage: s.usage,
-            health: s.health,
-          })),
-          connected: live.some((s) => s.connected),
-          seats: { used: usage?.seatsActive ?? null, max: effective.limits.seats },
-          storageBytes: usage?.storageBytes ?? null,
-          lastSeenAt: newest?.lastSeenAt?.toISOString() ?? null,
-          lastBackupAt: newest?.lastBackupAt?.toISOString() ?? null,
-          version: newest?.version ?? null,
-        });
-      }
-      return { data: rows };
+    handler: async (request) => {
+      const { rows, page } = await app.customers.fleet(request.query);
+      return {
+        data: rows.map(({ customer, stacks, effective }) => {
+          // The connected one speaks for the customer when there is one, and otherwise the oldest
+          // stack does: a figure from a stack that is talking beats one from a stack that is not.
+          const newest = stacks.find((s) => s.connected) ?? stacks[0];
+          const usage = (newest?.usage ?? null) as {
+            seatsActive?: number;
+            storageBytes?: number;
+          } | null;
+          return {
+            customer: toCustomer(customer),
+            plan: effective.plan,
+            expiresAt: effective.expiresAt,
+            stacks: stacks.map((s) => ({
+              id: s.id,
+              label: s.label,
+              connected: s.connected,
+              lastSeenAt: s.lastSeenAt?.toISOString() ?? null,
+              version: s.version,
+              domain: s.domain,
+              lastBackupAt: s.lastBackupAt?.toISOString() ?? null,
+              revokedAt: null,
+              currentIssueId: s.currentIssueId,
+              usage: s.usage,
+              health: s.health,
+            })),
+            connected: stacks.some((s) => s.connected),
+            seats: { used: usage?.seatsActive ?? null, max: effective.limits.seats },
+            storageBytes: usage?.storageBytes ?? null,
+            lastSeenAt: newest?.lastSeenAt?.toISOString() ?? null,
+            lastBackupAt: newest?.lastBackupAt?.toISOString() ?? null,
+            version: newest?.version ?? null,
+          };
+        }),
+        page,
+      };
     },
   });
 
