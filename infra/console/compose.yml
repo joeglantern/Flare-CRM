@@ -130,6 +130,22 @@ services:
     cap_drop: [ALL]
     logging: *logging
 
+  # signs and sends a customer's entitlements document, optionally putting them on a plan first:
+  #   docker compose run --rm issue-document acme "Standard"
+  issue-document:
+    image: ${CONSOLE_IMAGE:-ghcr.io/OWNER/crm-console-api}:${IMAGE_TAG:-latest}
+    profiles: [ops]
+    restart: 'no'
+    env_file: [.env]
+    entrypoint: ['node', 'dist/issue-document.js']
+    command: []
+    networks: [edge, internal]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+
   postgres:
     image: postgres:17.11-alpine
     restart: unless-stopped

@@ -10,7 +10,8 @@ import { LINK_PROTOCOL, normaliseFeatures, signedEnvelope } from '@crm/shared';
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { parsePublicKey, verifyEnvelope } from '../../../api/src/modules/entitlements/signature.js';
-import { TestContext, TEST_SIGNING_KEY, type TestOwner } from '../setup/test-app.js';
+import { buildApp } from '../../src/app.js';
+import { TestContext, TEST_SIGNING_KEY, testEnv, type TestOwner } from '../setup/test-app.js';
 
 interface Envelope<T> {
   data: T;
@@ -592,6 +593,35 @@ describe('console: the link a customer stack dials home on', () => {
     expect(row.status).toBe('acked');
     expect(row.ackedAt).not.toBeNull();
     expect((await stackRow(stackId)).currentIssueId).toBe(issueId);
+  });
+
+  it('delivers a document issued by a second instance, over the adapter', async () => {
+    const customer = await newCustomer();
+    const { stackId, secret } = await newStack(customer.id);
+    const stack = await connectStack(stackId, secret);
+    stack.emit('hello', hello(stackId));
+    await expect.poll(async () => (await stackRow(stackId)).connected).toBe(true);
+
+    // The scripts that issue from the command line run in their own container, and a second api
+    // replica would be in the same position: it holds no socket for this stack, so the only way
+    // the document reaches it is the adapter the two instances share.
+    const other = await buildApp({ env: testEnv(), logger: false });
+    await other.ready();
+    try {
+      const handed = next<{ issueId: string; envelope: unknown }>(stack, 'entitlements');
+      const issued = await other.entitlements.issue(customer.id, null, {
+        name: 'The provider',
+        email: 'provider@example.test',
+      });
+      await other.link.deliver(issued);
+      const issueId = issued[0]?.issueId ?? '';
+      expect((await handed).issueId).toBe(issueId);
+      await expect.poll(async () => (await issueRow(issueId)).status).toBe('delivered');
+      // Nobody signed this one: a script did it, and the record says so rather than naming an owner.
+      expect((await issueRow(issueId)).issuedById).toBeNull();
+    } finally {
+      await other.close();
+    }
   });
 
   it('records a document the stack refused, with its reason', async () => {

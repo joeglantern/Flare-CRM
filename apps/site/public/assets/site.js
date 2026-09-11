@@ -28,10 +28,8 @@
     var from = theme === 'light' ? '-dark.' : '-light.';
     var to = theme === 'light' ? '-light.' : '-dark.';
     var shots = document.querySelectorAll('picture[data-themed]:not([data-fixed])');
-    for (var i = 0; i < shots.length; i++) {
-      var kids = shots[i].children;
-      for (var k = 0; k < kids.length; k++) {
-        var el = kids[k];
+    for (var shot of shots) {
+      for (var el of shot.children) {
         if (el.tagName === 'SOURCE') {
           if (el.srcset.indexOf(from) > -1) el.srcset = el.srcset.split(from).join(to);
         } else if (el.tagName === 'IMG' && el.src.indexOf(from) > -1) {
@@ -56,16 +54,16 @@
     if (remember) {
       try {
         localStorage.setItem(STORE, theme);
-      } catch (err) {
+      } catch {
         // A browser refusing storage is not a reason to refuse the theme.
       }
     }
   }
 
-  var saved = null;
+  var saved;
   try {
     saved = localStorage.getItem(STORE);
-  } catch (err) {
+  } catch {
     saved = null;
   }
   if (saved === 'light' || saved === 'dark') apply(saved, false);
@@ -98,20 +96,24 @@
   function playable(video) {
     load(video);
     var playing = video.play();
-    if (playing && playing.catch) playing.catch(function () {});
+    if (playing && playing.catch) {
+      playing.catch(function () {
+        // Autoplay refused, which is the browser's call to make and nothing to report.
+      });
+    }
   }
   if (clips.length > 0 && !still && 'IntersectionObserver' in window) {
     var watcher = new IntersectionObserver(
       function (entries) {
-        for (var i = 0; i < entries.length; i++) {
-          if (!entries[i].isIntersecting) continue;
-          playable(entries[i].target);
-          watcher.unobserve(entries[i].target);
+        for (var entry of entries) {
+          if (!entry.isIntersecting) continue;
+          playable(entry.target);
+          watcher.unobserve(entry.target);
         }
       },
       { rootMargin: '200px' },
     );
-    for (var c = 0; c < clips.length; c++) watcher.observe(clips[c]);
+    for (var watched of clips) watcher.observe(watched);
   }
 
   document.addEventListener('click', function (event) {

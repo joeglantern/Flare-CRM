@@ -223,7 +223,12 @@ than putting an owner's name on something an owner did not do:
 
 ```
 docker compose run --rm register-customer <slug> "<Name>" "<Contact name>" <contact email>
+docker compose run --rm issue-document <slug> "<Plan name>"
 ```
+
+The second one signs and sends that customer's document, putting them on a named plan first when
+one is given. A connected stack receives it at once; one that is not keeps it waiting and collects
+it the next time it connects. Both scripts leave the issuer null rather than borrowing an owner.
 
 The signing key is the one irreplaceable thing on that machine. Losing it means every customer has
 to be issued a document signed by a new key before they trust anything from the console again; the

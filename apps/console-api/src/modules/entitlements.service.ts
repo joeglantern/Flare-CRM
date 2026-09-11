@@ -124,10 +124,13 @@ export class ConsoleEntitlementsService {
   /**
    * Signs and records a document for every live stack the customer has. Anything still waiting
    * is marked superseded first: only the newest issue is worth delivering.
+   *
+   * `issuedById` is null when a script did it rather than an owner, which is the only way the
+   * provider's own stack can be served before anybody has an account to sign in with.
    */
   async issue(
     customerId: string,
-    issuedById: string,
+    issuedById: string | null,
     ownerContact: OwnerContact,
   ): Promise<{ issueId: string; stackId: string; envelope: unknown }[]> {
     const stacks = await this.db.stack.findMany({

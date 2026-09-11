@@ -95,6 +95,18 @@ export default tseslint.config(
     },
   },
   {
+    // The marketing site's one script is plain browser JavaScript served as it is written, with no
+    // build step and no tsconfig to belong to. It gets the base rules and browser globals; the
+    // type-aware ones have no type information to work from and are turned off here.
+    files: ['apps/site/public/**/*.js'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      parserOptions: { projectService: false, project: false },
+      globals: { ...globals.browser },
+    },
+    rules: { 'no-console': 'error' },
+  },
+  {
     // Fastify plugin functions are conventionally async even when they only register routes.
     files: ['**/*.routes.ts', 'apps/api/src/modules/index.ts'],
     rules: { '@typescript-eslint/require-await': 'off' },

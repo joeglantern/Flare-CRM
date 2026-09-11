@@ -67,7 +67,7 @@ export async function readReadiness(): Promise<Readiness> {
     return { status: 'unreachable', ok: false, checks: null, reachable: false, readAt };
   }
 
-  let body: unknown = null;
+  let body: unknown;
   try {
     body = await response.json();
   } catch {

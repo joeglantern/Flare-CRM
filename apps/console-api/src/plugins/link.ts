@@ -352,9 +352,19 @@ export default fp(
         orderBy: { issuedAt: 'desc' },
       });
       if (!issue) return;
+      const room = `stack:${stackId}`;
       const socket = live.get(stackId);
-      if (!socket) return;
-      socket.emit('entitlements', { envelope: issue.envelope, issueId: issue.id });
+      if (socket) {
+        socket.emit('entitlements', { envelope: issue.envelope, issueId: issue.id });
+      } else {
+        // The socket belongs to another process: the issue scripts run in their own container, and
+        // a second api replica would be the same situation. The adapter carries a room emit there,
+        // but only after asking whether anybody is in the room, because a document nobody received
+        // must stay pending rather than be recorded as delivered.
+        const elsewhere = await link.in(room).fetchSockets();
+        if (elsewhere.length === 0) return;
+        link.to(room).emit('entitlements', { envelope: issue.envelope, issueId: issue.id });
+      }
       await app.db.entitlementIssue.update({
         where: { id: issue.id },
         data: { status: 'delivered', deliveredAt: new Date() },

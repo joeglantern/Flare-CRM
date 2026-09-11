@@ -22,6 +22,7 @@ import { ConflictError, NotFoundError } from '../lib/errors.js';
 import { newId } from '../lib/ids.js';
 import { permissionsFor } from '../auth/permissions.js';
 import { auditContext, requireUser } from '../lib/request.js';
+import { OWNER_CONTACT_KEY, readOwnerContact } from '../lib/owner-contact.js';
 import { planMaps } from './entitlements.service.js';
 
 const uuid = z.uuid();
@@ -134,16 +135,9 @@ const CATALOGUE = {
   limits: limitKeys.map((k) => ({ key: k, ...LIMITS[k] })),
 };
 
-/** Owner contact travels inside every issued document, so customers know who to call. */
-const OWNER_CONTACT_KEY = 'ownerContact';
-const FALLBACK_CONTACT: OwnerContact = { name: 'Your provider', email: 'support@example.com' };
-
 const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
-  const ownerContact = async (): Promise<OwnerContact> => {
-    const row = await app.db.consoleSetting.findUnique({ where: { key: OWNER_CONTACT_KEY } });
-    const parsed = ownerContactSchema.safeParse(row?.value);
-    return parsed.success ? parsed.data : FALLBACK_CONTACT;
-  };
+  /** Owner contact travels inside every issued document, so customers know who to call. */
+  const ownerContact = async (): Promise<OwnerContact> => readOwnerContact(app.db);
 
   const toCustomer = (c: {
     id: string;
