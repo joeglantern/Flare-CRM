@@ -13,7 +13,10 @@ import type { Mailer } from '../plugins/mailer.js';
 import type { Db } from '../plugins/prisma.js';
 import type { Redis } from 'ioredis';
 import {
+  RESET_LINK_SECONDS,
+  VERIFY_LINK_SECONDS,
   passwordReset,
+  readInstallation,
   verifyEmail,
   welcomeSetPassword,
 } from '../modules/notifications/templates/auth.js';
@@ -28,6 +31,26 @@ export interface AuthDeps {
 
 /** Valkey flag set by the users module so the first reset email uses the welcome template. */
 export const WELCOME_FLAG_PREFIX = 'auth:welcome:';
+
+/** What the welcome flag holds: who asked, so the email can name them. */
+export function welcomeFlagValue(invitedBy: string | null): string {
+  return JSON.stringify({ invitedBy });
+}
+
+/** Flags written before the inviter was recorded hold "1", which names nobody. */
+function invitedByFrom(flag: string): string | null {
+  try {
+    const value = JSON.parse(flag) as { invitedBy?: unknown } | null;
+    return typeof value?.invitedBy === 'string' ? value.invitedBy : null;
+  } catch {
+    return null;
+  }
+}
+
+function timeZoneOf(user: object): string | null {
+  const zone = (user as { timezone?: unknown }).timezone;
+  return typeof zone === 'string' ? zone : null;
+}
 
 export function createAuth(deps: AuthDeps) {
   const { env, db, valkey, mailer } = deps;
@@ -49,13 +72,25 @@ export function createAuth(deps: AuthDeps) {
       minPasswordLength: 12,
       maxPasswordLength: 128,
       autoSignIn: false,
-      resetPasswordTokenExpiresIn: 60 * 15,
+      resetPasswordTokenExpiresIn: RESET_LINK_SECONDS,
       revokeSessionsOnPasswordReset: true,
       async sendResetPassword({ user, url }) {
-        const welcome = await valkey.getdel(`${WELCOME_FLAG_PREFIX}${user.id}`);
-        const message = welcome
-          ? welcomeSetPassword({ to: user.email, name: user.name, url, appName })
-          : passwordReset({ to: user.email, name: user.name, url, appName });
+        const [welcome, installation] = await Promise.all([
+          valkey.getdel(`${WELCOME_FLAG_PREFIX}${user.id}`),
+          readInstallation(db, env.APP_URL),
+        ]);
+        const timeZone = timeZoneOf(user);
+        const message =
+          welcome === null
+            ? passwordReset({ to: user.email, url, installation, timeZone })
+            : welcomeSetPassword({
+                to: user.email,
+                name: user.name,
+                url,
+                installation,
+                invitedBy: invitedByFrom(welcome),
+                timeZone,
+              });
         await mailer.send(message);
       },
       async onPasswordReset({ user }) {
@@ -64,8 +99,10 @@ export function createAuth(deps: AuthDeps) {
       },
     },
     emailVerification: {
+      expiresIn: VERIFY_LINK_SECONDS,
       async sendVerificationEmail({ user, url }) {
-        await mailer.send(verifyEmail({ to: user.email, name: user.name, url, appName }));
+        const installation = await readInstallation(db, env.APP_URL);
+        await mailer.send(verifyEmail({ to: user.email, url, installation }));
       },
     },
     session: {

@@ -12,6 +12,7 @@
 import { ALERTS, type AlertKind, type AlertLevel, type StackUsage } from '@crm/shared';
 import type { Mailer } from '../plugins/mailer.js';
 import type { Db } from '../plugins/prisma.js';
+import { alertClearedEmail, alertOpenedEmail, consoleSender } from '../lib/email.js';
 import { newId } from '../lib/ids.js';
 
 /** A stack that has not been heard from in this long is a problem worth an email. */
@@ -38,6 +39,8 @@ interface Finding {
   kind: AlertKind;
   customerId: string;
   customerName: string;
+  /** Where the customer's CRM answers, so the email names the installation and not only a name. */
+  customerHost: string;
   stackId: string | null;
   summary: string;
   context: Record<string, unknown>;
@@ -55,6 +58,7 @@ export class AlertsService {
       mailer: Mailer;
       log: Logger;
       consoleUrl: string;
+      markUrl?: string;
       ownerEmail: () => Promise<string>;
       onChange: (change: AlertChange) => void;
     },
@@ -105,6 +109,7 @@ export class AlertsService {
           kind,
           customerId: customer.id,
           customerName: customer.name,
+          customerHost: customer.customDomain ?? customer.primaryDomain,
           stackId: stack?.id ?? null,
           summary,
           context,
@@ -244,7 +249,7 @@ export class AlertsService {
     const alert = await this.deps.db.consoleAlert.update({
       where: { id },
       data: { resolvedAt: now },
-      include: { customer: { select: { name: true } } },
+      include: { customer: { select: { name: true, primaryDomain: true, customDomain: true } } },
     });
     this.deps.onChange({
       id: alert.id,
@@ -257,29 +262,56 @@ export class AlertsService {
       summary: `${ALERTS[alert.kind as AlertKind].label} has cleared.`,
       context: (alert.context ?? {}) as Record<string, unknown>,
     });
+    // The opening email promised one more message when it cleared. An alert nobody was told about
+    // closes quietly, so an owner never hears of something clearing that never reached them.
+    if (alert.lastNotifiedAt === null) return;
+    try {
+      await this.deps.mailer.send(
+        alertClearedEmail({
+          to: await this.deps.ownerEmail(),
+          customerName: alert.customer.name,
+          customerHost: alert.customer.customDomain ?? alert.customer.primaryDomain,
+          label: ALERTS[alert.kind as AlertKind].label,
+          openedAt: alert.openedAt,
+          clearedAt: now,
+          url: this.customerLink(alert.customerId),
+          sender: this.sender(),
+        }),
+      );
+    } catch (err) {
+      this.deps.log.error(
+        { err, kind: alert.kind, customerId: alert.customerId },
+        'alert cleared email failed',
+      );
+    }
+  }
+
+  private sender() {
+    return consoleSender(this.deps.consoleUrl, this.deps.markUrl);
+  }
+
+  private customerLink(customerId: string): string {
+    return `${this.deps.consoleUrl.replace(/\/+$/, '')}/customers/${customerId}`;
   }
 
   /** One email per alert, to whoever the console is told is the provider's contact. */
   private async notify(finding: Finding, level: AlertLevel, now: Date, id: string): Promise<void> {
     const definition = ALERTS[finding.kind];
-    const to = await this.deps.ownerEmail();
-    const subject = `${level === 'danger' ? 'Attention' : 'Notice'}: ${definition.label} at ${finding.customerName}`;
-    const link = `${this.deps.consoleUrl}/customers/${finding.customerId}`;
-    const text = [
-      `${definition.label} at ${finding.customerName}.`,
-      '',
-      finding.summary,
-      definition.description,
-      '',
-      link,
-    ].join('\n');
     try {
-      await this.deps.mailer.send({
-        to,
-        subject,
-        text,
-        html: `<p><strong>${escape(definition.label)} at ${escape(finding.customerName)}.</strong></p><p>${escape(finding.summary)}</p><p>${escape(definition.description)}</p><p><a href="${link}">Open the console</a></p>`,
-      });
+      await this.deps.mailer.send(
+        alertOpenedEmail({
+          to: await this.deps.ownerEmail(),
+          customerName: finding.customerName,
+          customerHost: finding.customerHost,
+          label: definition.label,
+          description: definition.description,
+          summary: finding.summary,
+          danger: level === 'danger',
+          since: now,
+          url: this.customerLink(finding.customerId),
+          sender: this.sender(),
+        }),
+      );
       await this.deps.db.consoleAlert.update({ where: { id }, data: { lastNotifiedAt: now } });
     } catch (err) {
       // The alert is the record; the email is a courtesy. A dead mail server must not lose it.
@@ -299,8 +331,4 @@ function minutes(ms: number): string {
 function hours(ms: number): string {
   const h = Math.round(ms / 3_600_000);
   return h < 48 ? `${String(h)} hours` : `${String(Math.round(h / 24))} days`;
-}
-
-function escape(value: string): string {
-  return value.replace(/[<>&"]/g, (c) => `&#${String(c.charCodeAt(0))};`);
 }

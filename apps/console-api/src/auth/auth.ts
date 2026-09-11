@@ -10,6 +10,7 @@ import { admin, haveIBeenPwned, openAPI, twoFactor } from 'better-auth/plugins';
 import type { Redis } from 'ioredis';
 import type { Env } from '../config/env.js';
 import { newId } from '../lib/ids.js';
+import { consoleSender, ownerPasswordEmail, RESET_LINK_SECONDS } from '../lib/email.js';
 import { createValkeySecondaryStorage } from '../lib/valkey-storage.js';
 import type { Mailer } from '../plugins/mailer.js';
 import type { Db } from '../plugins/prisma.js';
@@ -27,36 +28,6 @@ export interface AuthDeps {
 export const WELCOME_FLAG_PREFIX = 'auth:welcome:';
 
 const APP_NAME = 'Flare Console';
-const NEWLINE = String.fromCharCode(10);
-
-function setPasswordEmail(to: string, name: string, url: string, welcome: boolean) {
-  const subject = welcome ? `Set up your ${APP_NAME} account` : `Reset your ${APP_NAME} password`;
-  const lines = [
-    `Hello ${name},`,
-    '',
-    welcome
-      ? `You have been given access to ${APP_NAME}, where customer plans are managed.`
-      : 'Someone asked to reset the password on your account.',
-    '',
-    welcome ? 'Choose a password here:' : 'Set a new password here:',
-    url,
-    '',
-    'The link can be used once and expires in 15 minutes.',
-    welcome
-      ? 'You will be asked to set up an authenticator app straight afterwards; it is required here.'
-      : 'If this was not you, ignore this email and tell the other owners.',
-  ];
-  return {
-    to,
-    subject,
-    text: lines.join(NEWLINE),
-    html: lines
-      .map((line) =>
-        line === '' ? '<br>' : `<p>${line === url ? `<a href="${url}">${url}</a>` : line}</p>`,
-      )
-      .join(''),
-  };
-}
 
 export function createAuth(deps: AuthDeps) {
   const { env, db, valkey, mailer } = deps;
@@ -77,11 +48,19 @@ export function createAuth(deps: AuthDeps) {
       minPasswordLength: 12,
       maxPasswordLength: 128,
       autoSignIn: false,
-      resetPasswordTokenExpiresIn: 60 * 15,
+      resetPasswordTokenExpiresIn: RESET_LINK_SECONDS,
       revokeSessionsOnPasswordReset: true,
       async sendResetPassword({ user, url }) {
         const welcome = await valkey.getdel(`${WELCOME_FLAG_PREFIX}${user.id}`);
-        await mailer.send(setPasswordEmail(user.email, user.name, url, welcome !== null));
+        await mailer.send(
+          ownerPasswordEmail({
+            to: user.email,
+            name: user.name,
+            url,
+            welcome: welcome !== null,
+            sender: consoleSender(env.CONSOLE_URL, env.MAIL_MARK_URL),
+          }),
+        );
       },
       async onPasswordReset({ user }) {
         await db.user.update({ where: { id: user.id }, data: { emailVerified: true } });

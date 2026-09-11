@@ -22,6 +22,7 @@ export default fp(
         audit: app.audit,
         mailer: app.mailer,
         consoleUrl: app.config.CONSOLE_URL,
+        ...(app.config.MAIL_MARK_URL === undefined ? {} : { markUrl: app.config.MAIL_MARK_URL }),
         log: app.log,
       }),
     );
@@ -33,6 +34,7 @@ export default fp(
         mailer: app.mailer,
         log: app.log,
         consoleUrl: app.config.CONSOLE_URL,
+        ...(app.config.MAIL_MARK_URL === undefined ? {} : { markUrl: app.config.MAIL_MARK_URL }),
         /** Whoever the console is told is the provider's contact, which customers also see. */
         ownerEmail: async () => {
           const row = await app.db.consoleSetting.findUnique({ where: { key: OWNER_CONTACT_KEY } });

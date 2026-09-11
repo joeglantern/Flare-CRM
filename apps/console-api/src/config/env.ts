@@ -52,6 +52,12 @@ const envSchema = z
 
     SMTP_URL: z.string().min(1),
     MAIL_FROM: z.string().min(3),
+    /**
+     * A public address for the 88px mark in the email letterhead. The console itself is usually
+     * reachable only through a tunnel, so a mail client could not fetch it from here; without this
+     * the letterhead is the wordmark alone, which still says who sent it.
+     */
+    MAIL_MARK_URL: z.url().optional(),
 
     FIRST_OWNER_EMAIL: z.email().optional(),
     FIRST_OWNER_NAME: z.string().optional(),

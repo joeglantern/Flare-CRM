@@ -131,7 +131,9 @@ describe('auth & authorization', () => {
     expect(created.extension).toBe('1002');
 
     const mail = ctx.app.mailer.outbox.find((m) => m.to === 'new.agent@example.com');
-    expect(mail?.subject).toMatch(/Welcome/);
+    expect(mail?.subject).toMatch(/Set your password/);
+    // The person who added them is named, so the message is not a stranger's.
+    expect(mail?.text).toContain('Test admin');
     // Better Auth links look like {APP_URL}/api/auth/reset-password/{token}?callbackURL=...
     const link = /reset-password\/([A-Za-z0-9_-]+)/.exec(mail?.text ?? '');
     expect(link).not.toBeNull();

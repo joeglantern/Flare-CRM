@@ -10,6 +10,7 @@ import type { IncomingHttpHeaders } from 'node:http';
 import { fromNodeHeaders } from 'better-auth/node';
 import type { Auth } from '../auth/auth.js';
 import type { Mailer } from '../plugins/mailer.js';
+import { consoleSender, ownerTwoFactorResetEmail } from '../lib/email.js';
 import { ConflictError, NotFoundError } from '../lib/errors.js';
 import type { AuditContext, AuditService } from './audit.service.js';
 import type { Db } from '../plugins/prisma.js';
@@ -23,8 +24,6 @@ export interface OwnerDto {
   lastSeenAt: string | null;
 }
 
-const NEWLINE = String.fromCharCode(10);
-
 export class OwnersService {
   constructor(
     private readonly deps: {
@@ -34,6 +33,7 @@ export class OwnersService {
       /** So the owner this happened to hears it from us rather than from a code that stopped working. */
       mailer?: Mailer;
       consoleUrl?: string;
+      markUrl?: string;
       log?: { warn: (o: unknown, m: string) => void };
     },
   ) {}
@@ -85,7 +85,7 @@ export class OwnersService {
       before: { twoFactorEnabled: before.twoFactorEnabled },
       after: { twoFactorEnabled: false },
     });
-    await this.tellThem(before);
+    await this.tellThem(before, ctx.actorId);
     return this.get(id);
   }
 
@@ -94,27 +94,26 @@ export class OwnersService {
    * told has no way to distinguish it from somebody else getting in. Mail failing must not undo a
    * reset that has already happened.
    */
-  private async tellThem(owner: OwnerDto): Promise<void> {
-    const mailer = this.deps.mailer;
-    if (!mailer) return;
-    const lines = [
-      `Hello ${owner.name},`,
-      '',
-      'Another owner has reset the two-factor on your console account.',
-      'Your old authenticator and backup codes no longer work.',
-      '',
-      'Sign in with your password and you will be asked to set up a new authenticator:',
-      this.deps.consoleUrl ?? '',
-      '',
-      'If you were not expecting this, say so now: nobody else should be resetting your account.',
-    ];
+  private async tellThem(owner: OwnerDto, actorId: string | null): Promise<void> {
+    const { mailer, consoleUrl } = this.deps;
+    if (!mailer || consoleUrl === undefined) return;
     try {
-      await mailer.send({
-        to: owner.email,
-        subject: 'Your console two-factor has been reset',
-        text: lines.join(NEWLINE),
-        html: lines.map((line) => (line === '' ? '<br>' : `<p>${line}</p>`)).join(''),
-      });
+      const actor =
+        actorId === null
+          ? null
+          : await this.deps.db.user.findUnique({
+              where: { id: actorId },
+              select: { name: true, email: true },
+            });
+      await mailer.send(
+        ownerTwoFactorResetEmail({
+          to: owner.email,
+          doneBy: actor ? `${actor.name} (${actor.email})` : 'Another owner',
+          contactName: actor?.name ?? null,
+          url: `${consoleUrl.replace(/\/+$/, '')}/sign-in`,
+          sender: consoleSender(consoleUrl, this.deps.markUrl),
+        }),
+      );
     } catch (err: unknown) {
       this.deps.log?.warn({ err, ownerId: owner.id }, 'could not email a two-factor reset notice');
     }

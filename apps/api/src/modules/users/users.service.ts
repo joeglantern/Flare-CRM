@@ -20,7 +20,7 @@ import type { z } from 'zod';
 import type { IncomingHttpHeaders } from 'node:http';
 import type { CountryCode } from 'libphonenumber-js';
 import { randomBytes } from 'node:crypto';
-import { WELCOME_FLAG_PREFIX, type Auth } from '../../auth/auth.js';
+import { WELCOME_FLAG_PREFIX, welcomeFlagValue, type Auth } from '../../auth/auth.js';
 import { ExtensionMap } from '../../integrations/yeastar/extension-map.js';
 import { ConflictError, NotFoundError, ValidationError } from '../../lib/errors.js';
 import { twoFactorRequiredFor } from '../../plugins/authorize.js';
@@ -30,7 +30,7 @@ import type { EntitlementsService } from '../entitlements/entitlements.service.j
 import type { SettingsService } from '../settings/settings.service.js';
 import type { Storage } from '../../integrations/storage/storage.js';
 import type { Mailer } from '../../plugins/mailer.js';
-import { twoFactorReset } from '../notifications/templates/auth.js';
+import { readInstallation, twoFactorReset } from '../notifications/templates/auth.js';
 import type { Redis } from 'ioredis';
 
 export interface UsersDeps {
@@ -251,7 +251,13 @@ export class UsersService {
     });
 
     // welcome email = password reset flow with the welcome template (docs/07 §6)
-    await this.deps.valkey.set(`${WELCOME_FLAG_PREFIX}${userId}`, '1', 'EX', 60 * 60 * 24 * 7);
+    const inviter = await this.describeActor(ctx.actorId);
+    await this.deps.valkey.set(
+      `${WELCOME_FLAG_PREFIX}${userId}`,
+      welcomeFlagValue(inviter?.label ?? null),
+      'EX',
+      60 * 60 * 24 * 7,
+    );
     await this.deps.auth.api.requestPasswordReset({
       body: { email: body.email, redirectTo: `${this.deps.appUrl}/set-password` },
     });
@@ -396,26 +402,37 @@ export class UsersService {
   ): Promise<void> {
     const mailer = this.deps.mailer;
     if (!mailer) return;
-    const actor =
-      actorId === null
-        ? null
-        : await this.deps.db.user.findUnique({
-            where: { id: actorId },
-            select: { name: true },
-          });
     try {
+      const [actor, installation] = await Promise.all([
+        this.describeActor(actorId),
+        readInstallation(this.deps.db, this.deps.appUrl),
+      ]);
       await mailer.send(
         twoFactorReset({
           to: user.email,
-          name: user.name,
-          url: `${this.deps.appUrl}/sign-in`,
-          appName: 'CRM',
-          by: actor?.name ?? 'an administrator',
+          url: `${installation.appUrl}/sign-in`,
+          installation,
+          doneBy: actor?.label ?? 'An administrator',
+          contactName: actor?.name ?? null,
+          byProvider: false,
+          timeZone: user.timezone,
         }),
       );
     } catch (err: unknown) {
       this.deps.log?.error({ err, userId: user.id }, 'could not email a two-factor reset notice');
     }
+  }
+
+  /** "Grace Akinyi (grace@example.com)": a name and an address the person being told will know. */
+  private async describeActor(
+    actorId: string | null,
+  ): Promise<{ name: string; label: string } | null> {
+    if (actorId === null) return null;
+    const actor = await this.deps.db.user.findUnique({
+      where: { id: actorId },
+      select: { name: true, email: true },
+    });
+    return actor ? { name: actor.name, label: `${actor.name} (${actor.email})` } : null;
   }
 
   async revokeSessions(
@@ -460,7 +477,13 @@ export class UsersService {
     });
     const firstTime = row?.emailVerified !== true;
     if (firstTime) {
-      await this.deps.valkey.set(`${WELCOME_FLAG_PREFIX}${id}`, '1', 'EX', 60 * 60 * 24 * 7);
+      const inviter = await this.describeActor(ctx.actorId);
+      await this.deps.valkey.set(
+        `${WELCOME_FLAG_PREFIX}${id}`,
+        welcomeFlagValue(inviter?.label ?? null),
+        'EX',
+        60 * 60 * 24 * 7,
+      );
     }
     await this.deps.auth.api.requestPasswordReset({
       body: { email: user.email, redirectTo: `${this.deps.appUrl}/set-password` },

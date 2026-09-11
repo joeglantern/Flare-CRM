@@ -15,6 +15,7 @@
     "./socket-events": "./src/socket-events.ts",
     "./entitlements": "./src/entitlements.ts",
     "./console-link": "./src/console-link.ts",
+    "./email": "./src/email.ts",
     "./schemas/*": "./src/schemas/*.ts"
   },
   "scripts": {

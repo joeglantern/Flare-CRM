@@ -17,7 +17,11 @@ import {
   type SupportUser,
 } from '@crm/shared';
 import type { AuditService } from '../../modules/audit/audit.service.js';
-import { twoFactorReset } from '../../modules/notifications/templates/auth.js';
+import {
+  readInstallation,
+  supportNotice,
+  twoFactorReset,
+} from '../../modules/notifications/templates/auth.js';
 import type { Mailer } from '../../plugins/mailer.js';
 import type { Db } from '../../plugins/prisma.js';
 
@@ -101,7 +105,7 @@ export async function runSupportCommand(
   }
   const user = await deps.db.user.findFirst({
     where: { email },
-    select: { id: true, name: true, email: true, twoFactorEnabled: true },
+    select: { id: true, name: true, email: true, twoFactorEnabled: true, timezone: true },
   });
   if (!user) {
     return {
@@ -126,6 +130,13 @@ export async function runSupportCommand(
     });
     await endSessions(deps, user.id);
     await tellThem(deps, user, provider, command.reason ?? null);
+    await tellAdministrators(
+      deps,
+      'Reset two-factor for a user',
+      user.email,
+      provider,
+      command.reason ?? null,
+    );
     deps.log.warn({ provider, userId: user.id }, 'provider reset a second factor');
     return {
       commandId: command.commandId,
@@ -142,6 +153,13 @@ export async function runSupportCommand(
     entityId: user.id,
     after: { provider, reason: command.reason ?? null },
   });
+  await tellAdministrators(
+    deps,
+    'Signed a user out everywhere',
+    user.email,
+    provider,
+    command.reason ?? null,
+  );
   deps.log.warn({ provider, userId: user.id }, 'provider ended a person’s sessions');
   return {
     commandId: command.commandId,
@@ -158,24 +176,68 @@ export async function runSupportCommand(
  */
 async function tellThem(
   deps: SupportDeps,
-  user: { name: string; email: string },
+  user: { email: string; timezone: string },
   provider: string,
   reason: string | null,
 ): Promise<void> {
   if (!deps.mailer || deps.appUrl === undefined) return;
   try {
+    const installation = await readInstallation(deps.db, deps.appUrl);
     await deps.mailer.send(
       twoFactorReset({
         to: user.email,
-        name: user.name,
-        url: `${deps.appUrl}/sign-in`,
-        appName: 'CRM',
-        by: `your CRM provider (${provider})`,
+        url: `${installation.appUrl}/sign-in`,
+        installation,
+        doneBy: `Flare support, ${provider}`,
+        contactName: null,
+        byProvider: true,
         reason,
+        timeZone: user.timezone,
       }),
     );
   } catch (err: unknown) {
     deps.log.warn({ err }, 'could not email a two-factor reset notice');
+  }
+}
+
+/**
+ * Every administrator hears about every support action, not only the person it touched. The audit
+ * row is the record; this is what makes somebody look at it.
+ */
+async function tellAdministrators(
+  deps: SupportDeps,
+  action: string,
+  affected: string,
+  provider: string,
+  reason: string | null,
+): Promise<void> {
+  const { mailer, appUrl } = deps;
+  if (!mailer || appUrl === undefined) return;
+  try {
+    const [installation, admins] = await Promise.all([
+      readInstallation(deps.db, appUrl),
+      deps.db.user.findMany({
+        where: { role: 'admin', isActive: true },
+        select: { email: true, timezone: true },
+      }),
+    ]);
+    const when = new Date();
+    for (const admin of admins) {
+      await mailer.send(
+        supportNotice({
+          to: admin.email,
+          installation,
+          action,
+          affected,
+          provider,
+          reason,
+          when,
+          timeZone: admin.timezone,
+        }),
+      );
+    }
+  } catch (err: unknown) {
+    deps.log.warn({ err }, 'could not email administrators about a support action');
   }
 }
 

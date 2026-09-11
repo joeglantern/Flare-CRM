@@ -7,6 +7,7 @@ export * from './entitlements.js';
 export * from './console-link.js';
 export * from './console-analytics.js';
 export * from './two-factor-step.js';
+export * from './email.js';
 export * from './schemas/common.js';
 export * from './schemas/user.js';
 export * from './schemas/custom-field.js';
