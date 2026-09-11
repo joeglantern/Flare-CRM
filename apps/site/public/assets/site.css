@@ -107,7 +107,7 @@
  * size that made one of them wrap would put a half line in the middle of the reveal.
  */
 .display {
-  font-size: clamp(32px, 6.6vw, 96px);
+  font-size: clamp(32px, 5.6vw, 84px);
   line-height: 0.98;
   letter-spacing: -0.045em;
   font-weight: 600;
@@ -134,12 +134,26 @@
 .site-header {
   position: absolute;
   inset: 0 0 auto;
-  height: 72px;
+  height: 76px;
   display: flex;
   align-items: center;
   gap: 24px;
   padding-inline: 96px;
   z-index: 30;
+}
+
+/*
+ * A scrim rather than a bar. The header floats over a photograph on half the pages and over black
+ * on the rest; a band would be a shape, and this is only enough darkness under the words to hold
+ * them together wherever they land.
+ */
+.site-header::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 -24px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
+  pointer-events: none;
+  z-index: -1;
 }
 
 /*
@@ -149,28 +163,31 @@
  */
 .brand {
   display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  font-size: var(--size, 17px);
+  align-items: baseline;
+  gap: 8px;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
+  color: var(--text);
 }
 
 .brand img {
-  width: 1.25em;
-  height: 1.25em;
+  width: 20px;
+  height: 20px;
+  align-self: center;
 }
 
+/* The two halves at the product's own numbers: 18 on 10, extra bold against medium. */
 .brand b {
-  font-size: 1.15em;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.03em;
+  margin-right: -2px;
 }
 
 .brand i {
   font-style: normal;
-  font-size: 0.55em;
+  font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.22em;
   color: var(--text-muted);
@@ -180,36 +197,70 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 26px;
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.1em;
-  color: var(--text-muted);
+  /* White, not muted. A navigation nobody can read is decoration. */
+  color: var(--text);
 }
 
+/*
+ * The label rolls up and its own copy arrives from underneath, in the accent. The page reveals its
+ * headline by having each line rise from under its baseline; this is the same move at a twentieth
+ * of the size, so the site has one idea about how things arrive rather than a fade for every mood.
+ */
 .site-nav a,
 .menu-open {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  height: 1.4em;
+  line-height: 1.4;
   text-decoration: none;
   color: inherit;
-  transition: color var(--dur-hover) ease-out;
-}
-
-.site-nav a:hover,
-.menu-open:hover {
-  color: var(--flare);
-}
-
-.menu-open {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   border: 0;
   background: none;
   font: inherit;
-  letter-spacing: 0.1em;
-  color: var(--text);
-  cursor: pointer;
+  letter-spacing: inherit;
   padding: 0;
+  cursor: pointer;
+}
+
+.site-nav .roll {
+  display: block;
+  transition: transform 340ms var(--ease-out);
+}
+
+.site-nav a:hover .roll,
+.site-nav a:focus-visible .roll,
+.menu-open:hover .roll,
+.menu-open:focus-visible .roll {
+  transform: translateY(-1.4em);
+}
+
+.site-nav .roll span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 1.4em;
+}
+
+.site-nav .roll span + span {
+  color: var(--flare);
+}
+
+/* The page it is on, marked once and quietly. */
+.site-nav a[aria-current='page'] .roll span:first-child {
+  color: var(--flare);
+}
+
+/* A hairline between the pages and the two controls, so the bar has a shape without a box. */
+.site-nav .sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border-strong);
+  flex-shrink: 0;
 }
 
 .icon {
@@ -511,106 +562,87 @@
  * box, so when a short window squeezes it the whole group scales together rather than the objects
  * sliding out from under each other. That is what makes one arrangement work from 320 to 2560.
  */
-.hero-cast {
+/*
+ * Wide enough, the cast stands either side of the words: the mascot coming in from the left, the
+ * handset and the things that land on a timeline on the right, the headline between them. Narrow,
+ * the two flanks fall under the words in one row, which is the only arrangement that fits a phone.
+ */
+.hero-stage {
   position: relative;
-  z-index: 2;
   /*
-   * Narrow, so the five of them read as one group rather than as things scattered on a black
-   * field. Wide, they drift to the edges and the middle of the hero becomes a hole.
+   * Explicitly auto, against the rule that gives every child of a dark section z-index 1. A
+   * positioned element with a z-index is a stacking context, and mix-blend-mode only blends within
+   * one: the cast would have had nothing behind it to blend with and its black backing would have
+   * painted as an opaque rectangle over the sky. Nothing between these images and the sky may
+   * create a stacking context.
    */
-  width: min(720px, 94%);
-  height: clamp(180px, 30vh, 300px);
-  min-height: 140px;
-  flex-shrink: 1;
-  margin-top: clamp(4px, 1.5vh, 18px);
+  z-index: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 760px) minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+  gap: clamp(10px, 2vw, 40px);
+  width: 100%;
+  margin-top: clamp(-40px, -3vh, 0px);
 }
 
-.cast {
+.flank {
+  position: relative;
+  width: 100%;
+  height: clamp(230px, 38vh, 400px);
+}
+
+.flank img {
   position: absolute;
   display: block;
   pointer-events: none;
-}
-
-.cast img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: bottom center;
-}
-
-/* On the centre line, because the stage below opens it on the centre line. */
-/* The largest thing in the group, because it is the thing the whole page is about. */
-.cast-handset {
-  left: 50%;
-  bottom: 0;
-  height: 100%;
-  width: 30%;
-  transform: translateX(-50%);
-  z-index: 3;
-}
-
-/* Coming in from the left, aimed at it. */
-.cast-mascot {
-  left: 0;
-  bottom: 2%;
-  width: 30%;
-  height: 66%;
-  z-index: 2;
-}
-
-.cast-object {
-  z-index: 1;
-  opacity: 0.92;
-  rotate: var(--rot, 0deg);
-}
-
-.cast-1 {
-  right: 0;
-  bottom: 26%;
-  width: 15%;
-  height: 36%;
-  --rot: -9deg;
-}
-
-.cast-2 {
-  right: 17%;
-  top: 2%;
-  width: 13%;
-  height: 30%;
-  --rot: 12deg;
-}
-
-.cast-3 {
-  left: 27%;
-  bottom: 0;
-  width: 12%;
-  height: 24%;
-  --rot: -14deg;
-}
-
-/* Each answers the cursor by a different amount, which is what gives a flat page a front and back. */
-.cast {
   transition: translate 700ms cubic-bezier(0.2, 0.8, 0.3, 1);
   translate: calc(var(--drift-x, 0px) * var(--depth, 1)) calc(var(--drift-y, 0px) * var(--depth, 1));
 }
 
-.cast-handset {
-  --depth: 0.5;
-}
-
-.cast-mascot {
+/* Left: the mascot, aimed at the words, with one thing above him. */
+.f-mascot {
+  right: 2%;
+  bottom: 12%;
+  width: min(80%, 270px);
+  height: auto;
   --depth: 1.1;
 }
 
-.cast-1 {
-  --depth: 2;
+.f-bubble {
+  left: 4%;
+  top: 6%;
+  width: min(27%, 88px);
+  height: auto;
+  rotate: -10deg;
+  --depth: 2.3;
 }
 
-.cast-2 {
+/* Right: the object the page is about, largest, with two more around it. */
+.f-handset {
+  left: 2%;
+  bottom: 0;
+  height: 88%;
+  width: auto;
+  max-width: 100%;
+  --depth: 0.5;
+}
+
+.f-note {
+  right: 8%;
+  top: 2%;
+  width: min(27%, 94px);
+  height: auto;
+  rotate: 12deg;
   --depth: 2.6;
 }
 
-.cast-3 {
+.f-bell {
+  right: 2%;
+  bottom: 14%;
+  width: min(25%, 86px);
+  height: auto;
+  rotate: -12deg;
   --depth: 1.7;
 }
 
@@ -1675,6 +1707,30 @@
   color: var(--text-muted);
   width: 32px;
   flex-shrink: 0;
+  transition: color 220ms var(--ease-out);
+}
+
+/*
+ * The item steps to the right and takes the accent with it. translate rather than transform,
+ * because transform is already carrying the animation that brings the item in and the two would
+ * fight over it.
+ */
+.menu nav a {
+  translate: 0;
+  transition:
+    color 220ms var(--ease-out),
+    translate 380ms var(--ease-out);
+}
+
+.menu nav a:hover,
+.menu nav a:focus-visible {
+  color: var(--flare);
+  translate: 18px;
+}
+
+.menu nav a:hover span,
+.menu nav a:focus-visible span {
+  color: var(--flare);
 }
 
 .menu-mascot {
@@ -2827,6 +2883,53 @@
   .server-lock {
     right: 48px;
   }
+
+  /*
+   * Below this the side columns are too narrow to hold anybody, so the two flanks come down and
+   * stand under the words in one row. It is the same five things, in the only other arrangement
+   * they fit into.
+   */
+  .hero-stage {
+    grid-template-columns: 1fr 1fr;
+    gap: 0 clamp(8px, 2vw, 32px);
+    margin-top: clamp(4px, 1.5vh, 20px);
+  }
+
+  .hero-copy {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  .flank {
+    height: clamp(170px, 26vh, 260px);
+  }
+
+  .f-mascot {
+    right: 0;
+    bottom: 8%;
+    width: min(76%, 230px);
+  }
+
+  .f-handset {
+    left: 12%;
+    height: 94%;
+  }
+
+  .f-bubble {
+    left: 2%;
+    width: min(28%, 76px);
+  }
+
+  .f-note {
+    right: 2%;
+    width: min(28%, 80px);
+  }
+
+  .f-bell {
+    right: 30%;
+    bottom: 0;
+    width: min(24%, 68px);
+  }
 }
 
 @media (max-width: 768px) {
@@ -2862,43 +2965,37 @@
     flex: 1 1 auto;
   }
 
-  /*
-   * The cast keeps its arrangement; it only gets shorter and a little wider, and the smallest of
-   * the objects goes, because below four hundred pixels it is a smudge rather than a thing.
-   */
   /* A shorter line than the copy needs, so the cast is what gives when the window is small. */
   .hero-copy .lead {
     font-size: 16px;
     max-width: 32ch;
   }
 
-  .hero-cast {
-    width: 100%;
-    height: clamp(150px, 24vh, 210px);
-    min-height: 112px;
+  .flank {
+    height: clamp(150px, 24vh, 220px);
   }
 
-  .cast-handset {
+  .f-mascot {
+    right: 0;
+    width: 78%;
+  }
+
+  .f-handset {
+    left: 10%;
+  }
+
+  .f-bubble {
+    left: 0;
     width: 30%;
   }
 
-  .cast-mascot {
-    left: 2%;
-    width: 32%;
-    height: 58%;
-  }
-
-  .cast-1 {
+  .f-note {
     right: 0;
-    width: 15%;
+    width: 30%;
   }
 
-  .cast-2 {
-    right: 20%;
-    width: 13%;
-  }
-
-  .cast-3 {
+  /* One thing too many on a small screen: it lands on the handset. */
+  .f-bell {
     display: none;
   }
 
@@ -3220,7 +3317,9 @@
     transform: none;
   }
 
-  .cast {
+  .flank img,
+  .menu nav a,
+  .site-nav .roll {
     transition: none;
     translate: none;
   }

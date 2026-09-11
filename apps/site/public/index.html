@@ -63,19 +63,44 @@
         ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b><i>CRM</i></a
       >
       <nav class="site-nav" aria-label="Primary">
-        <a href="/product">PRODUCT</a><a href="/pricing">PRICING</a><a href="/security">SECURITY</a
-        ><a href="/setup">SETUP</a><a href="/contact">CONTACT</a>
-        <a href="#signin" data-opens="signin">SIGN IN</a>
-        <button class="menu-open" type="button" data-opens="menu" aria-haspopup="dialog">
-          MENU<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#menu"></use></svg>
+        <a href="/product"
+          ><span class="roll"><span>PRODUCT</span><span>PRODUCT</span></span></a
+        ><a href="/pricing"
+          ><span class="roll"><span>PRICING</span><span>PRICING</span></span></a
+        ><a href="/security"
+          ><span class="roll"><span>SECURITY</span><span>SECURITY</span></span></a
+        ><a href="/setup"
+          ><span class="roll"><span>SETUP</span><span>SETUP</span></span></a
+        ><a href="/contact"
+          ><span class="roll"><span>CONTACT</span><span>CONTACT</span></span></a
+        >
+        <i class="sep" aria-hidden="true"></i>
+        <a href="#signin" data-opens="signin"
+          ><span class="roll"><span>SIGN IN</span><span>SIGN IN</span></span></a
+        >
+        <button
+          class="menu-open"
+          type="button"
+          data-opens="menu"
+          aria-haspopup="dialog"
+          aria-label="Menu"
+        >
+          <span class="roll"
+            ><span
+              >MENU<svg class="icon" aria-hidden="true">
+                <use href="/assets/icons.svg#menu"></use></svg></span
+            ><span
+              >MENU<svg class="icon" aria-hidden="true">
+                <use href="/assets/icons.svg#menu"></use></svg></span
+          ></span>
         </button>
       </nav>
     </header>
     <div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Menu">
       <div class="menu-head">
         <a class="brand" href="/" aria-label="Flare CRM"
-          ><img src="/brand/mark.svg" alt="" width="22" height="22"
-        /></a>
+          ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b><i>CRM</i></a
+        >
         <a class="menu-close" href="#" data-closes
           >CLOSE<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x"></use></svg
         ></a>
@@ -140,7 +165,29 @@
         /></picture>
         <div class="hero-scrim"></div>
         <div class="grain"></div>
-        <div class="wrap">
+        <div class="wrap hero-stage">
+          <div class="flank flank-left">
+            <picture
+              ><source type="image/avif" srcset="/mascot/flying.avif" />
+              <img
+                src="/mascot/flying.webp"
+                alt=""
+                width="342"
+                height="231"
+                class="scr f-mascot"
+                data-drift
+            /></picture>
+            <picture
+              ><source type="image/avif" srcset="/objects/chat-bubble.avif" />
+              <img
+                src="/objects/chat-bubble.webp"
+                alt=""
+                width="512"
+                height="512"
+                class="scr f-bubble"
+                data-drift
+            /></picture>
+          </div>
           <div class="hero-copy">
             <h1 class="display">
               <span class="rise"><span style="--i: 0">The phone rings and</span></span
@@ -161,51 +208,39 @@
               ></a>
             </div>
           </div>
-        </div>
-        <div class="hero-cast">
-          <picture class="cast cast-mascot"
-            ><source type="image/avif" srcset="/mascot/flying.avif" />
-            <img src="/mascot/flying.webp" alt="" width="342" height="231" class="scr" data-drift
-          /></picture>
-          <picture class="cast cast-handset"
-            ><source type="image/avif" srcset="/handset/01-rest.avif" />
-            <img
-              src="/handset/01-rest.webp"
-              alt=""
-              width="418"
-              height="627"
-              class="scr"
-              data-drift
-              data-hero-image
-          /></picture>
-          <picture class="cast cast-object cast-1"
-            ><source type="image/avif" srcset="/objects/chat-bubble.avif" />
-            <img
-              src="/objects/chat-bubble.webp"
-              alt=""
-              width="512"
-              height="512"
-              class="scr"
-              data-drift /></picture
-          ><picture class="cast cast-object cast-2"
-            ><source type="image/avif" srcset="/objects/notebook.avif" />
-            <img
-              src="/objects/notebook.webp"
-              alt=""
-              width="279"
-              height="266"
-              class="scr"
-              data-drift /></picture
-          ><picture class="cast cast-object cast-3"
-            ><source type="image/avif" srcset="/objects/desk-bell.avif" />
-            <img
-              src="/objects/desk-bell.webp"
-              alt=""
-              width="260"
-              height="227"
-              class="scr"
-              data-drift
-          /></picture>
+          <div class="flank flank-right">
+            <picture
+              ><source type="image/avif" srcset="/handset/01-rest.avif" />
+              <img
+                src="/handset/01-rest.webp"
+                alt=""
+                width="418"
+                height="627"
+                class="scr f-handset"
+                data-drift
+                data-hero-image
+            /></picture>
+            <picture
+              ><source type="image/avif" srcset="/objects/notebook.avif" />
+              <img
+                src="/objects/notebook.webp"
+                alt=""
+                width="279"
+                height="266"
+                class="scr f-note"
+                data-drift
+            /></picture>
+            <picture
+              ><source type="image/avif" srcset="/objects/desk-bell.avif" />
+              <img
+                src="/objects/desk-bell.webp"
+                alt=""
+                width="260"
+                height="227"
+                class="scr f-bell"
+                data-drift
+            /></picture>
+          </div>
         </div>
       </section>
 
