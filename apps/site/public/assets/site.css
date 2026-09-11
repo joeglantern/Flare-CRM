@@ -1,378 +1,363 @@
 /*
- * flarehub.co.ke, built from docs/design/Marketing Site v2.dc.html.
+ * flarehub.co.ke, third pass: the call lands.
  *
- * The idea is descent. Home opens at altitude with the product small and far away and each section
- * brings the visitor closer, until the last one is inside the contact header at 200% where the
- * phone number is readable. Every other page opens at the altitude its subject deserves: Product
- * close, Security very close and completely still, Pricing pulled back, the legal pages at reading
- * distance with no atmosphere at all.
+ * One object carries the page. The handset is whole in the hero, opens across three viewport
+ * heights of held scroll, and the panel that rises out of it becomes the live calls screen. Every
+ * frame of that is bound to scroll position rather than to a clock, which is the whole point: the
+ * visitor is driving it, and scrolling back up runs it backwards.
  *
- * Depth is four layers per atmosphere section, each on its own scroll-driven timeline: a plate at
- * the back, a bloom behind the subject, the subject itself, and something small passing the camera
- * in front. The canvas is drawn at a fixed 1280; here every offset is relative, so the same idea
- * survives a phone.
+ * Read this file in the order the visitor meets it. The last two sections are the ones that matter
+ * most, because they are what a visitor who asked for less movement, or whose browser has never
+ * heard of a scroll timeline, actually gets.
+ *
+ * Rendered assets (handset, mascot, objects, spark) are composited with mix-blend-mode: screen.
+ * They only work on black. Every panel that holds one stays black in both themes, on purpose.
  */
 
-/* ── layers and motion ──────────────────────────────────────────────────────────────── */
+/* ── the page frame ──────────────────────────────────────────────────────────────────── */
 
-@keyframes lyr-plate {
-  from {
-    transform: translate3d(0, -4%, 0) scale(1.1);
-  }
-  to {
-    transform: translate3d(0, 4%, 0) scale(1.1);
-  }
-}
+/*
+ * No overflow-x: hidden on the body. It reads as a harmless guard and it is not: it makes the body
+ * a scroll container, and every position: sticky in the page then sticks to a box that does not
+ * scroll. Nothing here overflows sideways; the check script proves it at 1440 and at 380.
+ */
 
-@keyframes lyr-bloom {
-  from {
-    transform: translate3d(0, 10%, 0) scale(0.85);
-    opacity: 0.5;
-  }
-  to {
-    transform: translate3d(0, -10%, 0) scale(1.15);
-    opacity: 1;
-  }
-}
-
-@keyframes lyr-subject {
-  from {
-    transform: translate3d(0, 9%, 0) scale(0.94);
-  }
-  to {
-    transform: translate3d(0, -6%, 0) scale(1);
-  }
-}
-
-@keyframes lyr-front {
-  from {
-    transform: translate3d(0, 60%, 0) rotate(-6deg);
-    opacity: 0;
-  }
-  30% {
-    opacity: 0.9;
-  }
-  to {
-    transform: translate3d(0, -120%, 0) rotate(8deg);
-    opacity: 0;
-  }
-}
-
-@keyframes lyr-dive {
-  from {
-    transform: translate3d(-8%, -40%, 0) scale(1.25);
-  }
-  to {
-    transform: translate3d(6%, 70%, 0) scale(0.7);
-  }
-}
-
-@keyframes lyr-fade {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 24px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-[data-layer='plate'] {
-  animation: lyr-plate linear both;
-  animation-timeline: view();
-  animation-range: entry 0% exit 100%;
-}
-
-[data-layer='bloom'] {
-  animation: lyr-bloom linear both;
-  animation-timeline: view();
-  animation-range: entry 0% exit 100%;
-}
-
-[data-layer='subject'] {
-  animation: lyr-subject linear both;
-  animation-timeline: view();
-  animation-range: entry 0% cover 60%;
-}
-
-[data-layer='front'] {
-  animation: lyr-front linear both;
-  animation-timeline: view();
-  animation-range: entry 0% exit 100%;
-}
-
-[data-layer='dive'] {
-  animation: lyr-dive linear both;
-  animation-timeline: view();
-  animation-range: entry 0% exit 100%;
-}
-
-[data-layer='fade'] {
-  animation: lyr-fade cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-timeline: view();
-  animation-range: entry 0% entry 45%;
+.wrap {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding-inline: 96px;
 }
 
 /*
- * Three ways out, and all three land on the final frame rather than on an empty page: somebody who
- * asked for less movement, an engine without scroll-driven animation, and the runtime flag the
- * page sets when it sees either.
+ * A section that holds a screen-blended asset. Black in both themes, never a surface colour.
+ *
+ * It deliberately does not clip. This class goes on <main> as well as on sections, and an ancestor
+ * that clips is a scroll container: every position: sticky inside one sticks to a box that does not
+ * scroll and slides straight past. Whatever needs clipping says so itself, below.
  */
-@media (prefers-reduced-motion: reduce) {
-  [data-layer] {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
-
-  [data-layer='front'],
-  [data-layer='dive'] {
-    display: none;
-  }
-}
-
-@supports not (animation-timeline: view()) {
-  [data-layer] {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
-
-  [data-layer='front'] {
-    display: none;
-  }
-}
-
-[data-rm='1'] [data-layer] {
-  animation: none !important;
-  opacity: 1 !important;
-  transform: none !important;
-}
-
-[data-rm='1'] [data-layer='front'] {
-  display: none;
-}
-
-/* ── the atmosphere ─────────────────────────────────────────────────────────────────── */
-
-/*
- * A black section, whatever the theme. The plates, the mascot and the sparks are all rendered on
- * black and composited with screen, so they only exist over black; on the light theme these panels
- * stay dark rather than being inverted.
- */
-.sky {
+.ink {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
   background: #000;
   color: #f2f1ef;
+  isolation: isolate;
 }
 
-.plate {
-  position: absolute;
-  inset: -6%;
-  width: 112%;
-  height: 112%;
-  object-fit: cover;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Laid over every plate: 828px of source stretched full bleed bands without it. */
 .grain {
   position: absolute;
   inset: 0;
   background: url('/textures/grain.webp') repeat;
   background-size: 256px;
-  opacity: 0.14;
+  opacity: 0.04;
   pointer-events: none;
   z-index: 1;
 }
 
-.bloom {
-  position: absolute;
-  left: 50%;
-  width: min(1100px, 130%);
-  height: 600px;
-  translate: -50% 0;
-  background: radial-gradient(
-    ellipse at 50% 60%,
-    rgba(255, 106, 61, 0.26),
-    rgba(255, 106, 61, 0) 60%
-  );
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Rendered on black, so screen drops the background and keeps the hair and the cape edges. */
-.screen {
+.scr {
   mix-blend-mode: screen;
 }
 
-/* ── page frame ─────────────────────────────────────────────────────────────────────── */
-
-.wrap {
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 48px;
-}
-
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-}
-
-/* Over an atmosphere section the header floats on the sky instead of sitting on a surface. */
-.site-header.on-sky {
-  position: absolute;
-  inset: 0 0 auto;
-  background: transparent;
-  border-bottom: 0;
-  color: #f2f1ef;
-}
-
-.site-header > .wrap {
-  height: 72px;
-  display: flex;
-  align-items: center;
-  gap: 32px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  flex-shrink: 0;
-}
-
-.brand img {
-  height: 22px;
-  width: 22px;
-}
-
-.brand b {
-  font-weight: 600;
-  font-size: 17px;
-  letter-spacing: -0.01em;
-}
-
-.brand span {
+.mono {
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  color: #a3a19c;
+  font-variant-numeric: tabular-nums;
 }
 
-.site-nav {
-  display: flex;
-  gap: 28px;
-  font-size: 14px;
+.tag {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.on-sky .site-nav {
-  color: #a3a19c;
+.lead {
+  font-size: 22px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  max-width: 36ch;
 }
 
-.site-nav a {
+/*
+ * Display sizes. Fluid rather than stepped, and sized so the headline's own line breaks are the
+ * ones that happen: the lines are separate elements because each has to rise on its own, and a
+ * size that made one of them wrap would put a half line in the middle of the reveal.
+ */
+.display {
+  font-size: clamp(40px, 7.4vw, 108px);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  font-weight: 600;
+}
+
+.title {
+  font-size: clamp(34px, 4.4vw, 64px);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.subtitle {
+  font-size: clamp(28px, 3.9vw, 56px);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+/* ── header ──────────────────────────────────────────────────────────────────────────── */
+
+.site-header {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-inline: 96px;
+  z-index: 30;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.01em;
   text-decoration: none;
 }
 
-.site-nav a:hover,
-.site-nav a[aria-current='page'] {
-  color: inherit;
-}
-
-.header-actions {
+.site-nav {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 28px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
 }
 
-/* ── buttons ────────────────────────────────────────────────────────────────────────── */
+.site-nav a,
+.menu-open {
+  text-decoration: none;
+  color: inherit;
+  transition: color var(--dur-hover) ease-out;
+}
 
-.btn {
+.site-nav a:hover,
+.menu-open:hover {
+  color: var(--flare);
+}
+
+.menu-open {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 16px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  font-family: inherit;
-  text-decoration: none;
-  white-space: nowrap;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: 0.1em;
+  color: var(--text);
   cursor: pointer;
-  transition: background var(--dur-hover) var(--ease-out);
-}
-
-.on-sky .btn,
-.sky .btn {
-  border-color: #3a3a3d;
-}
-
-.btn:hover {
-  background: var(--surface-hover);
-}
-
-.sky .btn:hover,
-.on-sky .btn:hover {
-  background: #121213;
-}
-
-.btn-primary,
-.sky .btn-primary,
-.on-sky .btn-primary {
-  border-color: var(--flare);
-  background: var(--flare);
-  color: var(--on-flare-ink);
-}
-
-.btn-primary:hover,
-.sky .btn-primary:hover,
-.on-sky .btn-primary:hover {
-  background: var(--flare-hover);
-  color: var(--on-flare-ink);
-}
-
-.btn-lg {
-  height: 50px;
-  padding: 0 24px;
-  font-size: 16px;
-}
-
-.btn-icon {
-  width: 36px;
   padding: 0;
 }
 
 .icon {
   width: 1em;
   height: 1em;
-  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-/* ── hero ───────────────────────────────────────────────────────────────────────────── */
+/* ── buttons ─────────────────────────────────────────────────────────────────────────── */
 
-.hero {
-  min-height: min(1180px, 190vh);
-  padding: 150px 0 96px;
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 56px;
+  padding-inline: 26px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: 17px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--dur-hover) ease-out,
+    border-color var(--dur-hover) ease-out,
+    color var(--dur-hover) ease-out;
+}
+
+.btn-primary {
+  background: var(--flare);
+  color: var(--on-flare-ink);
+}
+
+.btn-primary:hover {
+  background: var(--flare-hover);
+  color: var(--on-flare-ink);
+}
+
+.btn-ghost {
+  border-color: #3a3a3d;
+  color: #f2f1ef;
+}
+
+.btn-ghost:hover {
+  border-color: #f2f1ef;
+}
+
+.link-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--flare);
+  text-decoration: none;
+}
+
+.link-more:hover {
+  color: var(--flare-hover);
+}
+
+/* ── 1. the preloader ────────────────────────────────────────────────────────────────── */
+
+/*
+ * Only ever shown when a script decided it should be: it sets data-preload="on" before the first
+ * paint, and never on a return visit or under reduced motion. Without script the attribute is
+ * never set and this rule never matches, so a visitor with no JavaScript sees the page directly.
+ */
+.preloader {
+  display: none;
+}
+
+[data-preload='on'] .preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #17171a;
+  transition: opacity 380ms var(--ease-out);
+}
+
+[data-preload='done'] .preloader {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preloader img {
+  width: 72px;
+  height: 72px;
+  mix-blend-mode: screen;
+}
+
+.preloader-count {
+  position: absolute;
+  left: 48px;
+  bottom: 48px;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.preloader-count b {
+  font-family: var(--font-mono);
+  font-size: clamp(56px, 8vw, 96px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 2. the curtain ──────────────────────────────────────────────────────────────────── */
+
+/*
+ * The hero does not fade in. A solid panel wipes off it and the hero is already finished behind.
+ * It runs on its own when there is no preloader to wait for, and is held until the preloader has
+ * gone when there is one.
+ */
+.curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: var(--flare);
+  transform-origin: right center;
+  animation: curtain-wipe 700ms var(--ease-out) both;
+  pointer-events: none;
+}
+
+[data-preload='on'] .curtain {
+  animation-play-state: paused;
+}
+
+[data-preload='done'] .curtain {
+  animation-play-state: running;
+}
+
+@keyframes curtain-wipe {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* The headline arrives line by line from under its own baseline, behind a clip. */
+.rise {
+  display: block;
+  overflow: hidden;
+}
+
+.rise > span {
+  display: block;
+  animation: rise-in 700ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 80ms + var(--hold, 0ms));
+}
+
+@keyframes rise-in {
+  from {
+    transform: translateY(105%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.settle {
+  animation: settle-in 500ms var(--ease-out) both;
+  animation-delay: calc(240ms + var(--hold, 0ms));
+}
+
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── 3. the hero ─────────────────────────────────────────────────────────────────────── */
+
+.hero {
+  min-height: 100vh;
+  display: flex;
   align-items: center;
-  text-align: center;
+  padding: 150px 0 90px;
+  overflow: hidden;
 }
 
 .hero-copy {
@@ -380,1296 +365,2448 @@
   z-index: 3;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 26px;
-  padding: 0 48px;
-}
-
-.hero h1 {
-  font-size: clamp(38px, 6.6vw, 84px);
-  line-height: 1;
-  letter-spacing: -0.04em;
-  font-weight: 600;
-  max-width: 14ch;
-}
-
-.hero-copy p {
-  font-size: clamp(17px, 1.7vw, 21px);
-  line-height: 1.45;
-  color: #a3a19c;
-  max-width: 38ch;
+  gap: 40px;
+  max-width: 900px;
 }
 
 .hero-actions {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
-  justify-content: center;
+  gap: 12px;
 }
 
-.hero .bloom {
-  bottom: -60px;
-}
-
-/* The mascot dives ahead of the visitor, and is always smaller than the product. */
-.dive {
+.hero-object {
   position: absolute;
-  left: 12%;
-  top: 48%;
-  width: clamp(90px, 12vw, 150px);
-  height: auto;
-  z-index: 3;
+  right: 7vw;
+  top: 50%;
+  height: min(80vh, 720px);
+  width: auto;
+  transform: translateY(-50%);
+  z-index: 2;
   pointer-events: none;
 }
 
-.ash {
+/* The only thing on the page that answers the cursor rather than the scroll. */
+.hero-object {
+  transition: translate 600ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  translate: var(--drift-x, 0) var(--drift-y, 0);
+}
+
+.hero-hint {
   position: absolute;
-  width: 84px;
-  height: auto;
-  z-index: 4;
-  pointer-events: none;
-}
-
-.hero-shot {
-  position: relative;
-  z-index: 2;
-  margin: 56px auto 0;
-  width: min(560px, 78%);
+  right: 48px;
+  bottom: 40px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 10px;
-}
-
-/* ── entries ────────────────────────────────────────────────────────────────────────── */
-
-.entry {
-  padding: 96px 0 88px;
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-}
-
-.entry-copy {
-  position: relative;
   z-index: 3;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 48px;
-  align-items: end;
-  padding: 0 48px;
-  max-width: 1280px;
-  margin: 0 auto;
-  width: 100%;
 }
 
-.entry-copy > div {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.hero-hint i {
+  display: block;
+  width: 40px;
+  height: 1px;
+  background: currentColor;
 }
 
-.entry--right .entry-copy > div {
-  grid-column: 2;
-}
+/* ── 4. the pinned stage ─────────────────────────────────────────────────────────────── */
 
-.entry-copy h2 {
-  font-size: clamp(27px, 3.2vw, 40px);
-  line-height: 1.06;
-  letter-spacing: -0.03em;
-  font-weight: 600;
-  max-width: 18ch;
-}
-
-.entry-copy p {
-  font-size: 17px;
-  line-height: 1.55;
-  color: #d6d4cf;
-  max-width: 44ch;
-}
-
-.entry-copy .detail {
-  font-size: 14px;
-  line-height: 1.5;
-  color: #a3a19c;
-}
-
-.entry .bloom {
-  bottom: -120px;
-}
-
-.subject {
+/*
+ * The page. Three viewport heights of held scroll; the sticky child is what the visitor sees and
+ * the track is what supplies the progress. Every child below reads the same named view timeline,
+ * so they cannot drift apart from each other or from the scrollbar.
+ */
+.stage {
   position: relative;
-  z-index: 2;
-  margin: 0 auto;
-  width: min(var(--w, 1000px), calc(100% - 96px));
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  height: 300vh;
+  background: #000;
+  view-timeline-name: --stage;
+  view-timeline-axis: block;
 }
 
-.frame {
-  border: 1px solid #2c2c2f;
-  border-radius: var(--radius-lg);
+/*
+ * The track must not clip, for the same reason the body must not: an ancestor that clips is a
+ * scroll container, and the pin would stick to it rather than to the page and scroll straight past.
+ * Everything that needs hiding is hidden by the pin itself, which is the thing being looked at.
+ */
+.stage-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
   overflow: hidden;
+  isolation: isolate;
+  background: #000;
+  color: #f2f1ef;
+}
+
+.stage-frames {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(30vh, 320px);
+  aspect-ratio: 418 / 627;
+  transform: translate(-50%, -54%);
+  z-index: 2;
+}
+
+.stage-frame {
+  position: absolute;
+  inset: 0;
+  animation: hand-off linear both;
+  animation-timeline: --stage;
+}
+
+.stage-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@keyframes hand-off {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/*
+ * Six frames stacked in one box, the first on top. Each fades out over its own slice of the
+ * progress and reveals the one beneath, which is a cross-dissolve with no script and no
+ * intermediate state to get wrong. The last frame never fades: it is the floor.
+ */
+.stage-frame:nth-child(1) {
+  z-index: 10;
+  animation-range: contain 4% contain 19%;
+}
+
+.stage-frame:nth-child(2) {
+  z-index: 9;
+  animation-range: contain 20% contain 35%;
+}
+
+.stage-frame:nth-child(3) {
+  z-index: 8;
+  animation-range: contain 36% contain 51%;
+}
+
+.stage-frame:nth-child(4) {
+  z-index: 7;
+  animation-range: contain 52% contain 67%;
+}
+
+.stage-frame:nth-child(5) {
+  z-index: 6;
+  animation-range: contain 68% contain 83%;
+}
+
+.stage-frame:nth-child(6) {
+  z-index: 5;
+  animation-name: halves-part;
+  animation-range: contain 84% contain 100%;
+}
+
+/* The halves drift apart and dim as the panel between them stops being a panel. */
+@keyframes halves-part {
+  from {
+    opacity: 1;
+    transform: scale(1);
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    opacity: 0.45;
+    transform: scale(1.25);
+    clip-path: inset(40% 0 0 0);
+  }
+}
+
+.stage-shot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(56vw, 800px);
+  /* The markup carries width and height so the box is reserved before the bytes arrive; once CSS
+     sets a width, the height attribute has to be released or the picture stretches. */
+  height: auto;
+  /* Sits high enough to leave the closing sentence its own floor. */
+  transform: translate(-50%, -58%);
+  border: 1px solid #3a3a3d;
+  border-radius: var(--radius-md);
+  z-index: 12;
+  opacity: 0;
+  animation: shot-arrive linear both;
+  animation-timeline: --stage;
+  animation-range: contain 86% contain 100%;
+}
+
+@keyframes shot-arrive {
+  from {
+    opacity: 0;
+    box-shadow: 0 0 0 rgba(255, 236, 210, 0);
+  }
+  to {
+    opacity: 1;
+    box-shadow: 0 0 120px rgba(255, 236, 210, 0.25);
+  }
+}
+
+/* The sentence that belongs to the state the object is in. Same hand-off as the frames. */
+/*
+ * A real width, not a max-width. Every child is absolutely positioned, so there is nothing in flow
+ * for the box to take its size from: shrink-to-fit resolves to zero and the sentence comes out one
+ * word per line.
+ */
+.stage-lines {
+  position: absolute;
+  inset: 120px 96px 140px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/*
+ * The frames hand off by stacking, because an opaque picture hides the one beneath it. Text cannot:
+ * a transparent line shows every line under it at once. So each sentence is off except inside its
+ * own quarter, switched rather than faded, and the whole set shares one range so they cannot drift.
+ */
+.stage-line {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* A real width, not a max-width: every line is absolutely positioned, so there is nothing in
+     flow for the box to size itself from and shrink-to-fit resolves to one word per line. */
+  width: min(30ch, 34vw);
+  font-size: clamp(19px, 2vw, 28px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  opacity: 0;
+  /*
+   * Longhands, not the shorthand. "animation: linear steps(1, end) both" reads like it names a
+   * timing function and a fill, and a browser reads it as two timing functions with no name and
+   * throws the whole declaration away. The shorthand would also reset the duration to zero.
+   */
+  animation-timing-function: steps(1, end);
+  animation-fill-mode: both;
+  animation-timeline: --stage;
+  animation-range: contain 0% contain 100%;
+}
+
+.stage-line:nth-child(1) {
+  animation-name: say-1;
+}
+
+.stage-line:nth-child(2) {
+  animation-name: say-2;
+}
+
+.stage-line:nth-child(3) {
+  animation-name: say-3;
+}
+
+.stage-line:nth-child(4) {
+  animation-name: say-4;
+}
+
+/*
+ * The closing line is the only one that is not a caption on an object. By then the object has
+ * become the product and fills the middle, so the sentence moves out from under it to the floor of
+ * the stage and is given the room to be a sentence rather than a column.
+ */
+.stage-line:nth-child(5) {
+  animation-name: say-5;
+  top: auto;
+  bottom: 0;
+  width: min(58ch, 52vw);
+}
+
+@keyframes say-1 {
+  0% {
+    opacity: 1;
+  }
+  19% {
+    opacity: 0;
+  }
+}
+
+@keyframes say-2 {
+  0% {
+    opacity: 0;
+  }
+  19% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0;
+  }
+}
+
+@keyframes say-3 {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0;
+  }
+}
+
+@keyframes say-4 {
+  0% {
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0;
+  }
+}
+
+/*
+ * The closing keyframe is not decoration. Without a stop at 100 percent the browser synthesises one
+ * from the element's own style, which here is opacity zero, so the last sentence vanished at the
+ * exact end of the stage: the one frame a visitor stops on.
+ */
+@keyframes say-5 {
+  0% {
+    opacity: 0;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ── the satellites ──────────────────────────────────────────────────────────────────── */
+
+/*
+ * Two elements each, because two things happen to one stamp at different times: it flies in on an
+ * arc at its own quarter, and at the end all four move outward to the corners. One transform
+ * cannot hold both, so the outer does the corner and the inner does the arrival.
+ */
+.sat {
+  position: absolute;
+  z-index: 14;
+  animation: sat-out linear both;
+  animation-timeline: --stage;
+  animation-range: contain 84% contain 100%;
+  pointer-events: none;
+}
+
+@keyframes sat-out {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(var(--out-x), var(--out-y));
+  }
+}
+
+.sat-in {
+  display: block;
+  rotate: var(--rot);
+  animation: sat-arrive linear both;
+  animation-timeline: --stage;
+}
+
+@keyframes sat-arrive {
+  0% {
+    opacity: 0;
+    transform: translate(var(--from-x), var(--from-y)) scale(0.6);
+  }
+  62% {
+    opacity: 1;
+    transform: translate(calc(var(--from-x) * 0.22), calc(var(--from-y) * 0.22 - 4vh)) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.sat-1 {
+  left: 19.4%;
+  top: 24.4%;
+  --rot: -12deg;
+  --from-x: 14vw;
+  --from-y: 10vh;
+  --out-x: -13.2vw;
+  --out-y: -8.9vh;
+}
+
+.sat-1 .sat-in {
+  animation-range: contain 8% contain 25%;
+}
+
+.sat-2 {
+  left: 69.4%;
+  top: 57.8%;
+  --rot: 9deg;
+  --from-x: -12vw;
+  --from-y: -8vh;
+  --out-x: 15.3vw;
+  --out-y: 2.2vh;
+}
+
+.sat-2 .sat-in {
+  animation-range: contain 33% contain 50%;
+}
+
+.sat-3 {
+  left: 66.7%;
+  top: 17.8%;
+  --rot: 18deg;
+  --from-x: -10vw;
+  --from-y: 12vh;
+  --out-x: 16.7vw;
+  --out-y: -4.4vh;
+}
+
+.sat-3 .sat-in {
+  animation-range: contain 58% contain 75%;
+}
+
+.sat-4 {
+  left: 22.9%;
+  top: 62.2%;
+  --rot: -6deg;
+  --from-x: 11vw;
+  --from-y: -11vh;
+  --out-x: -15.3vw;
+  --out-y: -4.4vh;
+}
+
+.sat-4 .sat-in {
+  animation-range: contain 83% contain 100%;
+}
+
+.sat svg {
+  width: var(--size, 130px);
+  height: var(--size, 130px);
+  overflow: visible;
+}
+
+.sat circle {
+  fill: none;
+  stroke: var(--flare);
+}
+
+.sat text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2.4px;
+  fill: #f2f1ef;
+}
+
+/* ── the progress bar ────────────────────────────────────────────────────────────────── */
+
+.stage-bar {
+  position: absolute;
+  left: 96px;
+  right: 96px;
+  bottom: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  z-index: 20;
+}
+
+.stage-bar-head {
+  position: relative;
+  height: 1.2em;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+}
+
+.stage-bar-head span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  opacity: 0;
+  /*
+   * Longhands, not the shorthand. "animation: linear steps(1, end) both" reads like it names a
+   * timing function and a fill, and a browser reads it as two timing functions with no name and
+   * throws the whole declaration away. The shorthand would also reset the duration to zero.
+   */
+  animation-timing-function: steps(1, end);
+  animation-fill-mode: both;
+  animation-timeline: --stage;
+  animation-range: contain 0% contain 100%;
+}
+
+.stage-bar-head span:nth-child(1) {
+  animation-name: say-1;
+}
+
+.stage-bar-head span:nth-child(2) {
+  animation-name: say-2;
+}
+
+.stage-bar-head span:nth-child(3) {
+  animation-name: say-3;
+}
+
+.stage-bar-head span:nth-child(4) {
+  animation-name: say-4;
+}
+
+.stage-bar-head span:nth-child(5) {
+  animation-name: say-5;
+}
+
+.stage-bar-rule {
+  height: 1px;
+  background: #3a3a3d;
+  position: relative;
+  overflow: hidden;
+}
+
+.stage-bar-rule i {
+  position: absolute;
+  inset: 0;
+  background: var(--flare);
+  transform-origin: left center;
+  transform: scaleX(0);
+  animation: bar-fill linear both;
+  animation-timeline: --stage;
+  animation-range: contain 0% contain 100%;
+}
+
+@keyframes bar-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.stage-bar-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: #5a5a5e;
+}
+
+/* ── 5. going in ─────────────────────────────────────────────────────────────────────── */
+
+.goingin {
+  position: relative;
+  height: 200vh;
+  view-timeline-name: --goingin;
+  view-timeline-axis: block;
   background: #000;
 }
 
-.frame img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.fig-note {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: #a3a19c;
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-/* ── video slots ────────────────────────────────────────────────────────────────────── */
-
-.clip {
-  position: relative;
-  aspect-ratio: 16 / 10;
-  border: 1px solid #2c2c2f;
-  border-radius: var(--radius-lg);
+.goingin-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
   overflow: hidden;
-  background: var(--surface);
 }
 
-.clip video,
-.clip img {
+.goingin-shot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /*
+   * Starts at a size the screen is still recognisable at and grows past the edges from there. Wider
+   * than the viewport at the outset is not immersion, it is a wall of forty-pixel interface.
+   */
+  width: 86vw;
+  max-width: none;
+  height: auto;
+  opacity: 0.92;
+  transform: translate(-50%, -50%) scale(1);
+  animation: go-in linear both;
+  animation-timeline: --goingin;
+  animation-range: contain 0% contain 100%;
+}
+
+@keyframes go-in {
+  from {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1.85);
+  }
+}
+
+.goingin-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0) 22%, rgba(0, 0, 0, 0.9) 92%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.goingin-mascot {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  width: clamp(140px, 17vw, 240px);
+  height: auto;
+  z-index: 3;
+  transform: translateX(-50%);
+  animation: descend linear both;
+  animation-timeline: --goingin;
+  animation-range: contain 0% contain 100%;
+}
+
+@keyframes descend {
+  from {
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  to {
+    transform: translateX(-50%) translateY(60vh) scale(0.3);
+  }
+}
+
+.goingin-note {
+  position: absolute;
+  left: 96px;
+  bottom: 56px;
+  z-index: 4;
+}
+
+/* ── 6. the places ───────────────────────────────────────────────────────────────────── */
+
+.place {
+  position: relative;
+  height: clamp(300px, 52vh, 460px);
+  overflow: hidden;
+  view-timeline-name: --place;
+  view-timeline-axis: block;
+  border-bottom: 1px solid var(--border);
+}
+
+.place img {
+  position: absolute;
+  left: 0;
+  top: -12%;
+  width: 100%;
+  height: 124%;
+  object-fit: cover;
+  animation: place-drift linear both;
+  animation-timeline: --place;
+  animation-range: cover 0% cover 100%;
+}
+
+@keyframes place-drift {
+  from {
+    transform: translateY(-6%);
+  }
+  to {
+    transform: translateY(6%);
+  }
+}
+
+.place-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.1) 70%);
+}
+
+.place p {
+  position: absolute;
+  left: 96px;
+  right: 96px;
+  bottom: 64px;
+  font-size: clamp(24px, 3.1vw, 44px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  max-width: 22ch;
+  color: #f2f1ef;
+}
+
+/* ── 7. what lands on the timeline ───────────────────────────────────────────────────── */
+
+.row {
+  position: relative;
+  padding: 120px 0;
+  view-timeline-name: --row;
+  view-timeline-axis: block;
+}
+
+.row h2 {
+  padding-inline: 96px;
+  margin-bottom: 56px;
+}
+
+/*
+ * Native horizontal scrolling is the base, because it is the one that works with a finger, with a
+ * keyboard and with no script at all. The scroll-bound slide is layered on top of it only where
+ * there is a real pointer, and that rule is the only place the overflow is taken away.
+ */
+.row-track {
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-inline: 96px;
+}
+
+.row-track::-webkit-scrollbar {
+  display: none;
+}
+
+.row-rail {
+  display: flex;
+  gap: 64px;
+  width: max-content;
+}
+
+.row-card {
+  width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.row-card img {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+}
+
+.row-card h3 {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.row-card p {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.row-n {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--flare);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row-track {
+    overflow-x: hidden;
+  }
+
+  /*
+   * The travel starts late on purpose. Bound to the whole time the section is anywhere in view, the
+   * first card has already slid away by the moment the heading reaches the top of the screen, which
+   * is the moment somebody actually starts reading it.
+   */
+  .row-rail {
+    animation: row-slide linear both;
+    animation-timeline: --row;
+    animation-range: cover 45% cover 100%;
+  }
+
+  @keyframes row-slide {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-44%);
+    }
+  }
+}
+
+/* ── 8. what it costs ────────────────────────────────────────────────────────────────── */
+
+.costs {
+  position: relative;
+  padding: 120px 0;
+}
+
+.costs-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: end;
+  margin-bottom: 64px;
+}
+
+.costs-head p {
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 44ch;
+}
+
+.plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.plan {
+  padding: 32px 32px 0 0;
+  margin-right: 32px;
+  border-top: 1px solid #3a3a3d;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.plan-featured {
+  border-top-color: var(--flare);
+}
+
+.plan-featured .tag {
+  color: var(--flare);
+}
+
+.plan h3 {
+  font-size: 32px;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+.plan p {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.plan-price b {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  letter-spacing: -0.02em;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.plan-price i {
+  flex: 1;
+  border-bottom: 1px dashed #3a3a3d;
+  height: 30px;
+}
+
+/* ── 9. your own server ──────────────────────────────────────────────────────────────── */
+
+.server {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: 120px 0;
+  overflow: hidden;
+}
+
+.server-plate {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  object-position: 70% 0;
+  opacity: 0.55;
 }
 
-.clip-chip {
-  position: absolute;
-  left: 12px;
-  bottom: 12px;
-  height: 24px;
-  padding: 0 9px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid #3a3a3d;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #f2f1ef;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  z-index: 2;
-}
-
-.clip-chip i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--flare);
-}
-
-/* Shown instead of a self-starting recording when movement is not wanted, or before the file
-   exists: the poster is the same frame either way, so nothing looks broken. */
-.clip-play {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  translate: -50% -50%;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  border: 1px solid #f2f1ef;
-  background: rgba(0, 0, 0, 0.6);
-  color: #f2f1ef;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 2;
-}
-
-.clip-play .icon {
-  width: 24px;
-  height: 24px;
-}
-
-[data-rm='1'] .clip-play {
-  display: flex;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .clip-play {
-    display: flex;
-  }
-}
-
-/* ── inside the screen ──────────────────────────────────────────────────────────────── */
-
-.inside {
-  padding: 96px 0 0;
-}
-
-.inside-copy {
+.server-copy {
   position: relative;
   z-index: 3;
-  padding: 0 48px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  max-width: 760px;
-}
-
-.inside-copy h2 {
-  font-size: clamp(30px, 4vw, 48px);
-  line-height: 1.04;
-  letter-spacing: -0.035em;
-  font-weight: 600;
-}
-
-.inside-copy p {
-  font-size: 17px;
-  line-height: 1.55;
-  color: #d6d4cf;
-  max-width: 46ch;
-}
-
-/* The real screen at 200%, cropped to its top left, not a drawing of one. */
-.crop {
-  position: relative;
-  z-index: 2;
-  margin-top: 48px;
-  height: min(560px, 60vw);
-  overflow: hidden;
-  border-top: 1px solid #2c2c2f;
-}
-
-.crop img {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 200%;
-  max-width: none;
-  height: auto;
-  display: block;
-}
-
-.crop::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 70%, #000 100%);
-  pointer-events: none;
-}
-
-/* ── surfaces ───────────────────────────────────────────────────────────────────────── */
-
-.band {
-  padding: 96px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.band-top {
-  border-top: 1px solid var(--border);
-  border-bottom: 0;
-}
-
-.page-head {
-  padding: 112px 0 56px;
-  max-width: 860px;
-}
-
-.page-head h1 {
-  margin: 18px 0 0;
-  font-size: clamp(34px, 5vw, 60px);
-  line-height: 1.03;
-  letter-spacing: -0.035em;
-  font-weight: 600;
-}
-
-.page-head p {
-  margin: 22px 0 0;
-  font-size: 19px;
-  color: var(--text-muted);
-  max-width: 46ch;
-}
-
-.eyebrow {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--flare-link);
-}
-
-.muted {
-  color: var(--text-muted);
-}
-
-.caption {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.h2 {
-  font-size: clamp(26px, 2.8vw, 34px);
-  letter-spacing: -0.025em;
-  font-weight: 600;
-  line-height: 1.1;
-}
-
-.h3 {
-  font-size: clamp(22px, 2.2vw, 28px);
-  letter-spacing: -0.02em;
-  font-weight: 600;
-  line-height: 1.15;
-}
-
-.grid-3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 40px;
-}
-
-.grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-}
-
-.split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
-  gap: 56px;
-}
-
-.split-even {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 64px;
-  align-items: center;
-}
-
-.stack {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  padding: 40px;
-}
-
-.truth {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.truth .num {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--flare-link);
-}
-
-.ticks {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  font-size: 15px;
-}
-
-.ticks li {
-  display: grid;
-  grid-template-columns: 16px 1fr;
-  gap: 10px;
-  color: var(--text-muted);
-}
-
-.ticks .icon {
-  width: 14px;
-  height: 14px;
-  margin-top: 5px;
-  color: var(--flare);
-}
-
-.rows {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-
-.row .icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.row-state {
-  margin-left: auto;
-  font-weight: 500;
-}
-
-.ok {
-  color: var(--success);
-}
-
-.paused {
-  color: var(--warning);
-}
-
-.no {
-  color: var(--danger);
-}
-
-.chips {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.chip .icon {
-  width: 13px;
-  height: 13px;
-  color: var(--success);
-}
-
-/* ── closing panel ──────────────────────────────────────────────────────────────────── */
-
-.closing {
-  position: relative;
-  margin: 96px 48px;
-  padding: 72px 64px;
-  border-radius: 12px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 32px;
-  align-items: center;
-}
-
-.closing h2 {
-  font-size: clamp(28px, 3.4vw, 40px);
-  letter-spacing: -0.03em;
-  font-weight: 600;
-  line-height: 1.06;
-  max-width: 20ch;
-}
-
-.closing p {
-  color: #a3a19c;
-  max-width: 44ch;
-}
-
-.closing-copy {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  align-items: flex-start;
-}
-
-.closing-mascot {
-  position: relative;
-  z-index: 3;
-  justify-self: center;
-  width: 220px;
-  height: auto;
-}
-
-/* ── product ────────────────────────────────────────────────────────────────────────── */
-
-.product-section {
-  padding: 88px 0;
-  border-bottom: 1px solid var(--border);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr);
-  gap: 56px;
-  align-items: start;
-}
-
-.product-copy {
-  position: sticky;
-  top: 96px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.product-copy h2 {
-  font-size: clamp(26px, 3vw, 34px);
-  line-height: 1.1;
-  letter-spacing: -0.025em;
-  font-weight: 600;
-}
-
-.product-copy > p {
-  font-size: 17px;
-  color: var(--text-muted);
-  line-height: 1.55;
-}
-
-.product-figs {
   display: flex;
   flex-direction: column;
   gap: 28px;
+  max-width: 600px;
 }
 
-.product-nav {
+.server-copy p {
+  font-size: 19px;
+  line-height: 1.5;
+  max-width: 38ch;
+}
+
+.server-shot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: min(660px, 48vw);
+  height: 440px;
+  overflow: hidden;
+  border-top: 1px solid #2c2c2f;
+  border-left: 1px solid #2c2c2f;
+  background: #000;
+  z-index: 2;
+}
+
+.server-shot img {
+  position: absolute;
+  /* Shown at its own pixel size and cropped to the table, not to the settings menu beside it. */
+  left: -151.5%;
+  top: -59%;
+  width: 388%;
+  max-width: none;
+  height: auto;
+}
+
+.server-lock {
+  position: absolute;
+  right: min(720px, 52vw);
+  bottom: 80px;
+  width: 160px;
+  height: 160px;
+  z-index: 3;
+}
+
+/* ── 10. the footer ──────────────────────────────────────────────────────────────────── */
+
+/*
+ * Torn out of the page above rather than stacked under it. The scallop is an inline SVG sitting on
+ * the seam, painted in the colour of the section above, so the footer keeps its own background.
+ */
+/*
+ * Black, not the near-black the canvas drew. A lossy encoder lifts the black a rendered asset was
+ * rendered on to about ten of two hundred and fifty five; screened onto pure black that is
+ * invisible, and screened onto #17171A it is a visible pale box around every object. So the ground
+ * stays black and the torn edge carries the lighter ink instead.
+ */
+.site-footer {
+  position: relative;
+  background: #000;
+  color: #f2f1ef;
+  overflow: hidden;
+  padding: 120px 0 48px;
+  min-height: 720px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.scallop {
+  position: absolute;
+  left: 0;
+  top: -1px;
+  width: 100%;
+  height: 40px;
+  display: block;
+  z-index: 3;
+  fill: #17171a;
+}
+
+.footer-play {
+  position: absolute;
+  inset: 40px 0 0;
+  z-index: 1;
+}
+
+.footer-play img {
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  will-change: transform;
+}
+
+.footer-score {
+  position: absolute;
+  right: 48px;
+  top: 64px;
+  z-index: 4;
+}
+
+.footer-mark {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: 32px;
+  padding-inline: 48px;
+  margin-bottom: 64px;
+}
+
+.footer-mark span {
+  font-size: clamp(88px, 21vw, 300px);
+  line-height: 0.8;
+  letter-spacing: -0.06em;
+  font-weight: 700;
+}
+
+.footer-mark img {
+  width: clamp(48px, 8vw, 120px);
+  height: auto;
+  margin-bottom: 2.6vw;
+}
+
+.footer-feet {
+  position: relative;
+  z-index: 4;
+  margin-inline: 48px;
+  padding-top: 24px;
+  border-top: 1px solid #2c2c2f;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 28px;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--border);
+  gap: 16px 28px;
+  justify-content: space-between;
   font-family: var(--font-mono);
   font-size: 12px;
+  letter-spacing: 0.1em;
   color: var(--text-muted);
 }
 
-.product-nav a {
+.footer-feet nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+}
+
+.footer-feet a {
   text-decoration: none;
 }
 
-/* ── pricing ────────────────────────────────────────────────────────────────────────── */
+.footer-feet a:hover {
+  color: var(--flare);
+}
 
-.pricing-texture {
-  position: absolute;
+/* ── the menu ────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * Opened by :target so it works with no script at all, which also gives it a real URL and a real
+ * back button. Script only adds the escape key and takes the hash back off the address bar.
+ */
+.menu {
+  position: fixed;
   inset: 0;
-  background: url('/textures/grid.webp') repeat;
-  background-size: 320px;
-  opacity: 0.35;
+  z-index: 80;
+  background: #17171a;
+  display: flex;
+  flex-direction: column;
+  padding: 0 96px 48px;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity var(--dur-panel) ease-out,
+    visibility 0s linear var(--dur-panel);
+}
+
+.menu:target,
+.menu[data-open] {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0s;
+}
+
+.menu-head {
+  height: 72px;
+  display: flex;
+  align-items: center;
+}
+
+.menu-close {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: #f2f1ef;
+  text-decoration: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.menu nav {
+  margin-top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu nav a {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  font-size: clamp(40px, 7.2vw, 104px);
+  line-height: 1;
+  letter-spacing: -0.045em;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(110%);
+}
+
+.menu:target nav a,
+.menu[data-open] nav a {
+  animation: rise-in 600ms var(--ease-out) forwards;
+  animation-delay: calc(var(--i) * 60ms);
+}
+
+.menu nav a span {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.menu-mascot {
+  position: absolute;
+  right: 120px;
+  bottom: 0;
+  height: min(52vh, 520px);
+  width: auto;
   pointer-events: none;
-  z-index: 0;
 }
 
-[data-theme='light'] .pricing-texture {
-  opacity: 0.08;
-  mix-blend-mode: multiply;
+.menu-feet {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  position: relative;
+  z-index: 2;
 }
 
-.tier {
+/* ── the page transition ─────────────────────────────────────────────────────────────── */
+
+.slats {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: none;
+  pointer-events: none;
+}
+
+.slats[data-run] {
+  display: block;
+}
+
+.slats i {
+  position: absolute;
+  top: 0;
+  width: 12.5%;
+  height: 100%;
+  background: var(--flare);
+  transform: translateY(-100%);
+}
+
+.slats[data-run] i {
+  animation: slat-down 520ms var(--ease-out) both;
+  animation-delay: calc(var(--i) * 40ms);
+}
+
+@keyframes slat-down {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* ── the sign-in dialog ──────────────────────────────────────────────────────────────── */
+
+.signin {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.75);
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity var(--dur-panel) ease-out,
+    visibility 0s linear var(--dur-panel);
+}
+
+.signin:target {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0s;
+}
+
+.signin-panel {
+  width: min(460px, 100%);
+  background: #0b0b0c;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
+  border-radius: var(--radius-md);
   padding: 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-
-.tier--pick {
-  border-color: var(--flare);
-}
-
-.tier h2 {
-  margin: 6px 0 0;
-  font-size: 24px;
-  letter-spacing: -0.02em;
-  font-weight: 600;
-}
-
-.price {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.price .cur {
-  font-family: var(--font-mono);
-  font-size: 30px;
-  letter-spacing: -0.02em;
-  color: var(--text-muted);
-}
-
-.price .rule {
-  height: 34px;
-  flex: 1;
-  border-bottom: 1px dashed var(--border-strong);
-}
-
-.price .per {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.tier .btn {
-  margin-top: auto;
-  height: 42px;
-  font-size: 15px;
-}
-
-.switches {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.switch {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-}
-
-.switch i {
-  width: 28px;
-  height: 16px;
-  border-radius: 999px;
-  background: var(--flare);
-  position: relative;
-  flex-shrink: 0;
-}
-
-.switch i::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 14px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
-}
-
-.switch .needs {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-.limits {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.limit {
-  padding: 16px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.limit .icon {
-  width: 18px;
-  height: 18px;
-  color: var(--flare);
-}
-
-.limit b {
-  font-weight: 500;
-  font-size: 15px;
-}
-
-.limit span {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.lapse {
-  border: 1px solid var(--flare);
-  border-radius: var(--radius-lg);
-  padding: 40px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 40px;
-  background: var(--flare-subtle);
-}
-
-.lapse .row {
-  border-color: var(--border-strong);
-  background: var(--bg);
-}
-
-/* ── security ───────────────────────────────────────────────────────────────────────── */
-
-.security-section {
-  padding: 56px 0;
-  border-bottom: 1px solid var(--border);
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1fr);
-  gap: 40px;
-  align-items: start;
-}
-
-.security-section img {
-  width: 72px;
-  height: 72px;
-  object-fit: contain;
-}
-
-.facts {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.fact {
-  display: grid;
-  grid-template-columns: 16px 1fr;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  background: var(--surface);
-}
-
-.fact .icon {
-  width: 14px;
-  height: 14px;
-  margin-top: 4px;
-  color: var(--success);
-}
-
-.cannot {
-  color: var(--text-muted);
-}
-
-.cannot .icon {
-  color: var(--danger);
-}
-
-/* ── setup ──────────────────────────────────────────────────────────────────────────── */
-
-.step {
-  padding: 48px 0;
-  border-bottom: 1px solid var(--border);
-  display: grid;
-  grid-template-columns: 200px minmax(0, 1fr) 300px;
-  gap: 40px;
-  align-items: center;
-}
-
-.step-when {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.step-when .n {
-  font-family: var(--font-mono);
-  font-size: 34px;
-  line-height: 1;
-  color: var(--flare);
-}
-
-.step-when .time {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.step h2 {
-  font-size: 24px;
-  letter-spacing: -0.02em;
-  font-weight: 600;
-  line-height: 1.2;
-  margin-bottom: 10px;
-}
-
-.step p {
-  font-size: 16px;
-  color: var(--text-muted);
-  line-height: 1.55;
-  max-width: 52ch;
-}
-
-.step-note {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--flare);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-/* He is on a black panel even in the light theme: he only exists over black. */
-.step-mascot {
-  justify-self: center;
-  width: 180px;
-  aspect-ratio: 3 / 2;
-  border-radius: var(--radius-md);
-  background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.step-mascot img {
-  width: 100%;
-  height: auto;
-}
-
-/* ── contact ────────────────────────────────────────────────────────────────────────── */
-
-.contact {
-  padding: 112px 0 96px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 64px;
-  align-items: start;
-}
-
-.contact h1 {
-  font-size: clamp(32px, 4.4vw, 52px);
-  line-height: 1.04;
-  letter-spacing: -0.035em;
-  font-weight: 600;
-}
-
-.contact-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-top: 22px;
-  border-top: 1px solid var(--border);
-  font-size: 15px;
-}
-
-.contact-line {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  gap: 12px;
-}
-
-.contact-line .icon {
-  width: 16px;
-  height: 16px;
-  margin-top: 4px;
-  color: var(--flare);
-}
-
-.contact-line dt {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.contact-line dd {
-  margin: 0;
-}
-
-.reply {
-  display: flex;
-  align-items: center;
   gap: 16px;
-  margin-top: 8px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
 }
 
-.reply-face {
-  width: 72px;
-  height: 72px;
-  border-radius: var(--radius-sm);
-  background: #000;
-  flex-shrink: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
+.signin-panel h2 {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  font-weight: 600;
 }
 
-.reply-face img {
-  width: 100%;
-  height: auto;
-}
-
-.form {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.signin-panel p {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-muted);
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
 }
 
-.field > span {
-  font-weight: 500;
+.field span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
 }
 
 .field input,
 .field textarea {
   width: 100%;
-  padding: 0 14px;
-  height: 44px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #3a3a3d;
   color: var(--text);
-  font-size: 15px;
-  font-family: inherit;
+  font: inherit;
+  font-size: 17px;
+  padding: 10px 0;
+  border-radius: 0;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: 0;
+  border-bottom-color: var(--flare);
 }
 
 .field textarea {
-  height: 96px;
-  padding: 12px 14px;
   resize: vertical;
+  min-height: 80px;
 }
 
-.field input::placeholder,
-.field textarea::placeholder {
+.signin-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* Announced to a screen reader, never drawn: the stage's own heading, which is the object. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The one control that is not part of the page's argument, so it sits out of the way of it. */
+.theme-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 70;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: rgba(11, 11, 12, 0.82);
+  color: var(--text-muted);
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition:
+    color var(--dur-hover) ease-out,
+    border-color var(--dur-hover) ease-out;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.theme-toggle .icon {
+  width: 17px;
+  height: 17px;
+}
+
+/* ── the other pages ─────────────────────────────────────────────────────────────────── */
+
+.page-head {
+  position: relative;
+  padding: 180px 0 90px;
+}
+
+.page-head .title {
+  max-width: 16ch;
+}
+
+.page-head p {
+  margin-top: 20px;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 42ch;
+}
+
+/* Product: a rail with a marker that tracks the scroll, and a screen for each stop. */
+.rail {
+  position: relative;
+  padding-bottom: 120px;
+  view-timeline-name: --rail;
+  view-timeline-axis: block;
+}
+
+.rail-line {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 120px;
+  width: 1px;
+  background: #3a3a3d;
+}
+
+.rail-marker {
+  position: absolute;
+  left: calc(50% - 12px);
+  top: 0;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  border: 1px solid var(--flare);
+  background: var(--flare);
+  animation: rail-run linear both;
+  animation-timeline: --rail;
+  animation-range: cover 10% cover 90%;
+  z-index: 2;
+}
+
+@keyframes rail-run {
+  from {
+    top: 0;
+  }
+  to {
+    top: calc(100% - 145px);
+  }
+}
+
+.rail-stop {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+  padding: 60px 0;
+}
+
+.rail-stop:nth-child(even) .rail-stop-copy {
+  order: 2;
+}
+
+.rail-stop-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 42ch;
+}
+
+.rail-stop-copy h2 {
+  font-size: 34px;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.rail-stop-copy p {
+  font-size: 16px;
+  line-height: 1.55;
   color: var(--text-muted);
 }
 
-.choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.shot-frame {
+  border: 1px solid #3a3a3d;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #000;
 }
 
-.choice {
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+.shot-frame img {
+  width: 100%;
+  height: auto;
+}
+
+/* Pricing: the refusal, drawn. */
+.refusal {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid #3a3a3d;
+  background: #0b0b0c;
+  padding: 16px 18px;
   font-size: 14px;
-  cursor: pointer;
+  line-height: 1.5;
+  max-width: 420px;
 }
 
-.choice input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+.refusal .icon {
+  color: var(--flare);
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
 }
 
-.choice:has(input:checked) {
-  border-color: var(--flare);
-  background: var(--flare-subtle);
-  color: var(--flare-on-subtle);
-}
-
-.choice:has(input:focus-visible) {
-  outline: 2px solid var(--flare);
-  outline-offset: 2px;
-}
-
-/* ── legal, at reading distance and still ───────────────────────────────────────────── */
-
-.prose {
-  max-width: 72ch;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-  padding-bottom: 96px;
-}
-
-.prose section {
+/* Security: a list of what is built, not a badge wall. */
+.facts {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-top: 28px;
-  border-top: 1px solid var(--border);
-}
-
-.prose h2 {
-  font-size: 22px;
-  letter-spacing: -0.015em;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.prose p {
+  padding-top: 12px;
+  border-top: 1px solid #3a3a3d;
   font-size: 16px;
-  line-height: 1.65;
 }
 
-.prose ul {
-  margin: 4px 0 0;
-  padding-left: 20px;
+.facts div {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 12px;
+}
+
+.facts .icon {
+  color: var(--flare);
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+}
+
+/* Security: the handset closed, with the lock in front of it. Nothing on that page moves. */
+.locked {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 80px 0 120px;
+}
+
+.locked-handset {
+  height: min(58vh, 520px);
+  width: auto;
+}
+
+.locked-lock {
+  position: absolute;
+  left: 50%;
+  bottom: 100px;
+  width: clamp(110px, 14vw, 180px);
+  height: auto;
+  transform: translateX(-50%);
+}
+
+/* Setup: the handset running backwards, from assembled to at rest. */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+  padding-bottom: 120px;
+}
+
+.step {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 16px;
-  line-height: 1.6;
+  gap: 12px;
+  border-top: 1px solid #3a3a3d;
+  padding-top: 20px;
 }
 
-.prose a {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-color: var(--border-strong);
+.step-featured {
+  border-top-color: var(--flare);
 }
 
-/* ── 404 ────────────────────────────────────────────────────────────────────────────── */
+.step b {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 400;
+  color: var(--text-muted);
+}
 
-.notfound {
-  min-height: 80vh;
+.step-featured b {
+  color: var(--text);
+}
+
+.step h3 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.step p {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.assembly {
+  position: relative;
+  height: 200vh;
+  view-timeline-name: --assembly;
+  view-timeline-axis: block;
+}
+
+.assembly-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  gap: 20px;
-  padding: 140px 48px;
+  overflow: hidden;
 }
 
-.notfound img {
-  width: 220px;
-  height: auto;
+.assembly-frames {
+  position: relative;
+  width: min(34vh, 300px);
+  aspect-ratio: 418 / 627;
 }
 
-.notfound h1 {
-  font-size: clamp(30px, 4vw, 44px);
-  letter-spacing: -0.03em;
+.assembly-frames .stage-frame {
+  animation-timeline: --assembly;
+}
+
+/* Which of the four steps the object is at, switched on the quarters of the same progress. */
+.assembly-say {
+  position: relative;
+  width: min(46ch, 42vw);
+  height: 3.4em;
+  margin-top: 40px;
+}
+
+.assembly-say p {
+  position: absolute;
+  inset: 0;
+  font-size: clamp(19px, 2vw, 26px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  opacity: 0;
+  animation-timing-function: steps(1, end);
+  animation-fill-mode: both;
+  animation-timeline: --assembly;
+  animation-range: contain 0% contain 100%;
+}
+
+.assembly-say p:nth-child(1) {
+  animation-name: step-1;
+}
+
+.assembly-say p:nth-child(2) {
+  animation-name: step-2;
+}
+
+.assembly-say p:nth-child(3) {
+  animation-name: step-3;
+}
+
+.assembly-say p:nth-child(4) {
+  animation-name: step-4;
+}
+
+@keyframes step-1 {
+  0% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 0;
+  }
+}
+
+@keyframes step-2 {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes step-3 {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0;
+  }
+}
+
+@keyframes step-4 {
+  0% {
+    opacity: 0;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Contact: a form that reaches a person even before there is an endpoint. */
+.contact {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 480px;
+  gap: 64px;
+  align-items: start;
+  padding-bottom: 140px;
+}
+
+.contact-place {
+  position: absolute;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  bottom: 0;
+  height: 52%;
+  z-index: 0;
+}
+
+.contact-place img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 40%;
+}
+
+.contact-place::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.2) 60%, rgba(0, 0, 0, 0.6) 100%);
+}
+
+/*
+ * Everything except the place, which is the one child that has to stay out of the grid and behind
+ * the rest. Without the exclusion it becomes a column of its own and pushes the form into the row
+ * below, which is how a full-bleed photograph turns into a small grey strip.
+ */
+.contact > *:not(.contact-place) {
+  position: relative;
+  z-index: 3;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Legal: read by people who are worried. Quiet, wide-leaded, nothing else on the page. */
+.legal {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 68ch);
+  gap: 80px;
+  padding-bottom: 140px;
+}
+
+.legal-toc {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.legal-toc a {
+  text-decoration: none;
+}
+
+.legal-toc a:hover {
+  color: var(--flare);
+}
+
+.legal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.legal-body h1 {
+  font-size: clamp(34px, 4vw, 52px);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
   font-weight: 600;
 }
 
-/* ── sign in ────────────────────────────────────────────────────────────────────────── */
-
-.signin {
-  width: min(440px, calc(100vw - 32px));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-raised);
-  color: var(--text);
-  padding: 28px;
+.legal-body h2 {
+  font-size: 24px;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  margin-top: 24px;
 }
 
-.signin::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+.legal-body p,
+.legal-body li {
+  font-size: 18px;
+  line-height: 1.7;
 }
 
-.signin form {
+.legal-body > p:first-of-type {
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.legal-body hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
+
+.legal-body section {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.signin-title {
+.legal-body ul {
+  margin: 0;
+  padding-left: 22px;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.signin-preview {
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
 }
 
-.signin-preview .icon {
-  width: 15px;
-  height: 15px;
-  color: var(--flare);
-}
-
-/* Without script the button is a link to #signin, and this is what makes that jump land. */
-.signin:target {
-  display: block;
-  position: fixed;
-  top: 10vh;
-  left: 50%;
-  translate: -50% 0;
-  z-index: 50;
-}
-
-/* ── footer ─────────────────────────────────────────────────────────────────────────── */
-
-.site-footer {
-  border-top: 1px solid var(--border);
-  padding: 48px 0;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.site-footer .wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 32px;
-  justify-content: space-between;
-}
-
-.footer-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-}
-
-.site-footer a {
-  text-decoration: none;
-}
-
-.site-footer a:hover {
-  color: var(--text);
-  text-decoration: underline;
+.legal-body a {
+  color: var(--flare-link);
   text-underline-offset: 3px;
 }
 
-/* ── narrow ─────────────────────────────────────────────────────────────────────────── */
+/* 404 */
+.lost {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: 140px 0;
+  overflow: hidden;
+}
+
+.lost-plate {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center bottom;
+  opacity: 0.7;
+}
+
+.lost-mascot {
+  position: absolute;
+  right: 10vw;
+  top: 50%;
+  height: min(76vh, 760px);
+  width: auto;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+/* ── the light theme ─────────────────────────────────────────────────────────────────── */
 
 /*
- * The header runs out of room before anything else does. The secondary action steps aside first,
- * and it is still in the footer of every page, so nobody loses the way in.
+ * Only the pages that are read rather than looked at: privacy, terms and deleting your data.
+ *
+ * Everywhere else the page is a dark room with objects lit in it, and those objects are composited
+ * with mix-blend-mode: screen, which on a light panel is a black rectangle. Lightening half a page
+ * and leaving the other half black looked broken, and lightening all of it would black out every
+ * object on the site. So the toggle is rendered on the three pages where it changes something and
+ * nowhere else: a control that appears to do nothing is worse than one that is not there.
  */
-@media (max-width: 700px) {
-  .btn-signin {
+[data-theme='light'] .legal-main {
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-theme='light'] .legal-main .grain {
+  opacity: 0.02;
+}
+
+[data-theme='light'] .legal-body p,
+[data-theme='light'] .legal-body li {
+  color: var(--text);
+}
+
+[data-theme='light'] .legal-body > p:first-of-type,
+[data-theme='light'] .legal-toc {
+  color: var(--text-muted);
+}
+
+[data-theme='light'] .legal-body hr {
+  border-top-color: var(--border-strong);
+}
+
+[data-theme='light'] .site-header,
+[data-theme='light'] .brand,
+[data-theme='light'] .site-nav {
+  color: var(--text);
+}
+
+/* ── narrower ────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .wrap,
+  .site-header,
+  .menu {
+    padding-inline: 48px;
+  }
+
+  .stage-lines,
+  .goingin-note {
+    left: 48px;
+  }
+
+  .stage-bar {
+    left: 48px;
+    right: 48px;
+  }
+
+  .place p {
+    left: 48px;
+    right: 48px;
+  }
+
+  .row h2,
+  .row-track {
+    padding-inline: 48px;
+  }
+
+  .costs-head {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .plans {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .plan {
+    margin-right: 0;
+  }
+
+  .rail-stop,
+  .contact {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .rail-stop:nth-child(even) .rail-stop-copy {
+    order: 0;
+  }
+
+  .rail-line,
+  .rail-marker {
     display: none;
   }
 
-  .brand span {
+  .steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .legal {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .legal-toc {
+    position: static;
+  }
+
+  .server-shot {
     display: none;
+  }
+
+  .server-lock {
+    right: 48px;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   .wrap,
-  .hero-copy,
-  .entry-copy,
-  .inside-copy {
-    padding-left: 24px;
-    padding-right: 24px;
+  .site-header,
+  .menu {
+    padding-inline: 20px;
+  }
+
+  .site-header {
+    height: 56px;
   }
 
   .site-nav {
+    gap: 0;
+  }
+
+  /* The five destinations live in the menu on a phone; only the way in stays in the bar. */
+  .site-nav a {
     display: none;
   }
 
   .hero {
-    min-height: 0;
-    padding: 128px 0 64px;
+    min-height: auto;
+    padding: 110px 0 0;
+    display: block;
   }
 
-  .hero-shot {
-    width: min(560px, calc(100% - 48px));
-  }
-
-  /* Two figures crossing a phone screen is noise, not depth. */
-  .dive,
-  .ash {
-    display: none;
-  }
-
-  .entry {
-    padding: 64px 0;
-  }
-
-  .entry-copy {
-    grid-template-columns: minmax(0, 1fr);
+  .hero-copy {
     gap: 24px;
   }
 
-  .entry--right .entry-copy > div {
-    grid-column: 1;
+  .hero-object {
+    position: relative;
+    right: auto;
+    top: auto;
+    transform: none;
+    translate: none;
+    height: clamp(280px, 46vh, 380px);
+    margin: 24px auto -10%;
   }
 
-  .subject {
-    width: calc(100% - 48px);
+  .hero-actions .btn {
+    flex: 1 1 auto;
   }
 
-  .grid-3,
-  .grid-2,
-  .split,
-  .split-even,
-  .contact,
-  .lapse,
-  .product-section,
-  .limits,
-  .switches,
-  .chips {
-    grid-template-columns: minmax(0, 1fr);
+  .hero-hint {
+    position: static;
+    margin: 24px 0 40px;
+  }
+
+  /* Two viewport heights of held scroll rather than three: a thumb travels further per stroke. */
+  .stage {
+    height: 200vh;
+  }
+
+  .stage-frames {
+    width: min(42vh, 260px);
+    transform: translate(-50%, -58%);
+  }
+
+  .stage-lines {
+    inset: 84px 20px 120px;
+  }
+
+  .stage-line,
+  .stage-line:nth-child(5) {
+    width: 100%;
+  }
+
+  /* Clear of the theme toggle, which floats in the bottom corner and would sit on the number. */
+  .stage-bar {
+    left: 20px;
+    right: 20px;
+    bottom: 76px;
+  }
+
+  .stage-bar-ticks {
+    display: none;
+  }
+
+  /* Four stamps at this width sit on top of the object. Two, at the edges, and the other two go. */
+  .sat-2,
+  .sat-3 {
+    display: none;
+  }
+
+  .sat-1 {
+    left: 4%;
+    top: 26%;
+    --from-x: 20vw;
+    --out-x: 0vw;
+    --out-y: -4vh;
+  }
+
+  .sat-4 {
+    left: 58%;
+    top: 62%;
+    --from-x: -20vw;
+    --out-x: 0vw;
+    --out-y: -4vh;
+  }
+
+  .sat svg {
+    width: 96px;
+    height: 96px;
+  }
+
+  .goingin {
+    height: 160vh;
+  }
+
+  .goingin-shot {
+    width: 150vw;
+  }
+
+  .goingin-note {
+    left: 20px;
+    bottom: 32px;
+  }
+
+  .place {
+    height: clamp(280px, 42vh, 340px);
+  }
+
+  .place p {
+    left: 20px;
+    right: 20px;
+    bottom: 24px;
+  }
+
+  .place-scrim {
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.12));
+  }
+
+  .row,
+  .costs,
+  .server {
+    padding: 72px 0;
+  }
+
+  .row h2 {
+    padding-inline: 20px;
+    margin-bottom: 32px;
+  }
+
+  .row-track {
+    padding-inline: 20px;
+  }
+
+  .row-rail {
     gap: 28px;
   }
 
-  .security-section {
-    grid-template-columns: 56px minmax(0, 1fr);
-    gap: 20px;
+  .row-card {
+    width: 190px;
   }
 
-  .security-section .facts {
-    grid-column: 1 / -1;
+  .row-card img {
+    width: 130px;
+    height: 130px;
   }
 
-  .step {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
+  .row-card h3 {
+    font-size: 20px;
   }
 
-  .step-mascot {
-    justify-self: start;
+  .row-card p {
+    font-size: 13px;
   }
 
-  .product-copy {
+  .server {
+    min-height: auto;
+  }
+
+  .server-lock {
+    display: none;
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .assembly {
+    height: 160vh;
+  }
+
+  .site-footer {
+    min-height: 560px;
+    padding-top: 88px;
+  }
+
+  .footer-mark {
+    padding-inline: 20px;
+    margin-bottom: 40px;
+  }
+
+  .footer-score {
+    right: 20px;
+    top: 56px;
+  }
+
+  .footer-feet {
+    margin-inline: 20px;
+    font-size: 10px;
+    gap: 12px;
+  }
+
+  .footer-feet nav {
+    gap: 14px;
+  }
+
+  .menu nav {
+    margin-top: 48px;
+  }
+
+  .menu-mascot {
+    right: 0;
+    height: 34vh;
+    opacity: 0.5;
+  }
+
+  .contact-form {
+    order: -1;
+  }
+}
+
+/* ── when the browser has never heard of a scroll timeline ───────────────────────────── */
+
+/*
+ * Everything sits on its final frame. The stage shows what it shows at 100 percent: the handset
+ * open, the product where the panel was, all four stamps landed in the corners. Nothing is missing
+ * from the argument, only from the journey.
+ */
+@supports not (animation-timeline: view()) {
+  .stage {
+    height: auto;
+  }
+
+  .stage-pin {
+    position: static;
+    height: 100vh;
+  }
+
+  .stage-frame:nth-child(-n + 5) {
+    opacity: 0;
+  }
+
+  .stage-frame:nth-child(6) {
+    opacity: 0.45;
+    transform: scale(1.25);
+    clip-path: inset(40% 0 0 0);
+  }
+
+  .stage-shot {
+    opacity: 1;
+    box-shadow: 0 0 120px rgba(255, 236, 210, 0.25);
+  }
+
+  .stage-line:nth-child(-n + 4),
+  .stage-bar-head span:nth-child(-n + 4) {
+    opacity: 0;
+  }
+
+  .stage-line:nth-child(5),
+  .stage-bar-head span:nth-child(5) {
+    opacity: 1;
+  }
+
+  .stage-bar-rule i {
+    transform: scaleX(1);
+  }
+
+  .sat {
+    transform: translate(var(--out-x), var(--out-y));
+  }
+
+  .sat-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  .goingin {
+    height: auto;
+  }
+
+  .goingin-pin {
     position: static;
   }
 
-  .closing {
-    margin: 64px 24px;
-    padding: 40px 28px;
-    grid-template-columns: minmax(0, 1fr);
+  .goingin-shot {
+    transform: translate(-50%, -50%) scale(1.3);
   }
 
-  .closing-mascot {
-    width: 160px;
-    justify-self: start;
+  .goingin-mascot {
+    transform: translateX(-50%) translateY(20vh) scale(0.6);
   }
 
-  .card,
-  .lapse {
-    padding: 24px;
+  .place img {
+    transform: none;
   }
 
-  .page-head {
-    padding: 88px 0 40px;
+  .row-rail {
+    transform: none;
+  }
+
+  .row-track {
+    overflow-x: auto;
+  }
+
+  .rail-marker {
+    display: none;
+  }
+
+  .assembly {
+    height: auto;
+  }
+
+  .assembly-pin {
+    position: static;
+  }
+
+  .assembly-frames .stage-frame:nth-child(-n + 5) {
+    opacity: 0;
+  }
+
+  .assembly-say p:not(:last-child) {
+    opacity: 0;
+  }
+
+  .assembly-say p:last-child {
+    opacity: 1;
+  }
+}
+
+/* ── when somebody has asked for less movement ───────────────────────────────────────── */
+
+/*
+ * No preloader, no curtain, no parallax, no slats, no falling objects. The stage stops being a
+ * held scroll and becomes what it always was underneath: six pictures of one object opening, with
+ * the four sentences beside them. It is a worse experience and a complete one, which is the deal.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .preloader,
+  .curtain,
+  .slats {
+    display: none !important;
+  }
+
+  .rise > span,
+  .settle,
+  .menu:target nav a,
+  .menu[data-open] nav a {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .hero-object {
+    transition: none;
+    translate: none;
+  }
+
+  .stage {
+    height: auto;
+    padding: 96px 0;
+  }
+
+  .stage-pin {
+    position: static;
+    height: auto;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 32px 24px;
+    align-items: end;
+    padding-inline: 96px;
+  }
+
+  .stage-frames {
+    position: static;
+    display: contents;
+  }
+
+  .stage-frame {
+    position: static;
+    inset: auto;
+    width: auto;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+    animation: none;
+    aspect-ratio: 418 / 627;
+  }
+
+  .stage-shot,
+  .sat {
+    display: none;
+  }
+
+  .stage-lines {
+    position: static;
+    inset: auto;
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 70ch;
+  }
+
+  .stage-line,
+  .stage-line:nth-child(5) {
+    position: static;
+    inset: auto;
+    width: auto;
+    opacity: 1 !important;
+    animation: none;
+    font-size: 19px;
+  }
+
+  .stage-bar {
+    position: static;
+    grid-column: 1 / -1;
+  }
+
+  .stage-bar-head {
+    height: auto;
+  }
+
+  .stage-bar-head span {
+    position: static;
+    opacity: 1 !important;
+    animation: none;
+  }
+
+  .stage-bar-head span:not(:last-child) {
+    display: none;
+  }
+
+  .stage-bar-head span:last-child {
+    opacity: 1 !important;
+  }
+
+  .stage-bar-rule i {
+    animation: none;
+    transform: scaleX(1);
+  }
+
+  .goingin {
+    height: auto;
+  }
+
+  .goingin-pin {
+    position: static;
+    height: auto;
+    padding: 96px 0;
+  }
+
+  .goingin-shot {
+    position: static;
+    width: 100%;
+    transform: none;
+    animation: none;
+    opacity: 1;
+  }
+
+  .goingin-mascot,
+  .goingin-vignette {
+    display: none;
+  }
+
+  .goingin-note {
+    position: static;
+    margin: 24px 96px 0;
+  }
+
+  .place img,
+  .row-rail,
+  .rail-marker {
+    animation: none;
+    transform: none;
+  }
+
+  .row-track {
+    overflow-x: auto;
+  }
+
+  .footer-play {
+    display: none;
+  }
+
+  .assembly {
+    height: auto;
+  }
+
+  .assembly-pin {
+    position: static;
+    height: auto;
+    padding: 48px 0;
+  }
+
+  .assembly-frames {
+    width: min(34vh, 260px);
+  }
+
+  .assembly-frames .stage-frame:nth-child(-n + 5) {
+    display: none;
+  }
+
+  .assembly-say {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .assembly-say p {
+    position: static;
+    inset: auto;
+    opacity: 1 !important;
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 1100px) {
+  .stage-pin {
+    grid-template-columns: repeat(3, 1fr);
+    padding-inline: 48px;
+  }
+
+  .goingin-note {
+    margin-inline: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (max-width: 768px) {
+  .stage-pin {
+    grid-template-columns: repeat(2, 1fr);
+    padding-inline: 20px;
+  }
+
+  .goingin-note {
+    margin-inline: 20px;
   }
 }

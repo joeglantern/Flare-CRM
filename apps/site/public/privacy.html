@@ -1,59 +1,85 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Privacy policy · Flare CRM</title>
-    <meta
-      name="description"
-      content="How Flare CRM handles personal information, and what you can ask us to do with yours."
-    />
+    <title>Privacy · Flare CRM</title>
+    <meta name="description" content="How Flare CRM handles personal information." />
+    <meta name="theme-color" content="#000000" />
     <link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />
-    <link rel="canonical" href="https://flarehub.co.ke/privacy" />
-    <meta property="og:title" content="Privacy policy · Flare CRM" />
-    <meta
-      property="og:description"
-      content="How Flare CRM handles personal information, and what you can ask us to do with yours."
+    <meta property="og:title" content="Privacy · Flare CRM" />
+    <meta property="og:description" content="How Flare CRM handles personal information." />
+    <meta property="og:image" content="/brand/og.png" />
+    <meta property="og:type" content="website" />
+    <link
+      rel="preload"
+      href="/fonts/inter-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
-    <meta property="og:image" content="https://flarehub.co.ke/brand/og.png" />
-    <meta name="twitter:card" content="summary_large_image" />
     <link rel="stylesheet" href="/assets/base.css" />
     <link rel="stylesheet" href="/assets/site.css" />
+    <script src="/assets/site.js" defer></script>
   </head>
   <body>
+    <div class="curtain" aria-hidden="true"></div>
+    <div class="slats" aria-hidden="true">
+      <i style="left: 0%; --i: 0"></i><i style="left: 12.5%; --i: 1"></i
+      ><i style="left: 25%; --i: 2"></i><i style="left: 37.5%; --i: 3"></i
+      ><i style="left: 50%; --i: 4"></i><i style="left: 62.5%; --i: 5"></i
+      ><i style="left: 75%; --i: 6"></i><i style="left: 87.5%; --i: 7"></i>
+    </div>
     <header class="site-header">
-      <div class="wrap">
-        <a class="brand" href="/"
-          ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b
-          ><span>CRM</span></a
-        >
-        <nav class="site-nav" aria-label="Primary">
-          <a href="/product">Product</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/security">Security</a>
-          <a href="/setup">Setup</a>
-        </nav>
-        <div class="header-actions">
-          <button class="btn btn-icon" type="button" data-theme-toggle aria-label="Switch theme">
-            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#sun" /></svg>
-          </button>
-          <a class="btn btn-signin" href="#signin" data-signin-open>Sign in</a>
-          <a class="btn btn-primary" href="/contact">Book a demo</a>
-        </div>
-      </div>
+      <a class="brand" href="/"><img src="/brand/mark.svg" alt="" width="22" height="22" />Flare</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/product">PRODUCT</a><a href="/pricing">PRICING</a><a href="/security">SECURITY</a
+        ><a href="/setup">SETUP</a><a href="/contact">CONTACT</a>
+        <a href="#signin" data-opens="signin">SIGN IN</a>
+        <button class="menu-open" type="button" data-opens="menu" aria-haspopup="dialog">
+          MENU<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#menu"></use></svg>
+        </button>
+      </nav>
     </header>
-
-    <dialog class="signin" id="signin">
-      <form method="dialog">
-        <div class="signin-title">
-          <img src="/brand/mark.svg" alt="" width="20" height="20" />Find your Flare
-        </div>
-        <p class="muted">
+    <div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Menu">
+      <div class="menu-head">
+        <a class="brand" href="/"><img src="/brand/mark.svg" alt="" width="22" height="22" /></a>
+        <a class="menu-close" href="#" data-closes
+          >CLOSE<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x"></use></svg
+        ></a>
+      </div>
+      <nav aria-label="All pages">
+        <a href="/product" style="--i: 0"><span>01</span>Product</a
+        ><a href="/pricing" style="--i: 1"><span>02</span>Pricing</a
+        ><a href="/security" style="--i: 2"><span>03</span>Security</a
+        ><a href="/setup" style="--i: 3"><span>04</span>Setup</a
+        ><a href="/contact" style="--i: 4"><span>05</span>Contact</a>
+      </nav>
+      <picture
+        ><source type="image/avif" srcset="/mascot/pointing.avif" />
+        <img
+          src="/mascot/pointing.webp"
+          alt=""
+          width="270"
+          height="269"
+          loading="lazy"
+          decoding="async"
+          class="scr menu-mascot"
+      /></picture>
+      <div class="menu-feet">
+        <a href="#signin" data-opens="signin">SIGN IN</a>
+        <a href="mailto:hello@flarehub.co.ke">HELLO@FLAREHUB.CO.KE</a>
+      </div>
+    </div>
+    <div class="signin" id="signin" role="dialog" aria-modal="true" aria-labelledby="signin-title">
+      <div class="signin-panel">
+        <h2 id="signin-title">Find your Flare</h2>
+        <p>
           Every company has its own installation at its own address, so there is no single sign-in
           page. Type your company name and we will send you to the right one.
         </p>
         <label class="field" for="company"
-          ><span>Company name</span>
+          ><span>COMPANY NAME</span>
           <input
             id="company"
             name="company"
@@ -63,214 +89,312 @@
           />
         </label>
         <p class="signin-preview">
-          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right" /></svg>
-          <span class="mono" id="company-address">yourcompany.flarehub.co.ke</span>
+          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right"></use></svg
+          ><span id="company-address">yourcompany.flarehub.co.ke</span>
         </p>
-        <a class="btn btn-primary btn-lg" id="company-go" href="#">Go to sign in</a>
-        <p class="muted" style="font-size: 13px">
+        <a class="btn btn-primary" id="company-go" href="#">Go to sign in</a>
+        <p>
           Your administrator can tell you the address. It is also in the welcome email you were
           sent.
         </p>
-        <button class="btn" type="submit" value="close">Close</button>
-      </form>
-    </dialog>
-    <main>
+        <a class="btn btn-ghost" href="#" data-closes>Close</a>
+      </div>
+    </div>
+    <main class="ink legal-main">
+      <div class="grain"></div>
+      <section class="page-head">
+        <div class="wrap"><p class="tag">PRIVACY</p></div>
+      </section>
       <div class="wrap">
-        <div class="page-head">
-          <p class="eyebrow">Privacy policy</p>
-          <h1>Privacy policy</h1>
-          <p>
-            How Flare CRM handles personal information, and what you can ask us to do with yours.
-          </p>
-          <p class="caption" style="margin-top: 14px">Last updated 10 September 2026.</p>
-        </div>
-        <div class="prose">
-          <section>
-            <h2>Who is responsible for your information</h2>
+        <div class="legal">
+          <nav class="legal-toc" aria-label="On this page">
+            <span style="color: var(--text)">ON THIS PAGE</span
+            ><a href="#s0">Who is responsible for your information</a
+            ><a href="#s1">What the system holds</a><a href="#s2">WhatsApp messages</a
+            ><a href="#s3">What we measure about the software itself</a
+            ><a href="#s4">Who else processes it</a><a href="#s5">How long it is kept</a
+            ><a href="#s6">Security</a><a href="#s7">Cookies</a><a href="#s8">Your rights</a
+            ><a href="#s9">Children</a><a href="#s10">Changes</a><a href="#s11">Contact</a
+            ><span style="margin-top: 20px">LAST UPDATED 10 SEPTEMBER 2026</span>
+          </nav>
+          <div class="legal-body">
+            <h1>Privacy policy</h1>
             <p>
-              Flare CRM is customer relationship software licensed to a business, which runs it for
-              its own staff and its own customers. That business decides what goes into it and what
-              it is used for, which makes them the data controller. Flare CRM operates the software
-              on their behalf and is a data processor: we act on their instructions and do not use
-              what is in their system for our own purposes.
+              How Flare CRM handles personal information, and what you can ask us to do with yours.
             </p>
-            <p>
-              If you are a member of the public who has been in touch with a business that uses
-              Flare CRM, your first port of call is that business. We will help them answer you, and
-              you can write to us directly at
-              <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>.
-            </p>
-          </section>
-          <section>
-            <h2>What the system holds</h2>
-            <ul>
-              <li>
-                Contact and company records: names, phone numbers, email addresses, and whatever
-                notes and custom fields the business chooses to keep.
-              </li>
-              <li>
-                Sales records: leads, deals, tasks and the activity trail against each of them.
-              </li>
-              <li>
-                Telephone records: who called whom, when, for how long, and call recordings where
-                the business has switched recording on.
-              </li>
-              <li>
-                Messages: WhatsApp and SMS conversations between the business and the people who
-                write to it, including attachments.
-              </li>
-              <li>Files uploaded against a record.</li>
-              <li>
-                Staff accounts: name, email address, role, phone extension, and the times and
-                addresses they signed in from.
-              </li>
-              <li>
-                An audit log of what each member of staff did, which cannot be edited or deleted by
-                anyone, including administrators.
-              </li>
-            </ul>
-            <p>
-              We do not sell any of it, we do not use it for advertising, and we do not use it to
-              train machine learning models.
-            </p>
-          </section>
-          <section>
-            <h2>WhatsApp messages</h2>
-            <p>
-              Where a business has connected WhatsApp, messages sent to its WhatsApp business number
-              arrive through the WhatsApp Business Cloud API operated by Meta and are stored in that
-              business&rsquo;s own system so its staff can read and reply to them. The message
-              content, the sender&rsquo;s WhatsApp phone number and display name, and any attachment
-              are kept for as long as the business keeps its conversation history. Meta processes
-              those messages as they pass through its platform under its own terms; we receive them
-              by webhook and store them only in the system belonging to the business you wrote to.
-            </p>
-          </section>
-          <section>
-            <h2>What we measure about the software itself</h2>
-            <p>
-              Each installation reports its own health to us so we can keep it running: how many
-              staff accounts are in use, how much storage is used, whether its checks are passing,
-              which version it runs and when it last backed up. Those measurements contain no
-              contacts, no calls, no messages and no names.
-            </p>
-          </section>
-          <section>
-            <h2>Who else processes it</h2>
-            <ul>
-              <li>Google Cloud, which hosts the servers the software runs on.</li>
-              <li>
-                Meta Platforms, for messages sent and received over the WhatsApp Business Cloud API.
-              </li>
-              <li>
-                The telephone system connected to the installation, for call signalling and
-                recordings.
-              </li>
-              <li>
-                The email provider configured for the installation, for notifications, password
-                links and alerts.
-              </li>
-            </ul>
-            <p>
-              Each is used for that one purpose and nothing else. We do not add a processor to an
-              existing installation without telling the business that runs it.
-            </p>
-          </section>
-          <section>
-            <h2>How long it is kept</h2>
-            <p>
-              The business sets its own retention periods and a nightly job enforces them: records
-              past their period are removed, and call recordings are deleted on the schedule chosen
-              for them. A deleted contact, company or deal is hidden first and destroyed when its
-              purge period passes, so an accidental deletion can be undone. Backups are taken
-              nightly and the most recent fourteen are kept, so information can persist in a backup
-              for up to fourteen days after it is deleted from the live system. The audit log is
-              kept for the life of the installation, because a record of who did what is worth
-              nothing if it can be pruned.
-            </p>
-          </section>
-          <section>
-            <h2>Security</h2>
-            <p>
-              Traffic is encrypted in transit. Passwords are hashed and are visible to nobody,
-              including us. Two-factor authentication is available to every account and can be
-              required of privileged ones. What each member of staff can see and do is decided by
-              their role, and every consequential action, including refusals, is written to the
-              audit log. Access to the servers is limited to named administrators.
-            </p>
-          </section>
-          <section>
-            <h2>Cookies</h2>
-            <p>
-              The application sets one cookie, which keeps you signed in, and remembers your theme
-              choice in your own browser. There is no advertising, no analytics tracking and no
-              third-party cookie.
-            </p>
-          </section>
-          <section>
-            <h2>Your rights</h2>
-            <p>
-              Under the Data Protection Act 2019 of Kenya, and under the General Data Protection
-              Regulation where it applies, you may ask for a copy of the personal information held
-              about you, ask for it to be corrected, ask for it to be deleted, object to how it is
-              used, or ask for it in a portable form. Write to the business you dealt with, or to us
-              and we will pass it on and help them answer.
-            </p>
-            <p>
-              Deletion is set out step by step on the
-              <a href="/data-deletion">deleting your data</a> page.
-            </p>
-            <p>
-              If you are not satisfied with how a request was handled, you may complain to the
-              <a href="https://www.odpc.go.ke" rel="noreferrer"
-                >Office of the Data Protection Commissioner</a
-              >.
-            </p>
-          </section>
-          <section>
-            <h2>Children</h2>
-            <p>
-              The software is sold to businesses for use by their staff and is not intended for
-              anyone under eighteen.
-            </p>
-          </section>
-          <section>
-            <h2>Changes</h2>
-            <p>
-              When this policy changes materially we update the date at the top of this page and
-              tell the businesses that use the software before the change takes effect.
-            </p>
-          </section>
-          <section>
-            <h2>Contact</h2>
-            <p>
-              Data protection officer: Joe Liban,
-              <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>. Post: Flare CRM,
-              Upperhill, Nairobi, 24770-00100, Kenya.
-            </p>
-          </section>
+            <hr />
+            <section id="s0">
+              <h2>Who is responsible for your information</h2>
+              <p>
+                Flare CRM is customer relationship software licensed to a business, which runs it
+                for its own staff and its own customers. That business decides what goes into it and
+                what it is used for, which makes them the data controller. Flare CRM operates the
+                software on their behalf and is a data processor: we act on their instructions and
+                do not use what is in their system for our own purposes.
+              </p>
+              <p>
+                If you are a member of the public who has been in touch with a business that uses
+                Flare CRM, your first port of call is that business. We will help them answer you,
+                and you can write to us directly at
+                <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>.
+              </p>
+            </section>
+            <section id="s1">
+              <h2>What the system holds</h2>
+              <ul>
+                <li>
+                  Contact and company records: names, phone numbers, email addresses, and whatever
+                  notes and custom fields the business chooses to keep.
+                </li>
+                <li>
+                  Sales records: leads, deals, tasks and the activity trail against each of them.
+                </li>
+                <li>
+                  Telephone records: who called whom, when, for how long, and call recordings where
+                  the business has switched recording on.
+                </li>
+                <li>
+                  Messages: WhatsApp and SMS conversations between the business and the people who
+                  write to it, including attachments.
+                </li>
+                <li>Files uploaded against a record.</li>
+                <li>
+                  Staff accounts: name, email address, role, phone extension, and the times and
+                  addresses they signed in from.
+                </li>
+                <li>
+                  An audit log of what each member of staff did, which cannot be edited or deleted
+                  by anyone, including administrators.
+                </li>
+              </ul>
+              <p>
+                We do not sell any of it, we do not use it for advertising, and we do not use it to
+                train machine learning models.
+              </p>
+            </section>
+            <section id="s2">
+              <h2>WhatsApp messages</h2>
+              <p>
+                Where a business has connected WhatsApp, messages sent to its WhatsApp business
+                number arrive through the WhatsApp Business Cloud API operated by Meta and are
+                stored in that business&rsquo;s own system so its staff can read and reply to them.
+                The message content, the sender&rsquo;s WhatsApp phone number and display name, and
+                any attachment are kept for as long as the business keeps its conversation history.
+                Meta processes those messages as they pass through its platform under its own terms;
+                we receive them by webhook and store them only in the system belonging to the
+                business you wrote to.
+              </p>
+            </section>
+            <section id="s3">
+              <h2>What we measure about the software itself</h2>
+              <p>
+                Each installation reports its own health to us so we can keep it running: how many
+                staff accounts are in use, how much storage is used, whether its checks are passing,
+                which version it runs and when it last backed up. Those measurements contain no
+                contacts, no calls, no messages and no names.
+              </p>
+            </section>
+            <section id="s4">
+              <h2>Who else processes it</h2>
+              <ul>
+                <li>Google Cloud, which hosts the servers the software runs on.</li>
+                <li>
+                  Meta Platforms, for messages sent and received over the WhatsApp Business Cloud
+                  API.
+                </li>
+                <li>
+                  The telephone system connected to the installation, for call signalling and
+                  recordings.
+                </li>
+                <li>
+                  The email provider configured for the installation, for notifications, password
+                  links and alerts.
+                </li>
+              </ul>
+              <p>
+                Each is used for that one purpose and nothing else. We do not add a processor to an
+                existing installation without telling the business that runs it.
+              </p>
+            </section>
+            <section id="s5">
+              <h2>How long it is kept</h2>
+              <p>
+                The business sets its own retention periods and a nightly job enforces them: records
+                past their period are removed, and call recordings are deleted on the schedule
+                chosen for them. A deleted contact, company or deal is hidden first and destroyed
+                when its purge period passes, so an accidental deletion can be undone. Backups are
+                taken nightly and the most recent fourteen are kept, so information can persist in a
+                backup for up to fourteen days after it is deleted from the live system. The audit
+                log is kept for the life of the installation, because a record of who did what is
+                worth nothing if it can be pruned.
+              </p>
+            </section>
+            <section id="s6">
+              <h2>Security</h2>
+              <p>
+                Traffic is encrypted in transit. Passwords are hashed and are visible to nobody,
+                including us. Two-factor authentication is available to every account and can be
+                required of privileged ones. What each member of staff can see and do is decided by
+                their role, and every consequential action, including refusals, is written to the
+                audit log. Access to the servers is limited to named administrators.
+              </p>
+            </section>
+            <section id="s7">
+              <h2>Cookies</h2>
+              <p>
+                The application sets one cookie, which keeps you signed in, and remembers your theme
+                choice in your own browser. There is no advertising, no analytics tracking and no
+                third-party cookie.
+              </p>
+            </section>
+            <section id="s8">
+              <h2>Your rights</h2>
+              <p>
+                Under the Data Protection Act 2019 of Kenya, and under the General Data Protection
+                Regulation where it applies, you may ask for a copy of the personal information held
+                about you, ask for it to be corrected, ask for it to be deleted, object to how it is
+                used, or ask for it in a portable form. Write to the business you dealt with, or to
+                us and we will pass it on and help them answer.
+              </p>
+              <p>
+                Deletion is set out step by step on the
+                <a href="/data-deletion">deleting your data</a> page.
+              </p>
+              <p>
+                If you are not satisfied with how a request was handled, you may complain to the
+                <a href="https://www.odpc.go.ke" rel="noreferrer"
+                  >Office of the Data Protection Commissioner</a
+                >.
+              </p>
+            </section>
+            <section id="s9">
+              <h2>Children</h2>
+              <p>
+                The software is sold to businesses for use by their staff and is not intended for
+                anyone under eighteen.
+              </p>
+            </section>
+            <section id="s10">
+              <h2>Changes</h2>
+              <p>
+                When this policy changes materially we update the date at the top of this page and
+                tell the businesses that use the software before the change takes effect.
+              </p>
+            </section>
+            <section id="s11">
+              <h2>Contact</h2>
+              <p>
+                Data protection officer: Joe Liban,
+                <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>. Post: Flare CRM,
+                Upperhill, Nairobi, 24770-00100, Kenya.
+              </p>
+            </section>
+          </div>
         </div>
       </div>
     </main>
     <footer class="site-footer">
-      <div class="wrap">
-        <nav class="footer-nav" aria-label="Footer">
-          <a href="/product">Product</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/security">Security</a>
-          <a href="/setup">Setup</a>
-          <a href="/contact">Contact</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-          <a href="/data-deletion">Deleting your data</a>
-          <a href="#signin" data-signin-open>Sign in</a>
+      <svg class="scallop" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          d="M0,0 H1440 V8 Q-30,40 0,8 Q30,40 60,8 Q90,40 120,8 Q150,40 180,8 Q210,40 240,8 Q270,40 300,8 Q330,40 360,8 Q390,40 420,8 Q450,40 480,8 Q510,40 540,8 Q570,40 600,8 Q630,40 660,8 Q690,40 720,8 Q750,40 780,8 Q810,40 840,8 Q870,40 900,8 Q930,40 960,8 Q990,40 1020,8 Q1050,40 1080,8 Q1110,40 1140,8 Q1170,40 1200,8 Q1230,40 1260,8 Q1290,40 1320,8 Q1350,40 1380,8 Q1410,40 1440,8 V0 Z"
+        />
+      </svg>
+      <div class="footer-play" aria-hidden="true">
+        <picture
+          ><source type="image/avif" srcset="/objects/desk-bell.avif" />
+          <img
+            src="/objects/desk-bell.webp"
+            alt=""
+            width="260"
+            height="227"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="12" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/keys.avif" />
+          <img
+            src="/objects/keys.webp"
+            alt=""
+            width="245"
+            height="268"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="44" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/chai.avif" />
+          <img
+            src="/objects/chai.webp"
+            alt=""
+            width="285"
+            height="251"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="72" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/paper-plane.avif" />
+          <img
+            src="/objects/paper-plane.webp"
+            alt=""
+            width="303"
+            height="200"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="88" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/sim.avif" />
+          <img
+            src="/objects/sim.webp"
+            alt=""
+            width="512"
+            height="512"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="28" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/receipt-roll.avif" />
+          <img
+            src="/objects/receipt-roll.webp"
+            alt=""
+            width="302"
+            height="258"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="60"
+        /></picture>
+      </div>
+      <p class="mono footer-score">KNOCKED · <span data-score>00</span></p>
+      <div class="footer-mark">
+        <span>Flare</span>
+        <img src="/brand/mark.svg" alt="" width="100" height="100" />
+      </div>
+      <div class="footer-feet">
+        <span>FLARE CRM · UPPERHILL, NAIROBI · HELLO@FLAREHUB.CO.KE</span>
+        <nav aria-label="Legal">
+          <a href="/privacy">PRIVACY</a>
+          <a href="/terms">TERMS</a>
+          <a href="/data-deletion">DELETING YOUR DATA</a>
         </nav>
-        <p>
-          Flare CRM, Upperhill, Nairobi, 24770-00100, Kenya.
-          <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>
-        </p>
       </div>
     </footer>
-    <script src="/assets/site.js" defer></script>
+    <button
+      class="theme-toggle"
+      type="button"
+      data-theme-toggle
+      aria-label="Switch to the light theme"
+    >
+      <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#sun"></use></svg>
+    </button>
   </body>
 </html>

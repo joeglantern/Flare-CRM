@@ -1,53 +1,85 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Not found · Flare CRM</title>
-    <meta name="description" content="That page is not here." />
+    <meta name="description" content="This page is not on the timeline." />
+    <meta name="theme-color" content="#000000" />
     <link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />
-    <link rel="canonical" href="https://flarehub.co.ke/404" />
     <meta property="og:title" content="Not found · Flare CRM" />
-    <meta property="og:description" content="That page is not here." />
-    <meta property="og:image" content="https://flarehub.co.ke/brand/og.png" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="og:description" content="This page is not on the timeline." />
+    <meta property="og:image" content="/brand/og.png" />
+    <meta property="og:type" content="website" />
+    <link
+      rel="preload"
+      href="/fonts/inter-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="stylesheet" href="/assets/base.css" />
     <link rel="stylesheet" href="/assets/site.css" />
+    <script src="/assets/site.js" defer></script>
   </head>
   <body>
-    <header class="site-header on-sky">
-      <div class="wrap">
-        <a class="brand" href="/"
-          ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b
-          ><span>CRM</span></a
-        >
-        <nav class="site-nav" aria-label="Primary">
-          <a href="/product">Product</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/security">Security</a>
-          <a href="/setup">Setup</a>
-        </nav>
-        <div class="header-actions">
-          <button class="btn btn-icon" type="button" data-theme-toggle aria-label="Switch theme">
-            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#sun" /></svg>
-          </button>
-          <a class="btn btn-signin" href="#signin" data-signin-open>Sign in</a>
-          <a class="btn btn-primary" href="/contact">Book a demo</a>
-        </div>
-      </div>
+    <div class="curtain" aria-hidden="true"></div>
+    <div class="slats" aria-hidden="true">
+      <i style="left: 0%; --i: 0"></i><i style="left: 12.5%; --i: 1"></i
+      ><i style="left: 25%; --i: 2"></i><i style="left: 37.5%; --i: 3"></i
+      ><i style="left: 50%; --i: 4"></i><i style="left: 62.5%; --i: 5"></i
+      ><i style="left: 75%; --i: 6"></i><i style="left: 87.5%; --i: 7"></i>
+    </div>
+    <header class="site-header">
+      <a class="brand" href="/"><img src="/brand/mark.svg" alt="" width="22" height="22" />Flare</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/product">PRODUCT</a><a href="/pricing">PRICING</a><a href="/security">SECURITY</a
+        ><a href="/setup">SETUP</a><a href="/contact">CONTACT</a>
+        <a href="#signin" data-opens="signin">SIGN IN</a>
+        <button class="menu-open" type="button" data-opens="menu" aria-haspopup="dialog">
+          MENU<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#menu"></use></svg>
+        </button>
+      </nav>
     </header>
-
-    <dialog class="signin" id="signin">
-      <form method="dialog">
-        <div class="signin-title">
-          <img src="/brand/mark.svg" alt="" width="20" height="20" />Find your Flare
-        </div>
-        <p class="muted">
+    <div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Menu">
+      <div class="menu-head">
+        <a class="brand" href="/"><img src="/brand/mark.svg" alt="" width="22" height="22" /></a>
+        <a class="menu-close" href="#" data-closes
+          >CLOSE<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x"></use></svg
+        ></a>
+      </div>
+      <nav aria-label="All pages">
+        <a href="/product" style="--i: 0"><span>01</span>Product</a
+        ><a href="/pricing" style="--i: 1"><span>02</span>Pricing</a
+        ><a href="/security" style="--i: 2"><span>03</span>Security</a
+        ><a href="/setup" style="--i: 3"><span>04</span>Setup</a
+        ><a href="/contact" style="--i: 4"><span>05</span>Contact</a>
+      </nav>
+      <picture
+        ><source type="image/avif" srcset="/mascot/pointing.avif" />
+        <img
+          src="/mascot/pointing.webp"
+          alt=""
+          width="270"
+          height="269"
+          loading="lazy"
+          decoding="async"
+          class="scr menu-mascot"
+      /></picture>
+      <div class="menu-feet">
+        <a href="#signin" data-opens="signin">SIGN IN</a>
+        <a href="mailto:hello@flarehub.co.ke">HELLO@FLAREHUB.CO.KE</a>
+      </div>
+    </div>
+    <div class="signin" id="signin" role="dialog" aria-modal="true" aria-labelledby="signin-title">
+      <div class="signin-panel">
+        <h2 id="signin-title">Find your Flare</h2>
+        <p>
           Every company has its own installation at its own address, so there is no single sign-in
           page. Type your company name and we will send you to the right one.
         </p>
         <label class="field" for="company"
-          ><span>Company name</span>
+          ><span>COMPANY NAME</span>
           <input
             id="company"
             name="company"
@@ -57,67 +89,153 @@
           />
         </label>
         <p class="signin-preview">
-          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right" /></svg>
-          <span class="mono" id="company-address">yourcompany.flarehub.co.ke</span>
+          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right"></use></svg
+          ><span id="company-address">yourcompany.flarehub.co.ke</span>
         </p>
-        <a class="btn btn-primary btn-lg" id="company-go" href="#">Go to sign in</a>
-        <p class="muted" style="font-size: 13px">
+        <a class="btn btn-primary" id="company-go" href="#">Go to sign in</a>
+        <p>
           Your administrator can tell you the address. It is also in the welcome email you were
           sent.
         </p>
-        <button class="btn" type="submit" value="close">Close</button>
-      </form>
-    </dialog>
-    <main>
-      <section class="sky notfound">
+        <a class="btn btn-ghost" href="#" data-closes>Close</a>
+      </div>
+    </div>
+    <main class="lost ink">
+      <picture
+        ><source type="image/avif" srcset="/plates/ember.avif" />
         <img
-          class="plate"
-          data-layer="plate"
-          src="/plates/cloud-layers.webp"
+          src="/plates/ember.webp"
           alt=""
           width="828"
-          height="466"
-          style="opacity: 0.7"
-        />
-        <div class="grain"></div>
+          height="458"
+          loading="lazy"
+          decoding="async"
+          class="lost-plate"
+      /></picture>
+      <div class="grain"></div>
+      <div class="wrap">
+        <div class="hero-copy">
+          <p class="tag">404 · NO LINE HERE</p>
+          <h1 class="display" style="font-size: clamp(40px, 7vw, 96px)">
+            <span class="rise"><span style="--i: 0">This page is not</span></span
+            ><span class="rise"><span style="--i: 1">on the timeline.</span></span>
+          </h1>
+          <p class="lead settle">
+            The address may be wrong, or the page moved. If you were looking for your company’s
+            Flare, it lives at its own address, not here.
+          </p>
+          <div class="hero-actions settle">
+            <a class="btn btn-ghost" href="/">Home</a>
+            <a class="btn btn-primary" href="#signin" data-opens="signin">Find my Flare</a>
+          </div>
+        </div>
+      </div>
+      <picture
+        ><source type="image/avif" srcset="/mascot/tangled.avif" />
         <img
-          class="screen"
           src="/mascot/tangled.webp"
           alt=""
-          width="384"
-          height="256"
-          style="position: relative; z-index: 3"
-        />
-        <h1 style="position: relative; z-index: 3">That page is not here.</h1>
-        <p class="muted" style="position: relative; z-index: 3; max-width: 44ch; color: #a3a19c">
-          The link may be old, or we may have moved something. The product, the pricing and the
-          setup steps are all one click away.
-        </p>
-        <div class="hero-actions" style="position: relative; z-index: 3">
-          <a class="btn btn-primary btn-lg" href="/">Back to the start</a>
-          <a class="btn btn-lg" href="/contact">Talk to us</a>
-        </div>
-      </section>
+          width="215"
+          height="239"
+          loading="lazy"
+          decoding="async"
+          class="scr lost-mascot"
+      /></picture>
     </main>
     <footer class="site-footer">
-      <div class="wrap">
-        <nav class="footer-nav" aria-label="Footer">
-          <a href="/product">Product</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/security">Security</a>
-          <a href="/setup">Setup</a>
-          <a href="/contact">Contact</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-          <a href="/data-deletion">Deleting your data</a>
-          <a href="#signin" data-signin-open>Sign in</a>
+      <svg class="scallop" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          d="M0,0 H1440 V8 Q-30,40 0,8 Q30,40 60,8 Q90,40 120,8 Q150,40 180,8 Q210,40 240,8 Q270,40 300,8 Q330,40 360,8 Q390,40 420,8 Q450,40 480,8 Q510,40 540,8 Q570,40 600,8 Q630,40 660,8 Q690,40 720,8 Q750,40 780,8 Q810,40 840,8 Q870,40 900,8 Q930,40 960,8 Q990,40 1020,8 Q1050,40 1080,8 Q1110,40 1140,8 Q1170,40 1200,8 Q1230,40 1260,8 Q1290,40 1320,8 Q1350,40 1380,8 Q1410,40 1440,8 V0 Z"
+        />
+      </svg>
+      <div class="footer-play" aria-hidden="true">
+        <picture
+          ><source type="image/avif" srcset="/objects/desk-bell.avif" />
+          <img
+            src="/objects/desk-bell.webp"
+            alt=""
+            width="260"
+            height="227"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="12" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/keys.avif" />
+          <img
+            src="/objects/keys.webp"
+            alt=""
+            width="245"
+            height="268"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="44" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/chai.avif" />
+          <img
+            src="/objects/chai.webp"
+            alt=""
+            width="285"
+            height="251"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="72" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/paper-plane.avif" />
+          <img
+            src="/objects/paper-plane.webp"
+            alt=""
+            width="303"
+            height="200"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="88" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/sim.avif" />
+          <img
+            src="/objects/sim.webp"
+            alt=""
+            width="512"
+            height="512"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="28" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/receipt-roll.avif" />
+          <img
+            src="/objects/receipt-roll.webp"
+            alt=""
+            width="302"
+            height="258"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="60"
+        /></picture>
+      </div>
+      <p class="mono footer-score">KNOCKED · <span data-score>00</span></p>
+      <div class="footer-mark">
+        <span>Flare</span>
+        <img src="/brand/mark.svg" alt="" width="100" height="100" />
+      </div>
+      <div class="footer-feet">
+        <span>FLARE CRM · UPPERHILL, NAIROBI · HELLO@FLAREHUB.CO.KE</span>
+        <nav aria-label="Legal">
+          <a href="/privacy">PRIVACY</a>
+          <a href="/terms">TERMS</a>
+          <a href="/data-deletion">DELETING YOUR DATA</a>
         </nav>
-        <p>
-          Flare CRM, Upperhill, Nairobi, 24770-00100, Kenya.
-          <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>
-        </p>
       </div>
     </footer>
-    <script src="/assets/site.js" defer></script>
   </body>
 </html>

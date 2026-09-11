@@ -1,59 +1,91 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Deleting your data · Flare CRM</title>
     <meta
       name="description"
-      content="How to have information about you removed from a Flare CRM installation."
+      content="How to have information about you removed, and how long it takes."
     />
+    <meta name="theme-color" content="#000000" />
     <link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />
-    <link rel="canonical" href="https://flarehub.co.ke/data-deletion" />
     <meta property="og:title" content="Deleting your data · Flare CRM" />
     <meta
       property="og:description"
-      content="How to have information about you removed from a Flare CRM installation."
+      content="How to have information about you removed, and how long it takes."
     />
-    <meta property="og:image" content="https://flarehub.co.ke/brand/og.png" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="og:image" content="/brand/og.png" />
+    <meta property="og:type" content="website" />
+    <link
+      rel="preload"
+      href="/fonts/inter-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="stylesheet" href="/assets/base.css" />
     <link rel="stylesheet" href="/assets/site.css" />
+    <script src="/assets/site.js" defer></script>
   </head>
   <body>
+    <div class="curtain" aria-hidden="true"></div>
+    <div class="slats" aria-hidden="true">
+      <i style="left: 0%; --i: 0"></i><i style="left: 12.5%; --i: 1"></i
+      ><i style="left: 25%; --i: 2"></i><i style="left: 37.5%; --i: 3"></i
+      ><i style="left: 50%; --i: 4"></i><i style="left: 62.5%; --i: 5"></i
+      ><i style="left: 75%; --i: 6"></i><i style="left: 87.5%; --i: 7"></i>
+    </div>
     <header class="site-header">
-      <div class="wrap">
-        <a class="brand" href="/"
-          ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b
-          ><span>CRM</span></a
-        >
-        <nav class="site-nav" aria-label="Primary">
-          <a href="/product">Product</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/security">Security</a>
-          <a href="/setup">Setup</a>
-        </nav>
-        <div class="header-actions">
-          <button class="btn btn-icon" type="button" data-theme-toggle aria-label="Switch theme">
-            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#sun" /></svg>
-          </button>
-          <a class="btn btn-signin" href="#signin" data-signin-open>Sign in</a>
-          <a class="btn btn-primary" href="/contact">Book a demo</a>
-        </div>
-      </div>
+      <a class="brand" href="/"><img src="/brand/mark.svg" alt="" width="22" height="22" />Flare</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/product">PRODUCT</a><a href="/pricing">PRICING</a><a href="/security">SECURITY</a
+        ><a href="/setup">SETUP</a><a href="/contact">CONTACT</a>
+        <a href="#signin" data-opens="signin">SIGN IN</a>
+        <button class="menu-open" type="button" data-opens="menu" aria-haspopup="dialog">
+          MENU<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#menu"></use></svg>
+        </button>
+      </nav>
     </header>
-
-    <dialog class="signin" id="signin">
-      <form method="dialog">
-        <div class="signin-title">
-          <img src="/brand/mark.svg" alt="" width="20" height="20" />Find your Flare
-        </div>
-        <p class="muted">
+    <div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Menu">
+      <div class="menu-head">
+        <a class="brand" href="/"><img src="/brand/mark.svg" alt="" width="22" height="22" /></a>
+        <a class="menu-close" href="#" data-closes
+          >CLOSE<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x"></use></svg
+        ></a>
+      </div>
+      <nav aria-label="All pages">
+        <a href="/product" style="--i: 0"><span>01</span>Product</a
+        ><a href="/pricing" style="--i: 1"><span>02</span>Pricing</a
+        ><a href="/security" style="--i: 2"><span>03</span>Security</a
+        ><a href="/setup" style="--i: 3"><span>04</span>Setup</a
+        ><a href="/contact" style="--i: 4"><span>05</span>Contact</a>
+      </nav>
+      <picture
+        ><source type="image/avif" srcset="/mascot/pointing.avif" />
+        <img
+          src="/mascot/pointing.webp"
+          alt=""
+          width="270"
+          height="269"
+          loading="lazy"
+          decoding="async"
+          class="scr menu-mascot"
+      /></picture>
+      <div class="menu-feet">
+        <a href="#signin" data-opens="signin">SIGN IN</a>
+        <a href="mailto:hello@flarehub.co.ke">HELLO@FLAREHUB.CO.KE</a>
+      </div>
+    </div>
+    <div class="signin" id="signin" role="dialog" aria-modal="true" aria-labelledby="signin-title">
+      <div class="signin-panel">
+        <h2 id="signin-title">Find your Flare</h2>
+        <p>
           Every company has its own installation at its own address, so there is no single sign-in
           page. Type your company name and we will send you to the right one.
         </p>
         <label class="field" for="company"
-          ><span>Company name</span>
+          ><span>COMPANY NAME</span>
           <input
             id="company"
             name="company"
@@ -63,133 +95,227 @@
           />
         </label>
         <p class="signin-preview">
-          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right" /></svg>
-          <span class="mono" id="company-address">yourcompany.flarehub.co.ke</span>
+          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right"></use></svg
+          ><span id="company-address">yourcompany.flarehub.co.ke</span>
         </p>
-        <a class="btn btn-primary btn-lg" id="company-go" href="#">Go to sign in</a>
-        <p class="muted" style="font-size: 13px">
+        <a class="btn btn-primary" id="company-go" href="#">Go to sign in</a>
+        <p>
           Your administrator can tell you the address. It is also in the welcome email you were
           sent.
         </p>
-        <button class="btn" type="submit" value="close">Close</button>
-      </form>
-    </dialog>
-    <main>
+        <a class="btn btn-ghost" href="#" data-closes>Close</a>
+      </div>
+    </div>
+    <main class="ink legal-main">
+      <div class="grain"></div>
+      <section class="page-head">
+        <div class="wrap"><p class="tag">YOUR DATA</p></div>
+      </section>
       <div class="wrap">
-        <div class="page-head">
-          <p class="eyebrow">Deleting your data</p>
-          <h1>Deleting your data</h1>
-          <p>
-            How to have information about you removed, what happens when you ask, and how long it
-            takes.
-          </p>
-          <p class="caption" style="margin-top: 14px">Last updated 10 September 2026.</p>
-        </div>
-        <div class="prose">
-          <section>
-            <h2>Ask the business you dealt with</h2>
+        <div class="legal">
+          <nav class="legal-toc" aria-label="On this page">
+            <span style="color: var(--text)">ON THIS PAGE</span
+            ><a href="#s0">Ask the business you dealt with</a
+            ><a href="#s1">Deleting a WhatsApp conversation</a><a href="#s2">What happens then</a
+            ><a href="#s3">What is kept, and why</a><a href="#s4">If you are a member of staff</a
+            ><a href="#s5">How long we take</a><a href="#s6">If you are not satisfied</a
+            ><span style="margin-top: 20px">LAST UPDATED 10 SEPTEMBER 2026</span>
+          </nav>
+          <div class="legal-body">
+            <h1>Deleting your data</h1>
             <p>
-              Flare CRM is used by a business to keep track of the people it deals with. That
-              business decides what is kept about you, so a deletion request goes to them first: the
-              company whose staff called you, or whose WhatsApp number you wrote to. They can delete
-              your record themselves, immediately, from within the software.
+              How to have information about you removed, what happens when you ask, and how long it
+              takes.
             </p>
-            <p>
-              If you do not know who holds your details, or they do not respond, write to us at
-              <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a> with the phone number
-              or email address you were contacted on. We will identify the installation, pass the
-              request to them, and follow it up.
-            </p>
-          </section>
-          <section>
-            <h2>Deleting a WhatsApp conversation</h2>
-            <p>
-              To have the WhatsApp messages between you and a business removed from its system, send
-              the request from, or quoting, the WhatsApp number you messaged from, either to the
-              business or to us at the address above. The conversation, its attachments and the
-              phone number it is filed under are deleted together. Deleting them here does not
-              delete the copy in your own WhatsApp app, which only you can remove.
-            </p>
-          </section>
-          <section>
-            <h2>What happens then</h2>
-            <ul>
-              <li>
-                The record is hidden immediately, so no member of staff can see it or act on it.
-              </li>
-              <li>
-                It is destroyed permanently when the purge period the business has set passes, which
-                is what makes an accidental deletion recoverable in the meantime.
-              </li>
-              <li>
-                Call recordings and message attachments are deleted with it from file storage.
-              </li>
-              <li>
-                Nightly backups are kept for fourteen days, so a copy exists in a backup until the
-                last backup taken before the deletion rolls off.
-              </li>
-            </ul>
-          </section>
-          <section>
-            <h2>What is kept, and why</h2>
-            <p>
-              Two things survive a deletion. The audit log keeps a line saying that a record was
-              deleted and by whom, without the record itself, because a log that can be rewritten is
-              not a log. Where the business has a legal obligation to keep something, for example an
-              invoice or a record required by a regulator, it keeps that and nothing more. If you
-              ask, the business must tell you which of the two applies to you.
-            </p>
-          </section>
-          <section>
-            <h2>If you are a member of staff</h2>
-            <p>
-              Your account belongs to your employer. Ask an administrator to deactivate it: they can
-              do that from the settings screen, which signs you out everywhere and stops the account
-              being used, while leaving the work you did attributed to you in the record. Removing
-              your name from that history is a decision for your employer, since it is their
-              business record.
-            </p>
-          </section>
-          <section>
-            <h2>How long we take</h2>
-            <p>
-              We acknowledge a request within three working days and complete it within thirty days,
-              which is the period the Data Protection Act 2019 allows. If a request is going to take
-              longer than that, we tell you why before the thirty days are up.
-            </p>
-          </section>
-          <section>
-            <h2>If you are not satisfied</h2>
-            <p>
-              You may complain to the
-              <a href="https://www.odpc.go.ke" rel="noreferrer"
-                >Office of the Data Protection Commissioner</a
-              >
-              in Kenya, or to the supervisory authority where you live.
-            </p>
-          </section>
+            <hr />
+            <section id="s0">
+              <h2>Ask the business you dealt with</h2>
+              <p>
+                Flare CRM is used by a business to keep track of the people it deals with. That
+                business decides what is kept about you, so a deletion request goes to them first:
+                the company whose staff called you, or whose WhatsApp number you wrote to. They can
+                delete your record themselves, immediately, from within the software.
+              </p>
+              <p>
+                If you do not know who holds your details, or they do not respond, write to us at
+                <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a> with the phone number
+                or email address you were contacted on. We will identify the installation, pass the
+                request to them, and follow it up.
+              </p>
+            </section>
+            <section id="s1">
+              <h2>Deleting a WhatsApp conversation</h2>
+              <p>
+                To have the WhatsApp messages between you and a business removed from its system,
+                send the request from, or quoting, the WhatsApp number you messaged from, either to
+                the business or to us at the address above. The conversation, its attachments and
+                the phone number it is filed under are deleted together. Deleting them here does not
+                delete the copy in your own WhatsApp app, which only you can remove.
+              </p>
+            </section>
+            <section id="s2">
+              <h2>What happens then</h2>
+              <ul>
+                <li>
+                  The record is hidden immediately, so no member of staff can see it or act on it.
+                </li>
+                <li>
+                  It is destroyed permanently when the purge period the business has set passes,
+                  which is what makes an accidental deletion recoverable in the meantime.
+                </li>
+                <li>
+                  Call recordings and message attachments are deleted with it from file storage.
+                </li>
+                <li>
+                  Nightly backups are kept for fourteen days, so a copy exists in a backup until the
+                  last backup taken before the deletion rolls off.
+                </li>
+              </ul>
+            </section>
+            <section id="s3">
+              <h2>What is kept, and why</h2>
+              <p>
+                Two things survive a deletion. The audit log keeps a line saying that a record was
+                deleted and by whom, without the record itself, because a log that can be rewritten
+                is not a log. Where the business has a legal obligation to keep something, for
+                example an invoice or a record required by a regulator, it keeps that and nothing
+                more. If you ask, the business must tell you which of the two applies to you.
+              </p>
+            </section>
+            <section id="s4">
+              <h2>If you are a member of staff</h2>
+              <p>
+                Your account belongs to your employer. Ask an administrator to deactivate it: they
+                can do that from the settings screen, which signs you out everywhere and stops the
+                account being used, while leaving the work you did attributed to you in the record.
+                Removing your name from that history is a decision for your employer, since it is
+                their business record.
+              </p>
+            </section>
+            <section id="s5">
+              <h2>How long we take</h2>
+              <p>
+                We acknowledge a request within three working days and complete it within thirty
+                days, which is the period the Data Protection Act 2019 allows. If a request is going
+                to take longer than that, we tell you why before the thirty days are up.
+              </p>
+            </section>
+            <section id="s6">
+              <h2>If you are not satisfied</h2>
+              <p>
+                You may complain to the
+                <a href="https://www.odpc.go.ke" rel="noreferrer"
+                  >Office of the Data Protection Commissioner</a
+                >
+                in Kenya, or to the supervisory authority where you live.
+              </p>
+            </section>
+          </div>
         </div>
       </div>
     </main>
     <footer class="site-footer">
-      <div class="wrap">
-        <nav class="footer-nav" aria-label="Footer">
-          <a href="/product">Product</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/security">Security</a>
-          <a href="/setup">Setup</a>
-          <a href="/contact">Contact</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-          <a href="/data-deletion">Deleting your data</a>
-          <a href="#signin" data-signin-open>Sign in</a>
+      <svg class="scallop" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          d="M0,0 H1440 V8 Q-30,40 0,8 Q30,40 60,8 Q90,40 120,8 Q150,40 180,8 Q210,40 240,8 Q270,40 300,8 Q330,40 360,8 Q390,40 420,8 Q450,40 480,8 Q510,40 540,8 Q570,40 600,8 Q630,40 660,8 Q690,40 720,8 Q750,40 780,8 Q810,40 840,8 Q870,40 900,8 Q930,40 960,8 Q990,40 1020,8 Q1050,40 1080,8 Q1110,40 1140,8 Q1170,40 1200,8 Q1230,40 1260,8 Q1290,40 1320,8 Q1350,40 1380,8 Q1410,40 1440,8 V0 Z"
+        />
+      </svg>
+      <div class="footer-play" aria-hidden="true">
+        <picture
+          ><source type="image/avif" srcset="/objects/desk-bell.avif" />
+          <img
+            src="/objects/desk-bell.webp"
+            alt=""
+            width="260"
+            height="227"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="12" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/keys.avif" />
+          <img
+            src="/objects/keys.webp"
+            alt=""
+            width="245"
+            height="268"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="44" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/chai.avif" />
+          <img
+            src="/objects/chai.webp"
+            alt=""
+            width="285"
+            height="251"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="72" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/paper-plane.avif" />
+          <img
+            src="/objects/paper-plane.webp"
+            alt=""
+            width="303"
+            height="200"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="88" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/sim.avif" />
+          <img
+            src="/objects/sim.webp"
+            alt=""
+            width="512"
+            height="512"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="28" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/receipt-roll.avif" />
+          <img
+            src="/objects/receipt-roll.webp"
+            alt=""
+            width="302"
+            height="258"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="60"
+        /></picture>
+      </div>
+      <p class="mono footer-score">KNOCKED · <span data-score>00</span></p>
+      <div class="footer-mark">
+        <span>Flare</span>
+        <img src="/brand/mark.svg" alt="" width="100" height="100" />
+      </div>
+      <div class="footer-feet">
+        <span>FLARE CRM · UPPERHILL, NAIROBI · HELLO@FLAREHUB.CO.KE</span>
+        <nav aria-label="Legal">
+          <a href="/privacy">PRIVACY</a>
+          <a href="/terms">TERMS</a>
+          <a href="/data-deletion">DELETING YOUR DATA</a>
         </nav>
-        <p>
-          Flare CRM, Upperhill, Nairobi, 24770-00100, Kenya.
-          <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>
-        </p>
       </div>
     </footer>
-    <script src="/assets/site.js" defer></script>
+    <button
+      class="theme-toggle"
+      type="button"
+      data-theme-toggle
+      aria-label="Switch to the light theme"
+    >
+      <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#sun"></use></svg>
+    </button>
   </body>
 </html>

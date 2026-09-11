@@ -48,8 +48,8 @@ docs/design-handoff/
 # local screenshots and scratch images
 /image*.png
 /screenshot*.png
-apps/web/shots/
-apps/site/shots/
+apps/web/shots*/
+apps/site/shots*/
 
 # raw generated sheets, sliced into apps/*/public before use
 /Asset Gen/

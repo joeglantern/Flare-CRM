@@ -1,59 +1,113 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Flare CRM · Calls, WhatsApp and deals on one timeline</title>
+    <title>Flare CRM · The phone rings and the customer is already on screen</title>
     <meta
       name="description"
-      content="Calls, WhatsApp, deals and notes for one customer, on one timeline, on your own server in Kenya."
+      content="Calls, WhatsApp, deals and notes for one customer, on one timeline, on a server you control. Built in Nairobi for businesses that run on the phone."
     />
+    <meta name="theme-color" content="#000000" />
     <link rel="icon" href="/brand/mark.svg" type="image/svg+xml" />
-    <link rel="canonical" href="https://flarehub.co.ke/" />
-    <meta property="og:title" content="Flare CRM · Calls, WhatsApp and deals on one timeline" />
+    <meta
+      property="og:title"
+      content="Flare CRM · The phone rings and the customer is already on screen"
+    />
     <meta
       property="og:description"
-      content="Calls, WhatsApp, deals and notes for one customer, on one timeline, on your own server in Kenya."
+      content="Calls, WhatsApp, deals and notes for one customer, on one timeline, on a server you control. Built in Nairobi for businesses that run on the phone."
     />
-    <meta property="og:image" content="https://flarehub.co.ke/brand/og.png" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="og:image" content="/brand/og.png" />
+    <meta property="og:type" content="website" />
+    <link
+      rel="preload"
+      href="/fonts/inter-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="stylesheet" href="/assets/base.css" />
     <link rel="stylesheet" href="/assets/site.css" />
+    <script>
+      // A count on a charcoal screen, once, for somebody who has not been here before. Anybody
+      // returning, or asking for less movement, goes straight to the page.
+      (function () {
+        try {
+          if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+          if (localStorage.getItem('flarehub-seen')) return;
+        } catch (err) {
+          return;
+        }
+        document.documentElement.setAttribute('data-preload', 'on');
+      })();
+    </script>
+    <script src="/assets/site.js" defer></script>
   </head>
   <body>
-    <header class="site-header on-sky">
-      <div class="wrap">
-        <a class="brand" href="/"
-          ><img src="/brand/mark.svg" alt="" width="22" height="22" /><b>Flare</b
-          ><span>CRM</span></a
-        >
-        <nav class="site-nav" aria-label="Primary">
-          <a href="/product">Product</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/security">Security</a>
-          <a href="/setup">Setup</a>
-        </nav>
-        <div class="header-actions">
-          <button class="btn btn-icon" type="button" data-theme-toggle aria-label="Switch theme">
-            <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#sun" /></svg>
-          </button>
-          <a class="btn btn-signin" href="#signin" data-signin-open>Sign in</a>
-          <a class="btn btn-primary" href="/contact">Book a demo</a>
-        </div>
-      </div>
+    <div class="preloader" aria-hidden="true">
+      <img src="/spark/solid.webp" alt="" width="388" height="443" />
+      <p class="preloader-count">
+        <b data-count>000</b><span class="tag">THE CALL IS LANDING</span>
+      </p>
+    </div>
+    <div class="curtain" aria-hidden="true"></div>
+    <div class="slats" aria-hidden="true">
+      <i style="left: 0%; --i: 0"></i><i style="left: 12.5%; --i: 1"></i
+      ><i style="left: 25%; --i: 2"></i><i style="left: 37.5%; --i: 3"></i
+      ><i style="left: 50%; --i: 4"></i><i style="left: 62.5%; --i: 5"></i
+      ><i style="left: 75%; --i: 6"></i><i style="left: 87.5%; --i: 7"></i>
+    </div>
+    <header class="site-header">
+      <a class="brand" href="/"><img src="/brand/mark.svg" alt="" width="22" height="22" />Flare</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/product">PRODUCT</a><a href="/pricing">PRICING</a><a href="/security">SECURITY</a
+        ><a href="/setup">SETUP</a><a href="/contact">CONTACT</a>
+        <a href="#signin" data-opens="signin">SIGN IN</a>
+        <button class="menu-open" type="button" data-opens="menu" aria-haspopup="dialog">
+          MENU<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#menu"></use></svg>
+        </button>
+      </nav>
     </header>
-
-    <dialog class="signin" id="signin">
-      <form method="dialog">
-        <div class="signin-title">
-          <img src="/brand/mark.svg" alt="" width="20" height="20" />Find your Flare
-        </div>
-        <p class="muted">
+    <div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Menu">
+      <div class="menu-head">
+        <a class="brand" href="/"><img src="/brand/mark.svg" alt="" width="22" height="22" /></a>
+        <a class="menu-close" href="#" data-closes
+          >CLOSE<svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x"></use></svg
+        ></a>
+      </div>
+      <nav aria-label="All pages">
+        <a href="/product" style="--i: 0"><span>01</span>Product</a
+        ><a href="/pricing" style="--i: 1"><span>02</span>Pricing</a
+        ><a href="/security" style="--i: 2"><span>03</span>Security</a
+        ><a href="/setup" style="--i: 3"><span>04</span>Setup</a
+        ><a href="/contact" style="--i: 4"><span>05</span>Contact</a>
+      </nav>
+      <picture
+        ><source type="image/avif" srcset="/mascot/pointing.avif" />
+        <img
+          src="/mascot/pointing.webp"
+          alt=""
+          width="270"
+          height="269"
+          loading="lazy"
+          decoding="async"
+          class="scr menu-mascot"
+      /></picture>
+      <div class="menu-feet">
+        <a href="#signin" data-opens="signin">SIGN IN</a>
+        <a href="mailto:hello@flarehub.co.ke">HELLO@FLAREHUB.CO.KE</a>
+      </div>
+    </div>
+    <div class="signin" id="signin" role="dialog" aria-modal="true" aria-labelledby="signin-title">
+      <div class="signin-panel">
+        <h2 id="signin-title">Find your Flare</h2>
+        <p>
           Every company has its own installation at its own address, so there is no single sign-in
           page. Type your company name and we will send you to the right one.
         </p>
         <label class="field" for="company"
-          ><span>Company name</span>
+          ><span>COMPANY NAME</span>
           <input
             id="company"
             name="company"
@@ -63,469 +117,605 @@
           />
         </label>
         <p class="signin-preview">
-          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right" /></svg>
-          <span class="mono" id="company-address">yourcompany.flarehub.co.ke</span>
+          <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-right"></use></svg
+          ><span id="company-address">yourcompany.flarehub.co.ke</span>
         </p>
-        <a class="btn btn-primary btn-lg" id="company-go" href="#">Go to sign in</a>
-        <p class="muted" style="font-size: 13px">
+        <a class="btn btn-primary" id="company-go" href="#">Go to sign in</a>
+        <p>
           Your administrator can tell you the address. It is also in the welcome email you were
           sent.
         </p>
-        <button class="btn" type="submit" value="close">Close</button>
-      </form>
-    </dialog>
+        <a class="btn btn-ghost" href="#" data-closes>Close</a>
+      </div>
+    </div>
     <main>
-      <section class="sky hero">
-        <img
-          class="plate"
-          data-layer="plate"
-          src="/plates/city-under-cloud.webp"
-          alt=""
-          width="828"
-          height="468"
-          style="object-position: center 60%"
-        />
+      <section class="hero ink">
         <div class="grain"></div>
-        <div class="hero-copy">
-          <h1>The phone rings and the customer is already on screen.</h1>
-          <p>
-            Calls, WhatsApp, deals and notes for one customer, on one timeline, on your own server
-            in Kenya.
-          </p>
-          <div class="hero-actions">
-            <a class="btn btn-primary btn-lg" href="/contact">Book a demo</a>
-            <a class="btn btn-lg" href="#descent"
-              >Start the descent
-              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#arrow-down" /></svg
+        <div class="wrap">
+          <div class="hero-copy">
+            <h1 class="display">
+              <span class="rise"><span style="--i: 0">The phone rings</span></span
+              ><span class="rise"><span style="--i: 1">and the customer</span></span
+              ><span class="rise"><span style="--i: 2">is already</span></span
+              ><span class="rise"><span style="--i: 3">on screen.</span></span>
+            </h1>
+            <p class="lead settle">
+              Calls, WhatsApp, deals and notes for one customer, on one timeline, on a server you
+              control.
+            </p>
+            <div class="hero-actions settle">
+              <a class="btn btn-primary" href="/contact">Book a demo</a>
+              <a class="btn btn-ghost" href="#stage"
+                >Watch it land<svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#arrow-down"></use></svg
+              ></a>
+            </div>
+          </div>
+        </div>
+        <picture
+          ><source type="image/avif" srcset="/handset/01-rest.avif" />
+          <img
+            src="/handset/01-rest.webp"
+            alt=""
+            width="418"
+            height="627"
+            class="scr hero-object"
+            data-drift
+            data-hero-image
+        /></picture>
+        <p class="tag hero-hint">SCROLL TO OPEN<i></i></p>
+      </section>
+
+      <section class="stage" id="stage" aria-labelledby="stage-title">
+        <div class="stage-pin">
+          <div class="grain"></div>
+          <h2 class="sr-only" id="stage-title">The call lands</h2>
+          <div class="stage-frames">
+            <div class="stage-frame">
+              <picture
+                ><source type="image/avif" srcset="/handset/01-rest.avif" />
+                <img src="/handset/01-rest.webp" alt="" width="418" height="627" class="scr"
+              /></picture>
+            </div>
+            <div class="stage-frame">
+              <picture
+                ><source type="image/avif" srcset="/handset/02-seam.avif" />
+                <img
+                  src="/handset/02-seam.webp"
+                  alt=""
+                  width="418"
+                  height="627"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+            </div>
+            <div class="stage-frame">
+              <picture
+                ><source type="image/avif" srcset="/handset/03-parting.avif" />
+                <img
+                  src="/handset/03-parting.webp"
+                  alt=""
+                  width="418"
+                  height="627"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+            </div>
+            <div class="stage-frame">
+              <picture
+                ><source type="image/avif" srcset="/handset/04-rising.avif" />
+                <img
+                  src="/handset/04-rising.webp"
+                  alt=""
+                  width="418"
+                  height="627"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+            </div>
+            <div class="stage-frame">
+              <picture
+                ><source type="image/avif" srcset="/handset/05-risen.avif" />
+                <img
+                  src="/handset/05-risen.webp"
+                  alt=""
+                  width="418"
+                  height="627"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+            </div>
+            <div class="stage-frame">
+              <picture
+                ><source type="image/avif" srcset="/handset/06-free.avif" />
+                <img
+                  src="/handset/06-free.webp"
+                  alt=""
+                  width="418"
+                  height="627"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+            </div>
+          </div>
+          <picture
+            ><source type="image/avif" srcset="/shots/contact-detail-dark.avif" />
+            <img
+              src="/shots/contact-detail-dark.webp"
+              alt="A customer record on screen, with their company, phones and timeline"
+              width="2560"
+              height="1600"
+              loading="lazy"
+              decoding="async"
+              class="stage-shot"
+          /></picture>
+          <div class="stage-lines">
+            <p class="stage-line">The handset at rest. Wanjiru Kamau is calling the main line.</p>
+            <p class="stage-line">
+              A seam of light. Her number matched a contact before the first ring ended.
+            </p>
+            <p class="stage-line">
+              The record inside it, lit. Company, owner, two open deals, the last three things that
+              happened.
+            </p>
+            <p class="stage-line">
+              The screen rises out of the handset. The agent answers knowing what the call is about.
+            </p>
+            <p class="stage-line">
+              The panel is the product. Her record, open, before anybody has said hello.
+            </p>
+          </div>
+
+          <div class="sat sat-1" style="--size: 150px">
+            <svg class="sat-in" viewBox="0 0 140 140" aria-hidden="true">
+              <defs>
+                <path id="arc0" d="M70,70 m-50,0 a50,50 0 1,1 100,0 a50,50 0 1,1 -100,0" />
+              </defs>
+              <circle cx="70" cy="70" r="66" />
+              <text>
+                <textPath href="#arc0">0 RINGS TO FIND THEM · 0 RINGS TO FIND THEM ·</textPath>
+              </text>
+              <image href="/spark/solid.webp" x="52" y="52" width="36" height="36" />
+            </svg>
+          </div>
+          <div class="sat sat-2" style="--size: 120px">
+            <svg class="sat-in" viewBox="0 0 140 140" aria-hidden="true">
+              <defs>
+                <path id="arc1" d="M70,70 m-50,0 a50,50 0 1,1 100,0 a50,50 0 1,1 -100,0" />
+              </defs>
+              <circle cx="70" cy="70" r="66" />
+              <text>
+                <textPath href="#arc1">ONE TIMELINE · ONE TIMELINE · ONE TIMELINE ·</textPath>
+              </text>
+              <image href="/spark/solid.webp" x="52" y="52" width="36" height="36" />
+            </svg>
+          </div>
+          <div class="sat sat-3" style="--size: 132px">
+            <svg class="sat-in" viewBox="0 0 140 140" aria-hidden="true">
+              <defs>
+                <path id="arc2" d="M70,70 m-50,0 a50,50 0 1,1 100,0 a50,50 0 1,1 -100,0" />
+              </defs>
+              <circle cx="70" cy="70" r="66" />
+              <text>
+                <textPath href="#arc2">EVERY CALL RECORDED · EVERY CALL RECORDED ·</textPath>
+              </text>
+              <image href="/spark/solid.webp" x="52" y="52" width="36" height="36" />
+            </svg>
+          </div>
+          <div class="sat sat-4" style="--size: 110px">
+            <svg class="sat-in" viewBox="0 0 140 140" aria-hidden="true">
+              <defs>
+                <path id="arc3" d="M70,70 m-50,0 a50,50 0 1,1 100,0 a50,50 0 1,1 -100,0" />
+              </defs>
+              <circle cx="70" cy="70" r="66" />
+              <text>
+                <textPath href="#arc3">
+                  NOTHING RETYPED · NOTHING RETYPED · NOTHING RETYPED ·
+                </textPath>
+              </text>
+              <image href="/spark/solid.webp" x="52" y="52" width="36" height="36" />
+            </svg>
+          </div>
+          <div class="stage-bar">
+            <div class="stage-bar-head mono">
+              <span><b>RINGING</b><b>00</b></span
+              ><span><b>MATCHED</b><b>25</b></span
+              ><span><b>OPENING</b><b>50</b></span
+              ><span><b>ON SCREEN</b><b>75</b></span
+              ><span><b>NOTED</b><b>100</b></span>
+            </div>
+            <div class="stage-bar-rule"><i></i></div>
+            <div class="stage-bar-ticks">
+              <span>RINGING</span><span>MATCHED</span><span>OPENING</span><span>ON SCREEN</span
+              ><span>NOTED</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="goingin" aria-label="Into the product">
+        <div class="goingin-pin">
+          <picture
+            ><source type="image/avif" srcset="/shots/deals-board-dark.avif" />
+            <img
+              src="/shots/deals-board-dark.webp"
+              alt="The deals board filling the view"
+              width="2560"
+              height="1600"
+              loading="lazy"
+              decoding="async"
+              class="goingin-shot"
+          /></picture>
+          <div class="goingin-vignette"></div>
+          <picture
+            ><source type="image/avif" srcset="/mascot/dive-away.avif" />
+            <img
+              src="/mascot/dive-away.webp"
+              alt=""
+              width="509"
+              height="516"
+              loading="lazy"
+              decoding="async"
+              class="scr goingin-mascot"
+          /></picture>
+          <p class="tag goingin-note">INSIDE THE PRODUCT FROM HERE</p>
+        </div>
+      </section>
+
+      <section class="place">
+        <picture
+          ><source type="image/avif" srcset="/places/parts-shop.avif" />
+          <img
+            src="/places/parts-shop.webp"
+            alt=""
+            width="1916"
+            height="271"
+            loading="lazy"
+            decoding="async"
+        /></picture>
+        <div class="place-scrim"></div>
+        <p>A counter with a phone on it, and forty years of customers nobody wrote down.</p>
+      </section>
+      <section class="place">
+        <picture
+          ><source type="image/avif" srcset="/places/shopfront-row.avif" />
+          <img
+            src="/places/shopfront-row.webp"
+            alt=""
+            width="1916"
+            height="269"
+            loading="lazy"
+            decoding="async"
+        /></picture>
+        <div class="place-scrim"></div>
+        <p>Six shops and one number. Whoever answers should know who is calling.</p>
+      </section>
+      <section class="place">
+        <picture
+          ><source type="image/avif" srcset="/places/back-office.avif" />
+          <img
+            src="/places/back-office.webp"
+            alt=""
+            width="1916"
+            height="269"
+            loading="lazy"
+            decoding="async"
+        /></picture>
+        <div class="place-scrim"></div>
+        <p>Somebody reconciling at nine at night, from three phones and a notebook.</p>
+      </section>
+      <section class="row ink" aria-labelledby="row-title">
+        <div class="grain"></div>
+        <h2 class="subtitle" id="row-title">What lands on the timeline</h2>
+        <div class="row-track">
+          <div class="row-rail">
+            <article class="row-card">
+              <picture
+                ><source type="image/avif" srcset="/objects/handset.avif" />
+                <img
+                  src="/objects/handset.webp"
+                  alt=""
+                  width="512"
+                  height="512"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+              <span class="row-n">01</span>
+              <h3>The call</h3>
+              <p>Who, when, how long, and the recording. Filed before the handset is down.</p>
+            </article>
+            <article class="row-card">
+              <picture
+                ><source type="image/avif" srcset="/objects/chat-bubble.avif" />
+                <img
+                  src="/objects/chat-bubble.webp"
+                  alt=""
+                  width="512"
+                  height="512"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+              <span class="row-n">02</span>
+              <h3>The message</h3>
+              <p>One WhatsApp thread per customer, whoever on the team answers it.</p>
+            </article>
+            <article class="row-card">
+              <picture
+                ><source type="image/avif" srcset="/objects/notebook.avif" />
+                <img
+                  src="/objects/notebook.webp"
+                  alt=""
+                  width="279"
+                  height="266"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+              <span class="row-n">03</span>
+              <h3>The note</h3>
+              <p>
+                Two lines typed during the call, still there six weeks later with a name on them.
+              </p>
+            </article>
+            <article class="row-card">
+              <picture
+                ><source type="image/avif" srcset="/objects/pipeline.avif" />
+                <img
+                  src="/objects/pipeline.webp"
+                  alt=""
+                  width="512"
+                  height="512"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+              <span class="row-n">04</span>
+              <h3>The deal</h3>
+              <p>A stage, a value in shillings, a reason when it is won or lost.</p>
+            </article>
+            <article class="row-card">
+              <picture
+                ><source type="image/avif" srcset="/objects/clipboard.avif" />
+                <img
+                  src="/objects/clipboard.webp"
+                  alt=""
+                  width="234"
+                  height="269"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+              <span class="row-n">05</span>
+              <h3>The task</h3>
+              <p>Call back Tuesday. Assigned, due, and on the timeline when it is done.</p>
+            </article>
+            <article class="row-card">
+              <picture
+                ><source type="image/avif" srcset="/objects/bar-chart.avif" />
+                <img
+                  src="/objects/bar-chart.webp"
+                  alt=""
+                  width="512"
+                  height="512"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+              /></picture>
+              <span class="row-n">06</span>
+              <h3>The report</h3>
+              <p>Missed calls nobody rang back, as a list rather than a guess.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="costs ink" aria-labelledby="costs-title">
+        <div class="grain"></div>
+        <div class="wrap">
+          <div class="costs-head">
+            <h2 class="subtitle" id="costs-title">Per month, in shillings, agreed with you.</h2>
+            <p>
+              A plan is a set of switches and a set of limits. We agree them on a call, and the
+              price follows from what you switch on and how many people use it.
+            </p>
+          </div>
+          <div class="plans">
+            <div class="plan">
+              <span class="tag">PHONE TEAMS</span>
+              <h3>Calls</h3>
+              <p class="plan-price"><b>KES</b><i></i><span class="mono">/ mo</span></p>
+              <p>
+                Telephony, screen pops, recordings, contacts, tasks, notes and each person’s own
+                reports.
+              </p>
+              <a class="link-more" href="/contact"
+                >Talk to us<svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#arrow-right"></use></svg
+              ></a>
+            </div>
+            <div class="plan plan-featured">
+              <span class="tag">SALES AND SUPPORT</span>
+              <h3>Calls and WhatsApp</h3>
+              <p class="plan-price"><b>KES</b><i></i><span class="mono">/ mo</span></p>
+              <p>
+                Everything in Calls, plus the inbox, templates, leads, web forms, deals, team
+                reports and the live board.
+              </p>
+              <a class="link-more" href="/contact"
+                >Talk to us<svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#arrow-right"></use></svg
+              ></a>
+            </div>
+            <div class="plan">
+              <span class="tag">LARGER OPERATIONS</span>
+              <h3>Everything</h3>
+              <p class="plan-price"><b>KES</b><i></i><span class="mono">/ mo</span></p>
+              <p>
+                Plus the softphone in the browser, audit change details, backup downloads and the
+                API.
+              </p>
+              <a class="link-more" href="/contact"
+                >Talk to us<svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#arrow-right"></use></svg
+              ></a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="server ink" aria-labelledby="server-title">
+        <picture
+          ><source type="image/avif" srcset="/plates/light-shaft.avif" />
+          <img
+            src="/plates/light-shaft.webp"
+            alt=""
+            width="828"
+            height="468"
+            loading="lazy"
+            decoding="async"
+            class="server-plate"
+        /></picture>
+        <div class="grain"></div>
+        <div class="wrap">
+          <div class="server-copy">
+            <h2 class="title" id="server-title">Your data is on your server.</h2>
+            <p>One company, one installation, one database, one address. Not a row in ours.</p>
+            <p>
+              Every consequential action is written to a log nobody can edit, including what we do
+              when you ask for help.
+            </p>
+            <p>Nightly backups, fourteen kept, retention on the schedule you set.</p>
+            <a class="link-more" href="/security"
+              >What that means in practice<svg class="icon" aria-hidden="true">
+                <use href="/assets/icons.svg#arrow-right"></use></svg
             ></a>
           </div>
         </div>
-        <div class="bloom" data-layer="bloom"></div>
-        <img
-          class="dive screen"
-          data-layer="dive"
-          src="/mascot/dive.webp"
-          alt=""
-          width="1024"
-          height="1276"
-        />
-        <figure class="hero-shot" data-layer="subject">
-          <div class="frame">
-            <picture data-themed data-fixed>
-              <source type="image/avif" srcset="/shots/home-manager-dark.avif" />
-              <source type="image/webp" srcset="/shots/home-manager-dark.webp" />
-              <img
-                src="/shots/home-manager-light.png"
-                alt="Flare CRM home screen, manager view"
-                width="1280"
-                height="800"
-              />
-            </picture>
-          </div>
-          <figcaption class="fig-note">
-            <span>Fig. 1 · Home, manager view</span><span>far away, 44%</span>
-          </figcaption>
-        </figure>
-        <img
-          class="ash screen"
-          data-layer="front"
-          src="/spark/ash.webp"
-          alt=""
-          width="389"
-          height="443"
-          style="right: 12%; top: 26%"
-        />
-      </section>
-
-      <div id="descent"></div>
-      <section class="sky entry">
-        <img
-          class="plate"
-          data-layer="plate"
-          src="/plates/cloud-layers.webp"
-          alt=""
-          width="828"
-          height="466"
-          style="opacity: 0.85"
-        />
-        <div class="grain"></div>
-        <div class="entry-copy" data-layer="fade">
-          <div>
-            <h2>The phone rings and the customer is already on screen.</h2>
-            <p>
-              Wanjiru Kamau calls the main line. Before anyone lifts the handset, the screen shows
-              her name, her company, who looks after her, her two open deals and the last three
-              things that happened. The agent answers knowing what the call is about.
-            </p>
-            <p class="detail">
-              Works with a Yeastar PBX. Click any number in the product to dial it from your own
-              extension.
-            </p>
-          </div>
-        </div>
-        <div class="bloom" data-layer="bloom"></div>
-        <figure class="subject" data-layer="subject" style="--w: 760px">
-          <div class="clip">
-            <picture data-themed data-fixed>
-              <source type="image/avif" srcset="/shots/call-detail-dark.avif" />
-              <source type="image/webp" srcset="/shots/call-detail-dark.webp" />
-              <img
-                src="/shots/call-detail-light.png"
-                alt=""
-                width="1280"
-                height="800"
-                loading="lazy"
-              />
-            </picture>
-            <video
-              data-src="/video/ring.mp4"
-              poster="/shots/call-detail-dark.webp"
-              muted
-              playsinline
-              loop
-              preload="none"
-              aria-label="The phone rings, the screen pops"
-            ></video>
-            <button class="clip-play" type="button" aria-label="Play the recording">
-              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#play" /></svg>
-            </button>
-            <span class="clip-chip"><i></i>The phone rings, the screen pops</span>
-          </div>
-          <figcaption class="fig-note">
-            <span>Fig. 2 · Screen pop on an incoming call</span
-            ><span>recording · 12 s · cropped from 2560x1600</span>
-          </figcaption>
-        </figure>
-        <img
-          class="ash screen"
-          data-layer="front"
-          src="/spark/ash.webp"
-          alt=""
-          width="389"
-          height="443"
-          style="right: 6%; top: 30%; width: 60px"
-        />
-      </section>
-      <section class="sky entry entry--right">
-        <div class="grain"></div>
-        <div class="entry-copy" data-layer="fade">
-          <div>
-            <h2>One WhatsApp thread the whole team can see.</h2>
-            <p>
-              She follows up on WhatsApp with a photo of the part. It lands in the same inbox
-              everyone shares, filed under her name, next to the call that just ended. Whoever picks
-              it up sees the whole thread, not their own phone's half of it.
-            </p>
-            <p class="detail">
-              Reply window, templates and delivery ticks are all shown, because Meta enforces them
-              whether you can see them or not.
-            </p>
-          </div>
-        </div>
-        <div class="bloom" data-layer="bloom"></div>
-        <figure class="subject" data-layer="subject" style="--w: 880px">
-          <div class="clip">
-            <picture data-themed data-fixed>
-              <source type="image/avif" srcset="/shots/inbox-dark.avif" />
-              <source type="image/webp" srcset="/shots/inbox-dark.webp" />
-              <img src="/shots/inbox-light.png" alt="" width="1280" height="800" loading="lazy" />
-            </picture>
-            <video
-              data-src="/video/whatsapp.mp4"
-              poster="/shots/inbox-dark.webp"
-              muted
-              playsinline
-              loop
-              preload="none"
-              aria-label="A WhatsApp thread being answered"
-            ></video>
-            <button class="clip-play" type="button" aria-label="Play the recording">
-              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#play" /></svg>
-            </button>
-            <span class="clip-chip"><i></i>A WhatsApp thread being answered</span>
-          </div>
-          <figcaption class="fig-note">
-            <span>Fig. 3 · Shared inbox</span><span>recording · 9 s · silent</span>
-          </figcaption>
-        </figure>
-      </section>
-      <section class="sky entry">
-        <img
-          class="plate"
-          data-layer="plate"
-          src="/plates/light-shaft.webp"
-          alt=""
-          width="828"
-          height="466"
-          style="opacity: 0.85"
-        />
-        <div class="grain"></div>
-        <div class="entry-copy" data-layer="fade">
-          <div>
-            <h2>Every call, message and note against one customer, in one place.</h2>
-            <p>
-              The agent writes a two line note and it sits on the timeline between the call and the
-              message. Six weeks later, when a different person picks up her next call, the note is
-              still there, in order, with the name of who wrote it.
-            </p>
-            <p class="detail">
-              Contacts, companies, leads, deals, tasks, notes and files. One record per customer,
-              however many people touch it.
-            </p>
-          </div>
-        </div>
-        <div class="bloom" data-layer="bloom"></div>
-        <figure class="subject" data-layer="subject" style="--w: 1000px">
-          <div class="frame">
-            <picture data-themed>
-              <source type="image/avif" srcset="/shots/contact-detail-dark.avif" />
-              <source type="image/webp" srcset="/shots/contact-detail-dark.webp" />
-              <img
-                src="/shots/contact-detail-light.png"
-                alt="Contact page with the activity timeline"
-                width="1280"
-                height="800"
-                loading="lazy"
-              />
-            </picture>
-          </div>
-          <figcaption class="fig-note">
-            <span>Fig. 4 · Contact timeline</span><span>every activity type, in order</span>
-          </figcaption>
-        </figure>
-        <img
-          class="ash screen"
-          data-layer="front"
-          src="/spark/ash.webp"
-          alt=""
-          width="389"
-          height="443"
-          style="left: 12%; top: 40%; width: 60px"
-        />
-      </section>
-      <section class="sky entry entry--right">
-        <div class="grain"></div>
-        <div class="entry-copy" data-layer="fade">
-          <div>
-            <h2>The deal moves, and the board says so.</h2>
-            <p>
-              Her quote goes from Proposal to Negotiation. The board updates for everyone watching
-              it, the value rolls into the forecast, and the stage change is on her timeline with a
-              time and a name.
-            </p>
-            <p class="detail">
-              Pipelines and stages are yours to define. Won and lost each carry a reason.
-            </p>
-          </div>
-        </div>
-        <div class="bloom" data-layer="bloom"></div>
-        <figure class="subject" data-layer="subject" style="--w: 1110px">
-          <div class="clip">
-            <picture data-themed data-fixed>
-              <source type="image/avif" srcset="/shots/deals-board-dark.avif" />
-              <source type="image/webp" srcset="/shots/deals-board-dark.webp" />
-              <img
-                src="/shots/deals-board-light.png"
-                alt=""
-                width="1280"
-                height="800"
-                loading="lazy"
-              />
-            </picture>
-            <video
-              data-src="/video/deal.mp4"
-              poster="/shots/deals-board-dark.webp"
-              muted
-              playsinline
-              loop
-              preload="none"
-              aria-label="A deal dragged from Proposal to Negotiation"
-            ></video>
-            <button class="clip-play" type="button" aria-label="Play the recording">
-              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#play" /></svg>
-            </button>
-            <span class="clip-chip"><i></i>A deal dragged from Proposal to Negotiation</span>
-          </div>
-          <figcaption class="fig-note">
-            <span>Fig. 5 · Deals board</span
-            ><span>recording · 8 s · a deal dragged between stages</span>
-          </figcaption>
-        </figure>
-      </section>
-      <section class="sky entry">
-        <img
-          class="plate"
-          data-layer="plate"
-          src="/plates/ember.webp"
-          alt=""
-          width="828"
-          height="466"
-          style="opacity: 0.85"
-        />
-        <div class="grain"></div>
-        <div class="entry-copy" data-layer="fade">
-          <div>
-            <h2>At the end of the shift, the numbers are already there.</h2>
-            <p>
-              Calls, answered, missed, talk time, per agent and for the team. The missed calls that
-              nobody called back are a list, not a guess. Everything exports to CSV.
-            </p>
-            <p class="detail">
-              Live calls board for managers while the shift is on. Reports when it is over.
-            </p>
-          </div>
-        </div>
-        <div class="bloom" data-layer="bloom"></div>
-        <figure class="subject" data-layer="subject" style="--w: 1184px">
-          <div class="frame">
-            <picture data-themed>
-              <source type="image/avif" srcset="/shots/report-calls-summary-dark.avif" />
-              <source type="image/webp" srcset="/shots/report-calls-summary-dark.webp" />
-              <img
-                src="/shots/report-calls-summary-light.png"
-                alt="Calls summary report with daily totals"
-                width="1280"
-                height="800"
-                loading="lazy"
-              />
-            </picture>
-          </div>
-          <figcaption class="fig-note">
-            <span>Fig. 6 · Calls summary</span><span>daily buckets, Africa/Nairobi</span>
-          </figcaption>
-        </figure>
-      </section>
-
-      <section class="sky inside">
-        <div class="grain"></div>
-        <div class="inside-copy" data-layer="fade">
-          <h2>Close enough to read the number.</h2>
-          <p>
-            This is the contact page at the size an agent sees it. National format, with the
-            international number underneath in monospace. Click either and the phone dials.
-          </p>
-        </div>
-        <div class="crop">
+        <picture
+          ><source type="image/avif" srcset="/objects/lock.avif" />
           <img
-            src="/shots/contact-detail-dark.webp"
-            alt="Contact header at 200%, showing the phone number"
-            width="1280"
-            height="800"
+            src="/objects/lock.webp"
+            alt=""
+            width="512"
+            height="512"
             loading="lazy"
-          />
+            decoding="async"
+            class="scr server-lock"
+        /></picture>
+        <div class="server-shot">
+          <picture
+            ><source type="image/avif" srcset="/shots/settings-audit-dark.avif" />
+            <img
+              src="/shots/settings-audit-dark.webp"
+              alt="The audit log"
+              width="2560"
+              height="1600"
+              loading="lazy"
+              decoding="async"
+          /></picture>
         </div>
-        <p class="fig-note" style="padding: 14px 48px 0">
-          <span>Fig. 7 · Contact detail, top left quadrant at 200%</span
-          ><span>this is the real screen, not a drawing</span>
-        </p>
-      </section>
-
-      <div class="wrap">
-        <section class="band grid-3">
-          <div class="truth">
-            <span class="num">01</span>
-            <h2 class="h3">Your own server, your own address</h2>
-            <p class="muted">
-              Each company gets its own installation and its own database at
-              yourcompany.flarehub.co.ke, or your own domain. Nobody else's data is in the same
-              table.
-            </p>
-          </div>
-          <div class="truth">
-            <span class="num">02</span>
-            <h2 class="h3">An audit log nobody can edit</h2>
-            <p class="muted">
-              Every consequential action, including refusals and our own support actions, is written
-              to a log that no administrator can change or delete.
-            </p>
-          </div>
-          <div class="truth">
-            <span class="num">03</span>
-            <h2 class="h3">Backups and retention you set</h2>
-            <p class="muted">
-              Nightly backups, the last fourteen kept. Recordings and records are deleted on the
-              schedule you choose, by a job that runs whether anyone remembers or not.
-            </p>
-          </div>
-        </section>
-
-        <section class="band split-even">
-          <div class="stack">
-            <h2 class="h2">If an account lapses</h2>
-            <p class="muted">
-              Everything stays readable and exportable. Nothing is deleted. Writing stops, and a
-              banner names who to call. Incoming WhatsApp messages and web form submissions keep
-              landing so nothing is lost while it is sorted out.
-            </p>
-            <p class="muted" style="font-size: 15px">
-              The plan is a document signed by us and checked on your own server, so this holds
-              whether or not your server can reach the internet. There is no kill switch, and there
-              should not be one.
-            </p>
-          </div>
-          <div class="rows">
-            <div class="row">
-              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#eye" /></svg
-              ><span>Reading every record</span><span class="row-state ok">Works</span>
-            </div>
-            <div class="row">
-              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#download" /></svg
-              ><span>Exporting to CSV</span><span class="row-state ok">Works</span>
-            </div>
-            <div class="row">
-              <svg class="icon" aria-hidden="true">
-                <use href="/assets/icons.svg#message-circle" /></svg
-              ><span>Incoming WhatsApp and web forms</span
-              ><span class="row-state ok">Still arrive</span>
-            </div>
-            <div class="row">
-              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#pencil" /></svg
-              ><span>Writing and editing</span><span class="row-state paused">Paused</span>
-            </div>
-            <div class="row">
-              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#trash-2" /></svg
-              ><span>Anything deleted</span><span class="row-state ok">Nothing</span>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <section class="sky closing">
-        <div class="grain"></div>
-        <div class="closing-copy">
-          <h2>Show us the spreadsheet holding the parts that never worked.</h2>
-          <p>A 45 minute call, then a demo on your data. Nothing to install to see it.</p>
-          <a class="btn btn-primary btn-lg" href="/contact">Book a demo</a>
-        </div>
-        <img
-          class="closing-mascot screen"
-          src="/mascot/waving.webp"
-          alt=""
-          width="384"
-          height="256"
-          loading="lazy"
-        />
       </section>
     </main>
     <footer class="site-footer">
-      <div class="wrap">
-        <nav class="footer-nav" aria-label="Footer">
-          <a href="/product">Product</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/security">Security</a>
-          <a href="/setup">Setup</a>
-          <a href="/contact">Contact</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-          <a href="/data-deletion">Deleting your data</a>
-          <a href="#signin" data-signin-open>Sign in</a>
+      <svg class="scallop" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          d="M0,0 H1440 V8 Q-30,40 0,8 Q30,40 60,8 Q90,40 120,8 Q150,40 180,8 Q210,40 240,8 Q270,40 300,8 Q330,40 360,8 Q390,40 420,8 Q450,40 480,8 Q510,40 540,8 Q570,40 600,8 Q630,40 660,8 Q690,40 720,8 Q750,40 780,8 Q810,40 840,8 Q870,40 900,8 Q930,40 960,8 Q990,40 1020,8 Q1050,40 1080,8 Q1110,40 1140,8 Q1170,40 1200,8 Q1230,40 1260,8 Q1290,40 1320,8 Q1350,40 1380,8 Q1410,40 1440,8 V0 Z"
+        />
+      </svg>
+      <div class="footer-play" aria-hidden="true">
+        <picture
+          ><source type="image/avif" srcset="/objects/desk-bell.avif" />
+          <img
+            src="/objects/desk-bell.webp"
+            alt=""
+            width="260"
+            height="227"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="12" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/keys.avif" />
+          <img
+            src="/objects/keys.webp"
+            alt=""
+            width="245"
+            height="268"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="44" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/chai.avif" />
+          <img
+            src="/objects/chai.webp"
+            alt=""
+            width="285"
+            height="251"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="72" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/paper-plane.avif" />
+          <img
+            src="/objects/paper-plane.webp"
+            alt=""
+            width="303"
+            height="200"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="88" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/sim.avif" />
+          <img
+            src="/objects/sim.webp"
+            alt=""
+            width="512"
+            height="512"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="28" /></picture
+        ><picture
+          ><source type="image/avif" srcset="/objects/receipt-roll.avif" />
+          <img
+            src="/objects/receipt-roll.webp"
+            alt=""
+            width="302"
+            height="258"
+            loading="lazy"
+            decoding="async"
+            class="scr"
+            style="width: 110px; height: 110px"
+            data-x="60"
+        /></picture>
+      </div>
+      <p class="mono footer-score">KNOCKED · <span data-score>00</span></p>
+      <div class="footer-mark">
+        <span>Flare</span>
+        <img src="/brand/mark.svg" alt="" width="100" height="100" />
+      </div>
+      <div class="footer-feet">
+        <span>FLARE CRM · UPPERHILL, NAIROBI · HELLO@FLAREHUB.CO.KE</span>
+        <nav aria-label="Legal">
+          <a href="/privacy">PRIVACY</a>
+          <a href="/terms">TERMS</a>
+          <a href="/data-deletion">DELETING YOUR DATA</a>
         </nav>
-        <p>
-          Flare CRM, Upperhill, Nairobi, 24770-00100, Kenya.
-          <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a>
-        </p>
       </div>
     </footer>
-    <script src="/assets/site.js" defer></script>
   </body>
 </html>
