@@ -16,16 +16,25 @@
   var STORE = 'flarehub-theme';
 
   /*
+   * The attribute goes on the part of the page the theme is for, not on the document. The token set
+   * it swaps is twenty-six colours deep, and the rest of this site paints its own dark grounds in
+   * the stylesheet: applied to the document it turned every one of those panels into dark ink on a
+   * dark panel. Where there is no such part, there is no toggle either.
+   */
+  var themed = document.querySelector('[data-theme-scope]');
+
+  /*
    * Dark is the default whatever the system says, because that is what the stylesheet paints on a
    * bare :root. Asking the system here made the first press of the toggle a no-op for anyone whose
    * machine is set to light: it computed "currently light", switched to dark, and nothing moved.
    */
   function theme() {
-    return root.getAttribute('data-theme') || 'dark';
+    return (themed && themed.getAttribute('data-theme')) || 'dark';
   }
 
   function applyTheme(next, remember) {
-    root.setAttribute('data-theme', next);
+    if (!themed) return;
+    themed.setAttribute('data-theme', next);
     var button = document.querySelector('[data-theme-toggle]');
     if (button) {
       var other = next === 'light' ? 'dark' : 'light';
@@ -63,12 +72,12 @@
    * movement and must not be timed against each other.
    */
   if (root.getAttribute('data-preload') === 'on') {
-    /* Long enough to be read. */
-    var FLOOR = 1150;
+    /* Long enough to be watched, not merely noticed. */
+    var FLOOR = 1950;
     /* Long enough for a slow morning in Nairobi, and no longer: nobody waits on a broken image. */
-    var CEILING = 3400;
+    var CEILING = 4200;
     /* A beat on a hundred, so the last number is seen rather than inferred. */
-    var HOLD = 220;
+    var HOLD = 340;
 
     var number = document.querySelector('[data-count]');
     var started = Date.now();

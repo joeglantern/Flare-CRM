@@ -2801,27 +2801,33 @@
  * and leaving the other half black looked broken, and lightening all of it would black out every
  * object on the site. So the toggle is rendered on the three pages where it changes something and
  * nowhere else: a control that appears to do nothing is worse than one that is not there.
+ *
+ * And the attribute goes on this element rather than on the document, which is the whole point of
+ * the selectors below reading .legal-main[data-theme]. On the document it swapped twenty-six
+ * tokens for every panel on the site, including the ones whose dark ground is written into the
+ * stylesheet and cannot swap with it: the menu, the sign-in dialog and the footer all became dark
+ * ink on a dark panel, which is a page with nothing on it.
  */
-[data-theme='light'] .legal-main {
+.legal-main[data-theme='light'] {
   background: var(--bg);
   color: var(--text);
 }
 
-[data-theme='light'] .legal-main .grain {
+.legal-main[data-theme='light'] .grain {
   opacity: 0.02;
 }
 
-[data-theme='light'] .legal-body p,
-[data-theme='light'] .legal-body li {
+.legal-main[data-theme='light'] .legal-body p,
+.legal-main[data-theme='light'] .legal-body li {
   color: var(--text);
 }
 
-[data-theme='light'] .legal-body > p:first-of-type,
-[data-theme='light'] .legal-toc {
+.legal-main[data-theme='light'] .legal-body > p:first-of-type,
+.legal-main[data-theme='light'] .legal-toc {
   color: var(--text-muted);
 }
 
-[data-theme='light'] .legal-body hr {
+.legal-main[data-theme='light'] .legal-body hr {
   border-top-color: var(--border-strong);
 }
 
@@ -2830,8 +2836,8 @@
  * screen, and turning it white on three of ten pages made it a different object on those pages.
  * Its own contrast is settled: light type on a dark panel, wherever it is floating.
  */
-[data-theme='light'] .site-header {
-  /* Opaque here: a dark panel at three quarters over a white page is grey, not dark. */
+/* Opaque over a light page: a dark panel at three quarters over white is grey, not dark. */
+body:has(.legal-main[data-theme='light']) .site-header {
   background: #16161a;
   border-color: rgba(242, 241, 239, 0.14);
 }
