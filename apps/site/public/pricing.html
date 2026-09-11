@@ -111,79 +111,251 @@
 
       <section class="page-head">
         <div class="wrap">
-          <p class="tag">PRICING</p>
-          <h1 class="title">
-            <span class="rise"><span style="--i: 0">Three plans.</span></span
-            ><span class="rise"><span style="--i: 1">Five limits.</span></span
-            ><span class="rise"><span style="--i: 2">No kill switch.</span></span>
-          </h1>
-          <p class="settle">
-            Reaching a limit refuses one request and says which limit, by how much. Freeing a seat
-            makes the same request work. Nothing is ever switched off.
-          </p>
+          <div class="head-split">
+            <div>
+              <p class="tag">PRICING</p>
+              <h1 class="title">
+                <span class="rise"><span style="--i: 0">Three plans.</span></span
+                ><span class="rise"><span style="--i: 1">Five limits.</span></span
+                ><span class="rise"><span style="--i: 2">No kill switch.</span></span>
+              </h1>
+              <p class="settle">
+                Reaching a limit refuses one request and says which limit, by how much. Freeing a
+                seat makes the same request work. Nothing is ever switched off.
+              </p>
+            </div>
+            <div>
+              <p class="tag">WHAT A REFUSAL LOOKS LIKE</p>
+              <p class="refusal">
+                <svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#circle"></use></svg
+                ><span
+                  >Cannot create this account. The plan allows 12 active users and 12 are active.
+                  Deactivate one, or talk to us about a larger plan.</span
+                >
+              </p>
+              <picture
+                ><source type="image/avif" srcset="/objects/hourglass.avif" />
+                <img
+                  src="/objects/hourglass.webp"
+                  alt=""
+                  width="512"
+                  height="512"
+                  loading="lazy"
+                  decoding="async"
+                  class="scr"
+                  style="width: 150px; height: 150px; align-self: flex-end"
+              /></picture>
+            </div>
+          </div>
         </div>
       </section>
       <div class="wrap">
-        <div style="display: grid; gap: 48px">
-          <div>
-            <h2 class="tag" style="margin-bottom: 12px">WHAT A REFUSAL LOOKS LIKE</h2>
-            <p class="refusal">
-              <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#circle"></use></svg
-              ><span
-                >Cannot create this account. The plan allows 12 active users and 12 are active.
-                Deactivate one, or talk to us about a larger plan.</span
-              >
-            </p>
+        <section>
+          <h2 class="subtitle" style="margin-bottom: 32px">
+            Per month, in shillings, agreed with you.
+          </h2>
+          <p class="slab-lead" style="margin-bottom: 56px">
+            There is no card form on this page. A plan is a set of switches and a set of limits, we
+            agree them on a call, and the price follows from what you switch on and how many people
+            use it. Prices are quoted per customer today; the three columns are here so numbers can
+            land without a redesign.
+          </p>
+          <div class="plans">
+            <div class="plan">
+              <span class="tag">PHONE TEAMS</span>
+              <h3>Calls</h3>
+              <p class="plan-price"><b>KES</b><i></i><span class="mono">/ mo</span></p>
+              <ul class="plan-list">
+                <li>Telephony and screen pops</li>
+                <li>Call recordings</li>
+                <li>Contacts, companies, tasks, notes</li>
+                <li>Reports for each person</li>
+                <li>CSV export</li>
+              </ul>
+              <a class="link-more" href="/contact"
+                >Talk to us<svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#arrow-right"></use></svg
+              ></a>
+            </div>
+            <div class="plan plan-featured">
+              <span class="tag">SALES AND SUPPORT</span>
+              <h3>Calls and WhatsApp</h3>
+              <p class="plan-price"><b>KES</b><i></i><span class="mono">/ mo</span></p>
+              <ul class="plan-list">
+                <li>Everything in Calls</li>
+                <li>WhatsApp inbox and templates</li>
+                <li>Leads, web forms and deals</li>
+                <li>Team reports and the live board</li>
+                <li>CSV import, custom fields</li>
+              </ul>
+              <a class="link-more" href="/contact"
+                >Talk to us<svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#arrow-right"></use></svg
+              ></a>
+            </div>
+            <div class="plan">
+              <span class="tag">LARGER OPERATIONS</span>
+              <h3>Everything</h3>
+              <p class="plan-price"><b>KES</b><i></i><span class="mono">/ mo</span></p>
+              <ul class="plan-list">
+                <li>Everything in Calls and WhatsApp</li>
+                <li>Softphone in the browser</li>
+                <li>Audit change details</li>
+                <li>Backup downloads</li>
+                <li>API documentation</li>
+              </ul>
+              <a class="link-more" href="/contact"
+                >Talk to us<svg class="icon" aria-hidden="true">
+                  <use href="/assets/icons.svg#arrow-right"></use></svg
+              ></a>
+            </div>
           </div>
-          <div>
-            <h2 class="subtitle" style="margin-bottom: 40px">What each plan switches on</h2>
-            <div class="plans">
-              <div class="plan">
-                <span class="tag">PHONE TEAMS</span>
-                <h3>Calls</h3>
-                <p>
-                  Telephony, screen pops, recordings, contacts, tasks, notes and each person’s own
-                  reports.
-                </p>
+        </section>
+
+        <section class="slab">
+          <h2>What a plan switches on</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              Some things are in every plan because a CRM without them is not a CRM: signing in,
+              two-factor, users and teams, contacts, companies, notes and files, tasks, the
+              timeline, notifications, search and the manual. The rest is a switch. Switching a
+              feature off hides it and refuses its routes. It never deletes anything, so switching
+              it back on restores what was there.
+            </p>
+            <div class="set">
+              <span>Telephony</span><span>Call recordings <i>needs telephony</i></span
+              ><span>Softphone <i>needs telephony</i></span
+              ><span>Messaging inbox</span><span>Leads</span
+              ><span>Web forms <i>needs leads</i></span
+              ><span>Deals and pipelines</span><span>Reports</span
+              ><span>Team reports <i>needs reports</i></span
+              ><span>CSV export</span><span>CSV import</span><span>Custom fields</span
+              ><span>Audit change details</span><span>Backup downloads</span
+              ><span>API documentation</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="slab">
+          <h2>What a plan limits</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              Five numbers. Reaching one does not break anything: the request that would go over it
+              is refused with a message saying which limit and by how much, and freeing a seat makes
+              the same request work.
+            </p>
+            <div class="limits">
+              <div class="limit">
+                <picture
+                  ><source type="image/avif" srcset="/objects/clipboard.avif" />
+                  <img
+                    src="/objects/clipboard.webp"
+                    alt=""
+                    width="234"
+                    height="269"
+                    loading="lazy"
+                    decoding="async"
+                    class="scr" /></picture
+                ><b>Active users</b><span>A hard cap on creating or reactivating an account.</span>
               </div>
-              <div class="plan plan-featured">
-                <span class="tag">SALES AND SUPPORT</span>
-                <h3>Calls and WhatsApp</h3>
-                <p>
-                  Everything in Calls, plus the inbox, templates, leads, web forms, deals, team
-                  reports and the live board.
-                </p>
+              <div class="limit">
+                <picture
+                  ><source type="image/avif" srcset="/objects/folder.avif" />
+                  <img
+                    src="/objects/folder.webp"
+                    alt=""
+                    width="512"
+                    height="512"
+                    loading="lazy"
+                    decoding="async"
+                    class="scr" /></picture
+                ><b>Storage</b><span>Attachments, recordings and backups together, in GB.</span>
               </div>
-              <div class="plan">
-                <span class="tag">LARGER OPERATIONS</span>
-                <h3>Everything</h3>
-                <p>
-                  Plus the softphone in the browser, audit change details, backup downloads and the
-                  API.
-                </p>
+              <div class="limit">
+                <picture
+                  ><source type="image/avif" srcset="/objects/cassette.avif" />
+                  <img
+                    src="/objects/cassette.webp"
+                    alt=""
+                    width="512"
+                    height="512"
+                    loading="lazy"
+                    decoding="async"
+                    class="scr" /></picture
+                ><b>Recording retention</b><span>A ceiling in days on the setting you choose.</span>
+              </div>
+              <div class="limit">
+                <picture
+                  ><source type="image/avif" srcset="/objects/chat-bubble.avif" />
+                  <img
+                    src="/objects/chat-bubble.webp"
+                    alt=""
+                    width="512"
+                    height="512"
+                    loading="lazy"
+                    decoding="async"
+                    class="scr" /></picture
+                ><b>Channels</b><span>How many WhatsApp or SMS numbers are connected.</span>
+              </div>
+              <div class="limit">
+                <picture
+                  ><source type="image/avif" srcset="/objects/bar-chart.avif" />
+                  <img
+                    src="/objects/bar-chart.webp"
+                    alt=""
+                    width="512"
+                    height="512"
+                    loading="lazy"
+                    decoding="async"
+                    class="scr" /></picture
+                ><b>Pipelines</b><span>How many deal pipelines you can run.</span>
               </div>
             </div>
           </div>
+        </section>
+
+        <section class="slab">
+          <h2>If an account lapses</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              Everything stays readable and exportable. Nothing is deleted. Writing stops, and a
+              banner names who to call. Incoming WhatsApp messages and web form submissions keep
+              landing so nothing is lost while it is sorted out. The plan is a document signed by us
+              and checked on your own server, so this holds whether or not your server can reach the
+              internet. There is no kill switch, and there should not be one.
+            </p>
+            <div class="states">
+              <div class="state state-on"><b>Reading every record</b><span>Works</span></div>
+              <div class="state state-on"><b>Exporting to CSV</b><span>Works</span></div>
+              <div class="state state-on">
+                <b>Incoming WhatsApp and web forms</b><span>Still arrive</span>
+              </div>
+              <div class="state state-off"><b>Writing and editing</b><span>Paused</span></div>
+              <div class="state state-none"><b>Anything deleted</b><span>Nothing</span></div>
+            </div>
+          </div>
+        </section>
+        <section class="cta-band">
+          <picture
+            ><source type="image/avif" srcset="/mascot/pointing.avif" />
+            <img
+              src="/mascot/pointing.webp"
+              alt=""
+              width="270"
+              height="269"
+              loading="lazy"
+              decoding="async"
+              class="scr"
+          /></picture>
+          <h2 class="subtitle">Get a price for your team.</h2>
           <p>
-            <a class="link-more" href="/contact"
-              >Get a price for your team<svg class="icon" aria-hidden="true">
-                <use href="/assets/icons.svg#arrow-right"></use></svg
-            ></a>
+            Tell us how many people and which of the switches you need, and we will put a number on
+            it.
           </p>
-        </div>
+          <a class="btn btn-primary" href="/contact">Talk to us</a>
+        </section>
       </div>
-      <picture
-        ><source type="image/avif" srcset="/objects/hourglass.avif" />
-        <img
-          src="/objects/hourglass.webp"
-          alt=""
-          width="512"
-          height="512"
-          loading="lazy"
-          decoding="async"
-          class="scr"
-          style="width: 180px; height: 180px; margin: 80px auto 120px"
-      /></picture>
     </main>
     <footer class="site-footer">
       <svg class="scallop" viewBox="0 0 1440 40" preserveAspectRatio="none" aria-hidden="true">

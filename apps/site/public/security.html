@@ -117,13 +117,13 @@
           height="468"
           loading="lazy"
           decoding="async"
-          class="server-plate"
+          class="page-plate"
       /></picture>
       <div class="grain"></div>
 
       <section class="page-head">
         <div class="wrap">
-          <p class="tag">SECURITY</p>
+          <p class="tag">SECURITY AND DATA</p>
           <h1 class="title">
             <span class="rise"><span style="--i: 0">Your data is on your server.</span></span
             ><span class="rise"><span style="--i: 1">Here is what that means.</span></span>
@@ -135,7 +135,7 @@
         </div>
       </section>
       <div class="wrap" style="position: relative; z-index: 3">
-        <div class="facts" style="max-width: 52ch">
+        <div class="facts" style="max-width: 58ch">
           <div>
             <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check"></use></svg
             ><span>Your own address: yourcompany.flarehub.co.ke, or your own domain</span>
@@ -153,12 +153,6 @@
             ><span>Nightly backups, fourteen kept; retention on the schedule you set</span>
           </div>
         </div>
-        <p style="margin-top: 40px">
-          <a class="link-more" href="/setup"
-            >How an installation is set up<svg class="icon" aria-hidden="true">
-              <use href="/assets/icons.svg#arrow-right"></use></svg
-          ></a>
-        </p>
       </div>
       <div class="locked">
         <picture
@@ -185,7 +179,137 @@
         /></picture>
       </div>
       <div class="wrap">
-        <div class="shot-frame">
+        <section class="slab">
+          <h2>One company, one installation</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              Your CRM runs on its own server with its own database. It is not a row in ours. A
+              fault, a breach or a bad deploy elsewhere cannot reach it, and neither can another
+              customer.
+            </p>
+            <div class="set">
+              <span>Your own address: yourcompany.flarehub.co.ke, or your own domain</span
+              ><span>Your own database; nobody else’s data in the same tables</span
+              ><span>Traffic encrypted in transit; passwords hashed and visible to nobody</span>
+            </div>
+          </div>
+        </section>
+        <section class="slab">
+          <h2>Two-factor on every account</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              Available to everyone and required of administrators and managers. Privileged screens
+              stay locked until an authenticator is enrolled, and that is enforced by the server,
+              not just hidden by the interface.
+            </p>
+            <div class="set">
+              <span>Authenticator app, with backup codes shown once</span
+              ><span
+                >Required for admins and managers; optional for agents unless you say
+                otherwise</span
+              ><span>Sessions end after twelve hours and after an idle period you set</span>
+            </div>
+          </div>
+        </section>
+        <section class="slab">
+          <h2>Roles decide what each person sees</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              Three roles. Agents see what they own, managers see their team, administrators see
+              everything. Every screen and every API route checks it, and refusals are logged like
+              everything else.
+            </p>
+            <div class="set">
+              <span>Admin, manager, agent</span
+              ><span>Agent visibility set to owned, team or all</span
+              ><span>A refused request is written to the audit log with who and what</span>
+            </div>
+          </div>
+        </section>
+        <section class="slab">
+          <h2>An audit log nobody can edit</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              Every consequential action is appended with before and after values, the person, the
+              time and the address. Append-only at the database level. Not an administrator, not us,
+              not anyone can change or delete a line.
+            </p>
+            <div class="set">
+              <span>Record changes, settings, roles, recording plays and downloads</span
+              ><span>Our own support actions appear in your log, naming us and the reason</span
+              ><span>Kept for the life of the installation</span>
+            </div>
+          </div>
+        </section>
+        <section class="slab">
+          <h2>Backups you can count</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              Taken nightly, the last fourteen kept, and the status of the last one is shown on the
+              system health page. If a plan includes it, you can download a snapshot yourself.
+            </p>
+            <div class="set">
+              <span>Nightly, fourteen retained</span
+              ><span>Last backup time and result visible in Settings</span
+              ><span>Restore checksum verified</span>
+            </div>
+          </div>
+        </section>
+        <section class="slab">
+          <h2>Retention on a schedule you set</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              Deleted records are hidden first and destroyed when your purge period passes, so a
+              mistake can be undone. Recordings are deleted at the number of days you choose. A
+              nightly job does it whether anyone remembers or not.
+            </p>
+            <div class="set">
+              <span>Soft delete with a purge period you set</span
+              ><span>Recording retention in days, up to your plan’s ceiling</span
+              ><span>Raw PBX events and message payloads pruned separately</span>
+            </div>
+          </div>
+        </section>
+        <section class="slab">
+          <h2>What we can and cannot do inside your installation</h2>
+          <div class="slab-body">
+            <p class="slab-lead">
+              When you ask for help we can do three things and no more. Each is written into your
+              own audit log the moment it happens, naming us and the reason given.
+            </p>
+            <div class="facts">
+              <div>
+                <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check"></use></svg
+                ><span>List who is able to sign in</span>
+              </div>
+              <div>
+                <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check"></use></svg
+                ><span
+                  >Clear one person’s second factor so they can set up a new authenticator</span
+                >
+              </div>
+              <div>
+                <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#check"></use></svg
+                ><span>End one person’s sessions</span>
+              </div>
+            </div>
+            <div class="facts facts-no">
+              <div>
+                <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x"></use></svg
+                ><span>Read your contacts, calls, messages or deals</span>
+              </div>
+              <div>
+                <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x"></use></svg
+                ><span>Create accounts or change what anybody is allowed to do</span>
+              </div>
+              <div>
+                <svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#x"></use></svg
+                ><span>Delete anything, remotely or otherwise</span>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div class="shot-frame" style="margin-top: 72px">
           <picture
             ><source type="image/avif" srcset="/shots/settings-audit-dark.avif" />
             <img
@@ -197,6 +321,25 @@
               decoding="async"
           /></picture>
         </div>
+        <section class="cta-band">
+          <picture
+            ><source type="image/avif" srcset="/mascot/shield.avif" />
+            <img
+              src="/mascot/shield.webp"
+              alt=""
+              width="193"
+              height="253"
+              loading="lazy"
+              decoding="async"
+              class="scr"
+          /></picture>
+          <h2 class="subtitle">Ask us the hard questions.</h2>
+          <p>
+            Bring your own checklist to the call. If something here is not true of your
+            installation, we will say so.
+          </p>
+          <a class="btn btn-primary" href="/contact">Book a demo</a>
+        </section>
       </div>
     </main>
     <footer class="site-footer">

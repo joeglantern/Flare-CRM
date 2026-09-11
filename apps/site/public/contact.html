@@ -111,7 +111,7 @@
 
       <section class="page-head">
         <div class="wrap">
-          <p class="tag">CONTACT</p>
+          <p class="tag">BOOK A DEMO</p>
           <h1 class="title">
             <span class="rise"><span style="--i: 0">Forty-five minutes.</span></span
             ><span class="rise"><span style="--i: 1">Bring the spreadsheet.</span></span>
@@ -136,9 +136,23 @@
                 decoding="async"
             /></picture>
           </div>
-          <div style="display: grid; gap: 20px; max-width: 40ch">
-            <p class="mono">hello@flarehub.co.ke</p>
-            <p class="mono" style="color: var(--text-muted)">Upperhill, Nairobi, 24770-00100</p>
+          <div class="contact-who">
+            <div>
+              <span class="tag">EMAIL</span>
+              <p class="mono">hello@flarehub.co.ke</p>
+            </div>
+            <div>
+              <span class="tag">POST</span>
+              <p class="mono">Flare CRM, Upperhill, Nairobi, 24770-00100, Kenya</p>
+            </div>
+            <div>
+              <span class="tag">DATA PROTECTION OFFICER</span>
+              <p class="mono">Joe Liban</p>
+            </div>
+            <p>
+              Somebody reads this, not a queue. You will hear back inside one working day, and it
+              will be a person who can answer the technical questions.
+            </p>
             <picture
               ><source type="image/avif" srcset="/mascot/waving.avif" />
               <img
@@ -149,7 +163,7 @@
                 loading="lazy"
                 decoding="async"
                 class="scr"
-                style="width: 200px; height: auto; margin-top: 24px"
+                style="width: 180px; height: auto; margin-top: 8px"
             /></picture>
           </div>
           <form
@@ -159,35 +173,53 @@
             enctype="text/plain"
           >
             <label class="field" for="name"
-              ><span>YOUR NAME</span>
-              <input id="name" name="name" type="text" placeholder="Wanjiru Kamau" /> </label
+              ><span>YOUR NAME</span
+              ><input id="name" name="name" type="text" placeholder="Wanjiru Kamau" /></label
             ><label class="field" for="email"
-              ><span>WORK EMAIL</span>
-              <input
+              ><span>WORK EMAIL</span
+              ><input
                 id="email"
                 name="email"
-                type="text"
-                placeholder="you@yourcompany.co.ke"
-              /> </label
+                type="email"
+                placeholder="you@yourcompany.co.ke" /></label
             ><label class="field" for="company-name"
-              ><span>COMPANY</span>
-              <input
+              ><span>COMPANY</span
+              ><input
                 id="company-name"
                 name="company-name"
                 type="text"
-                placeholder="Kilimani Auto Parts"
-              /> </label
+                placeholder="Kilimani Auto Parts" /></label
+            ><label class="field" for="people"
+              ><span>HOW MANY PEOPLE WOULD USE IT</span
+              ><input id="people" name="people" type="text" placeholder="12" /></label
             ><label class="field" for="trouble"
-              ><span>WHAT IS NOT WORKING TODAY</span>
-              <textarea
+              ><span>WHAT IS NOT WORKING TODAY</span
+              ><textarea
                 id="trouble"
                 name="trouble"
                 rows="3"
                 placeholder="Missed calls go nowhere. WhatsApp lives on three phones."
               ></textarea>
             </label>
-            <button class="btn btn-primary" type="submit">Send the request</button>
-            <p class="tag">WE REPLY THE SAME WORKING DAY</p>
+            <fieldset class="choices">
+              <legend class="tag">WHAT ARE YOU ON TODAY</legend>
+              <label class="choice"
+                ><input type="radio" name="today" value="Yeastar" />Yeastar</label
+              ><label class="choice"
+                ><input type="radio" name="today" value="Another PBX" />Another PBX</label
+              ><label class="choice"
+                ><input type="radio" name="today" value="Mobile phones only" />Mobile phones
+                only</label
+              ><label class="choice"
+                ><input type="radio" name="today" value="Not sure" />Not sure</label
+              >
+            </fieldset>
+            <button class="btn btn-primary" type="submit">Send it</button>
+            <p class="form-note">
+              This opens your email program with the answers filled in. If that is awkward, write to
+              <a href="mailto:hello@flarehub.co.ke">hello@flarehub.co.ke</a> instead and say the
+              same things.
+            </p>
           </form>
         </div>
       </div>
