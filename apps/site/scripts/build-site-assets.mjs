@@ -299,6 +299,34 @@ async function sliceBands(file, names, { quality = 50 } = {}) {
   }
 }
 
+/**
+ * A whole image through to the two formats the site serves, with no cutting.
+ *
+ * The skies arrive as one picture each rather than as a sheet, so there is nothing to find on them.
+ * They are written at a lower quality than an object would be: they sit behind type at low opacity
+ * under a scrim, and the bytes are better spent on the screenshots.
+ */
+async function plate(file, name, { quality = 46 } = {}) {
+  const source = resolve(src, file);
+  const target = resolve(pub, name);
+  await mkdir(dirname(target), { recursive: true });
+  const image = sharp(source);
+  await Promise.all([
+    image.clone().avif({ quality, effort: 9 }).toFile(`${target}.avif`),
+    image
+      .clone()
+      .webp({ quality: quality + 12, effort: 6 })
+      .toFile(`${target}.webp`),
+  ]);
+  const written = await stat(`${target}.avif`);
+  const shape = await sharp(`${target}.avif`).metadata();
+  console.log(
+    `${name}.avif`,
+    `${String(shape.width)}x${String(shape.height)}`,
+    `${String(Math.round(written.size / 1024))} KB`,
+  );
+}
+
 /** Every slice at thumbnail size with its name under it, so the set can be judged in one look. */
 async function contactSheet(items, target) {
   if (items.length === 0) return;
@@ -455,6 +483,11 @@ const props = await sliceFigures(
   ],
   { quality: 66, png: true },
 );
+
+/* The skies, whole. cloud-break carries the hero; the other two stand behind quieter sections. */
+await plate('sky-break.png', 'plates/cloud-break');
+await plate('sky-bank.png', 'plates/cloud-bank');
+await plate('sky-veil.png', 'plates/cloud-veil');
 
 /* Three painted places, full bleed behind the sections that talk about the work. */
 await sliceBands('places.png', ['places/parts-shop', 'places/shopfront-row', 'places/back-office']);

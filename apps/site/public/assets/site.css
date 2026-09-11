@@ -57,8 +57,13 @@
   z-index: 2;
 }
 
+/* Position as well as order: the rule above sets every child relative, including these. */
 .ink > .server-plate,
-.ink > .page-plate {
+.ink > .page-plate,
+.ink > .section-sky,
+.costs > .section-sky,
+.page-head > .section-sky {
+  position: absolute;
   z-index: 0;
 }
 
@@ -1310,6 +1315,13 @@
 .costs {
   position: relative;
   padding: 120px 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.costs > .wrap {
+  position: relative;
+  z-index: 1;
 }
 
 .costs-head {
@@ -1408,14 +1420,60 @@
   overflow: hidden;
 }
 
+/*
+ * Three backdrops, and all three are classes on the <picture>, never on the <img> inside it. An
+ * image positioned against its own picture is positioned against a box of no height sitting
+ * wherever the flow put it, which is not the section anybody meant.
+ */
 .server-plate {
   position: absolute;
   inset: 0;
+  display: block;
+}
+
+.server-plate img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: 70% 0;
   opacity: 0.55;
+}
+
+/*
+ * A sky standing behind one section rather than a whole page. Faded at both ends so it arrives and
+ * leaves rather than starting on a line, and kept far enough down that it never reaches the type.
+ */
+.section-sky {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.section-sky img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 40%;
+  opacity: 0.5;
+  mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 72%, transparent);
+}
+
+/*
+ * The same picture laid along the bottom of a section instead of filling it.
+ *
+ * object-position cannot help here: a sky is much wider than it is tall, so in a tall box cover
+ * already fills the height and crops the sides, and moving it vertically does nothing. Giving it
+ * the full width and its own height puts the band of light where a horizon belongs.
+ */
+.section-sky.horizon {
+  inset: auto 0 0;
+  height: auto;
+}
+
+.section-sky.horizon img {
+  height: auto;
+  opacity: 0.42;
+  mask-image: linear-gradient(to bottom, transparent, #000 55%);
 }
 
 /*
@@ -1426,8 +1484,13 @@
 .page-plate {
   position: absolute;
   inset: 0 0 auto;
-  width: 100%;
+  display: block;
   height: min(120vh, 1100px);
+}
+
+.page-plate img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   object-position: 70% 0;
   opacity: 0.5;
@@ -1873,6 +1936,13 @@
 .page-head {
   position: relative;
   padding: 180px 0 90px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.page-head > .wrap {
+  position: relative;
+  z-index: 1;
 }
 
 .page-head .title {
