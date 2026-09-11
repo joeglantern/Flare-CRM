@@ -435,6 +435,101 @@ export class UsersService {
     });
   }
 
+  /**
+   * Sends the person a link to set or reset their own password, at an administrator's request.
+   *
+   * Deliberately not "set a password for them". An administrator who can choose somebody else's
+   * password can sign in as them and read everything they can read, and no audit log can tell the
+   * difference afterwards. The link goes to the person's own mailbox, so the account stays theirs.
+   *
+   * Which of the two emails they get is decided by whether they ever finished the first one: an
+   * account that has never verified has never had a password, and telling that person to "reset"
+   * one is a small confusion at the worst possible moment.
+   */
+  async sendPasswordLink(
+    id: string,
+    ctx: AuditContext,
+  ): Promise<{ sent: 'welcome' | 'reset'; email: string }> {
+    const user = await this.get(id);
+    if (!user.isActive) {
+      throw new ConflictError('This account is deactivated. Reactivate it before sending a link.');
+    }
+    const row = await this.deps.db.user.findUnique({
+      where: { id },
+      select: { emailVerified: true },
+    });
+    const firstTime = row?.emailVerified !== true;
+    if (firstTime) {
+      await this.deps.valkey.set(`${WELCOME_FLAG_PREFIX}${id}`, '1', 'EX', 60 * 60 * 24 * 7);
+    }
+    await this.deps.auth.api.requestPasswordReset({
+      body: { email: user.email, redirectTo: `${this.deps.appUrl}/set-password` },
+    });
+    await this.deps.audit.write(ctx, {
+      action: 'user.password_link_sent',
+      entity: 'user',
+      entityId: id,
+      after: { to: user.email, kind: firstTime ? 'welcome' : 'reset' },
+    });
+    return { sent: firstTime ? 'welcome' : 'reset', email: user.email };
+  }
+
+  /**
+   * Deletes an account that has done nothing, and refuses every other one.
+   *
+   * Deactivating is how somebody leaves: they stop being able to sign in and everything they did
+   * stays where it is, with their name on it. Deleting is for the account that should not exist at
+   * all, typically added an hour ago with the wrong address. The two are not the same act and the
+   * product should not pretend they are.
+   *
+   * The check is not politeness. A note's author is a required relation, so the database refuses
+   * outright, and the columns that would accept a null instead would quietly blank the owner of
+   * every contact, deal and call the person ever touched. Somebody with history can only be
+   * deactivated, and this says so in those words rather than returning a constraint error.
+   */
+  async remove(id: string, actorId: string | null, ctx: AuditContext): Promise<void> {
+    if (id === actorId) throw new ConflictError('You cannot delete your own account');
+    const user = await this.get(id);
+
+    const [notes, calls, conversations, contacts, companies, leads, deals, tasks] =
+      await this.deps.db.$transaction([
+        this.deps.db.note.count({ where: { authorId: id } }),
+        this.deps.db.call.count({ where: { userId: id } }),
+        this.deps.db.conversation.count({ where: { assigneeId: id } }),
+        this.deps.db.contact.count({ where: { ownerId: id } }),
+        this.deps.db.company.count({ where: { ownerId: id } }),
+        this.deps.db.lead.count({ where: { ownerId: id } }),
+        this.deps.db.deal.count({ where: { ownerId: id } }),
+        this.deps.db.task.count({ where: { assigneeId: id } }),
+      ]);
+    const history = { notes, calls, conversations, contacts, companies, leads, deals, tasks };
+    const total = Object.values(history).reduce((sum, n) => sum + n, 0);
+    if (total > 0) {
+      throw new ConflictError(
+        'This person has a history in the system, so their account can be deactivated but not deleted. Deactivating stops them signing in and leaves their work where it is, with their name on it.',
+        history,
+      );
+    }
+
+    /*
+     * Written before the rows go, because afterwards there is nothing left to name. The audit log
+     * keeps only an actor id, so without this the record says an account was deleted and not whose.
+     */
+    await this.deps.audit.write(ctx, {
+      action: 'user.delete',
+      entity: 'user',
+      entityId: id,
+      before: { name: user.name, email: user.email, role: user.role, extension: user.extension },
+    });
+
+    const avatarKey = (
+      await this.deps.db.user.findUnique({ where: { id }, select: { avatarKey: true } })
+    )?.avatarKey;
+    await this.deps.db.user.delete({ where: { id } });
+    if (avatarKey) await this.deps.storage.delete(avatarKey).catch(() => undefined);
+    await ExtensionMap.notifyChanged(this.deps.valkey);
+  }
+
   async updateMe(
     userId: string,
     body: z.infer<typeof updateMeBody>,

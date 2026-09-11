@@ -176,6 +176,14 @@ export const usersRoles: Chapter = {
         },
         {
           type: 'p',
+          text: 'A forgotten password is the same menu. <em>Send a password reset</em> emails them a link to choose a new one, and for somebody who never finished their invitation the same item reads <em>Resend the invitation</em> instead. You cannot choose a password on their behalf, and that is deliberate: anybody who could would be able to sign in as them, and no record afterwards could tell the two apart.',
+        },
+        {
+          type: 'p',
+          text: '<em>Sign out everywhere</em> ends every session that person has open, on every device, without touching their password or their authenticator. It is what to reach for when a phone has been lost or a machine was left signed in somewhere.',
+        },
+        {
+          type: 'p',
           text: 'They are emailed as soon as you do it, naming you, because a second factor that stops working with no explanation looks like a broken account or a break-in. Tell them to sign in with their password as usual: they will be shown a new QR code to scan rather than a box asking for a code, and their old authenticator entry can be deleted.',
         },
         {
@@ -198,6 +206,10 @@ export const usersRoles: Chapter = {
           type: 'callout',
           tone: 'info',
           text: 'A deactivated user does not count towards the number of users your plan allows, so deactivating frees a place for their replacement.',
+        },
+        {
+          type: 'p',
+          text: 'There is a <em>Delete</em> in the row menu as well, and it is for a different problem: an account added by mistake, usually an hour ago with the wrong address. It only works on somebody who has not used the system yet. If they have made a call, written a note or owned a record, deleting is refused and says so, because removing them would take the name off work that somebody did.',
         },
         { type: 'related', ids: ['security', 'your-plan', 'audit-log'] },
       ],

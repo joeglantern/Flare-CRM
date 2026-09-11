@@ -163,6 +163,35 @@ const usersRoutes: FastifyPluginAsyncZod = async (app) => {
     }),
   });
 
+  /*
+   * The link goes to the person, never a password chosen for them: an administrator who can set
+   * somebody else's password can sign in as them, and nothing afterwards can tell that apart from
+   * the person signing in themselves.
+   */
+  app.post('/users/:id/password-link', {
+    config: { auth: { permission: 'user:set-password' } },
+    schema: {
+      tags: ['users'],
+      params: idParams,
+      response: {
+        200: dataResponse(z.object({ sent: z.enum(['welcome', 'reset']), email: z.string() })),
+      },
+    },
+    handler: async (request) => ({
+      data: await service.sendPasswordLink(request.params.id, auditContext(request)),
+    }),
+  });
+
+  /* Refuses anybody with a history; the message says to deactivate them instead. */
+  app.delete('/users/:id', {
+    config: { auth: { permission: 'user:delete' } },
+    schema: { tags: ['users'], params: idParams, response: { 204: z.null() } },
+    handler: async (request, reply) => {
+      await service.remove(request.params.id, request.user?.id ?? null, auditContext(request));
+      return reply.status(204).send(null);
+    },
+  });
+
   app.post('/users/:id/sessions/revoke', {
     config: { auth: { permission: 'session:revoke' } },
     schema: { tags: ['users'], params: idParams, response: { 204: z.null() } },

@@ -69,7 +69,13 @@ import {
   useChannels,
   type TemplateDef,
 } from '@/features/inbox/api';
-import { useCreateUser, useUpdateUser, useUserAction, useUsers } from '@/features/users/api';
+import {
+  useCreateUser,
+  useDeleteUser,
+  useUpdateUser,
+  useUserAction,
+  useUsers,
+} from '@/features/users/api';
 import { formatBytes } from '@/lib/api/attachments';
 import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
@@ -2294,7 +2300,10 @@ function UsersSection() {
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const action = useUserAction();
+  const removeUser = useDeleteUser();
   const [resetting, setResetting] = useState<UserDto | null>(null);
+  const [signingOut, setSigningOut] = useState<UserDto | null>(null);
+  const [deleting, setDeleting] = useState<UserDto | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<UserDto | null>(null);
 
@@ -2432,6 +2441,42 @@ function UsersSection() {
                       );
                     },
                   },
+                  {
+                    /*
+                     * The link goes to them, not a password chosen here. Somebody who has never
+                     * finished the first one has never had a password, so the label says so.
+                     */
+                    id: 'password-link',
+                    label: u.emailVerified ? 'Send a password reset' : 'Resend the invitation',
+                    onSelect: () => {
+                      action.mutate(
+                        { id: u.id, action: 'password-link' },
+                        {
+                          onSuccess: () => {
+                            toast({
+                              tone: 'success',
+                              title: 'Link sent',
+                              description: `${u.name} can set a password from the email at ${u.email}.`,
+                            });
+                          },
+                          onError: (e) => {
+                            toast({
+                              tone: 'danger',
+                              title: 'Could not send the link',
+                              description: errorMessage(e),
+                            });
+                          },
+                        },
+                      );
+                    },
+                  },
+                  {
+                    id: 'sign-out',
+                    label: 'Sign out everywhere',
+                    onSelect: () => {
+                      setSigningOut(u);
+                    },
+                  },
                   ...(u.twoFactorEnabled
                     ? [
                         {
@@ -2444,6 +2489,14 @@ function UsersSection() {
                         },
                       ]
                     : []),
+                  {
+                    id: 'delete',
+                    label: 'Delete',
+                    danger: true,
+                    onSelect: () => {
+                      setDeleting(u);
+                    },
+                  },
                 ]
               : undefined
           }
@@ -2454,6 +2507,84 @@ function UsersSection() {
           }}
         />
       </Panel>
+
+      <ConfirmDialog
+        open={signingOut !== null}
+        onOpenChange={(v) => {
+          if (!v) setSigningOut(null);
+        }}
+        title="Sign this person out everywhere?"
+        description={
+          signingOut === null
+            ? ''
+            : `${signingOut.name} will have to sign in again on every device they use.`
+        }
+        confirmLabel="Sign them out"
+        loading={action.isPending}
+        consequences={[
+          'Every session they have open ends at once, including this one if it is them.',
+          'Their password and authenticator are untouched.',
+          'Use this when a device has been lost or shared.',
+        ]}
+        onConfirm={() => {
+          const target = signingOut;
+          if (target === null) return;
+          action.mutate(
+            { id: target.id, action: 'sessions/revoke' },
+            {
+              onSuccess: () => {
+                setSigningOut(null);
+                toast({ tone: 'success', title: `${target.name} was signed out everywhere` });
+              },
+              onError: (e) => {
+                toast({
+                  tone: 'danger',
+                  title: 'Could not sign them out',
+                  description: errorMessage(e),
+                });
+              },
+            },
+          );
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(v) => {
+          if (!v) setDeleting(null);
+        }}
+        title="Delete this account?"
+        description={
+          deleting === null
+            ? ''
+            : `${deleting.name} will be removed entirely. This only works for an account that has not been used yet.`
+        }
+        confirmLabel="Delete the account"
+        tone="danger"
+        loading={removeUser.isPending}
+        consequences={[
+          'If they have called, written a note or owned a record, this is refused and you are told so.',
+          'Somebody who has done any of that should be deactivated instead, which keeps their work.',
+          'The audit log keeps a record that the account existed and that you deleted it.',
+        ]}
+        onConfirm={() => {
+          const target = deleting;
+          if (target === null) return;
+          removeUser.mutate(target.id, {
+            onSuccess: () => {
+              setDeleting(null);
+              toast({ tone: 'success', title: `${target.name} was deleted` });
+            },
+            onError: (e) => {
+              toast({
+                tone: 'danger',
+                title: 'That account was not deleted',
+                description: errorMessage(e),
+              });
+            },
+          });
+        }}
+      />
 
       <ConfirmDialog
         open={resetting !== null}

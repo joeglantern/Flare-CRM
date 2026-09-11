@@ -238,6 +238,90 @@ describe('auth & authorization', () => {
     }
   });
 
+  it('sends a person a link to set or reset their own password, and never sets one for them', async () => {
+    const admin = await ctx.createUser({ role: 'admin' });
+    const fresh = await ctx.createUser({ role: 'agent' });
+    // Nobody has finished a first link yet, so this is a welcome rather than a reset.
+    await ctx.app.db.user.update({ where: { id: fresh.id }, data: { emailVerified: false } });
+
+    const first = await ctx.as(admin, {
+      method: 'POST',
+      url: `/api/v1/users/${fresh.id}/password-link`,
+    });
+    expect(first.statusCode, first.body).toBe(200);
+    expect(first.json<{ data: { sent: string } }>().data.sent).toBe('welcome');
+
+    // Once they have proved the mailbox, the same button is a reset.
+    await ctx.app.db.user.update({ where: { id: fresh.id }, data: { emailVerified: true } });
+    const second = await ctx.as(admin, {
+      method: 'POST',
+      url: `/api/v1/users/${fresh.id}/password-link`,
+    });
+    expect(second.statusCode, second.body).toBe(200);
+    expect(second.json<{ data: { sent: string } }>().data.sent).toBe('reset');
+
+    const entry = await ctx.app.db.auditLog.findFirst({
+      where: { action: 'user.password_link_sent', entityId: fresh.id },
+    });
+    expect(entry?.actorId).toBe(admin.id);
+
+    for (const role of ['agent', 'manager'] as const) {
+      const other = await ctx.createUser({ role });
+      const denied = await ctx.as(other, {
+        method: 'POST',
+        url: `/api/v1/users/${fresh.id}/password-link`,
+      });
+      expect(denied.statusCode, `${role} should not send password links`).toBe(403);
+    }
+  });
+
+  it('deletes an account that has done nothing and refuses one that has', async () => {
+    const admin = await ctx.createUser({ role: 'admin' });
+    const mistake = await ctx.createUser({ role: 'agent' });
+
+    // Nobody may delete themselves, whatever their role.
+    const self = await ctx.as(admin, { method: 'DELETE', url: `/api/v1/users/${admin.id}` });
+    expect(self.statusCode, self.body).toBe(409);
+
+    const gone = await ctx.as(admin, { method: 'DELETE', url: `/api/v1/users/${mistake.id}` });
+    expect(gone.statusCode, gone.body).toBe(204);
+    expect(await ctx.app.db.user.count({ where: { id: mistake.id } })).toBe(0);
+    // The log has to say whose account it was; afterwards there is nothing left to ask.
+    const entry = await ctx.app.db.auditLog.findFirst({
+      where: { action: 'user.delete', entityId: mistake.id },
+    });
+    expect((entry?.before as { email?: string } | null)?.email).toBe(mistake.email);
+
+    // Somebody who has written anything keeps their history, and is told to deactivate instead.
+    const worked = await ctx.createUser({ role: 'agent' });
+    const contact = await ctx.as(worked, {
+      method: 'POST',
+      url: '/api/v1/contacts',
+      payload: { firstName: 'Amina', lastName: 'Hassan' },
+    });
+    expect(contact.statusCode, contact.body).toBe(201);
+    await ctx.as(worked, {
+      method: 'POST',
+      url: '/api/v1/notes',
+      payload: {
+        body: 'Rang about the invoice.',
+        contactId: contact.json<{ data: { id: string } }>().data.id,
+      },
+    });
+
+    const refused = await ctx.as(admin, { method: 'DELETE', url: `/api/v1/users/${worked.id}` });
+    expect(refused.statusCode, refused.body).toBe(409);
+    expect(refused.body).toContain('deactivated');
+    expect(await ctx.app.db.user.count({ where: { id: worked.id } })).toBe(1);
+
+    for (const role of ['agent', 'manager'] as const) {
+      const other = await ctx.createUser({ role });
+      const spare = await ctx.createUser({ role: 'agent' });
+      const denied = await ctx.as(other, { method: 'DELETE', url: `/api/v1/users/${spare.id}` });
+      expect(denied.statusCode, `${role} should not delete users`).toBe(403);
+    }
+  });
+
   it("audit list resolves the actor's name rather than a bare id", async () => {
     const admin = await ctx.createUser({ role: 'admin' });
     await ctx.as(admin, { method: 'POST', url: '/api/v1/teams', payload: { name: 'Support' } });

@@ -77,6 +77,16 @@ export function useUserAction() {
   });
 }
 
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => http.del(`/api/v1/users/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.list('users') });
+    },
+  });
+}
+
 export function useUpdateMe() {
   const qc = useQueryClient();
   return useMutation({
