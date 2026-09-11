@@ -125,7 +125,7 @@ export function ReportsScreen() {
             : 'calls'
         }
         filters={filters}
-        filterSummary={`${range.from.slice(0, 10)} to ${range.to.slice(0, 10)} · GAP-19: no report export endpoint, so this exports the underlying rows as CSV rather than the chart`}
+        filterSummary={`${range.from.slice(0, 10)} to ${range.to.slice(0, 10)} · export gives the rows behind this chart, as CSV`}
       />
     </div>
   );
@@ -201,7 +201,7 @@ function CallVolumeReport({ filters }: { filters: { from: string; to: string } }
         />
       </div>
 
-      <Panel title="By day" note="GET /reports/calls/summary">
+      <Panel title="By day">
         <BarChart
           legend={[
             { label: 'Answered', tone: SERIES[0] ?? 'var(--chart-1)' },
@@ -391,7 +391,7 @@ function AgentPerformanceReport({ filters }: { filters: { from: string; to: stri
         title: 'No agent activity in this range',
         description: 'Nobody handled a call between those dates.',
       }}
-      endpoint="GET /reports/calls/agents"
+
       note="Scope comes from your role, not from a filter (GAP-18). These rows carry no disposition counts (GAP-16)."
     />
   );
@@ -432,7 +432,7 @@ function MissedCallsReport({ filters }: { filters: { from: string; to: string } 
 
       <Panel
         padded={false}
-        note="GET /reports/calls/missed · called back and repeat counts are worked out from your own call list, not returned by the API (GAP-17)"
+        note="Called back and repeat counts are worked out from your own call list, not returned by the API (GAP-17)."
       >
         {rows.length === 0 ? (
           <EmptyState
@@ -525,7 +525,7 @@ function PipelineReport({ filters }: { filters: { from: string; to: string } }) 
         />
       </div>
 
-      <Panel title="By stage" note="GET /reports/pipeline/summary">
+      <Panel title="By stage">
         {stages.length === 0 ? (
           <p className="text-base text-muted">No deals in this pipeline for the selected range.</p>
         ) : (
@@ -629,7 +629,7 @@ function ConversionReport({ filters }: { filters: { from: string; to: string } }
 
       <Panel
         title="How far deals get"
-        note="GET /reports/pipeline/conversion · the share of deals created in this range that reached each stage"
+        note="The share of deals created in this range that reached each stage."
       >
         {stages.length === 0 ? (
           <p className="text-base text-muted">No stage movement in this range.</p>
@@ -721,10 +721,7 @@ function ForecastReport() {
         />
       </div>
 
-      <Panel
-        title="By month"
-        note="GET /reports/pipeline/forecast · takes months ahead, not a date range (GAP-10)"
-      >
+      <Panel title="By month" note="Takes months ahead, not a date range (GAP-10).">
         {rows.length === 0 ? (
           <EmptyState
             compact

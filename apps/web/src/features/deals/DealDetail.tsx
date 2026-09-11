@@ -589,7 +589,7 @@ function StageHistoryTab({ dealId }: { dealId: string }) {
   }
 
   return (
-    <Panel title="Stage history" note="GET /deals/:id/history" padded={false}>
+    <Panel title="Stage history" padded={false}>
       <ol className="divide-y divide-border">
         {rows.map((h) => (
           <li key={h.id} className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">

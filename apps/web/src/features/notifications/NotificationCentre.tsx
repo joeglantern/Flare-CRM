@@ -272,7 +272,7 @@ function PreferencesPanel() {
   return (
     <Panel
       title="What you are told about"
-      note="PUT /notifications/preferences · turning something off here does not stop it happening, only the notice"
+      note="Turning something off here does not stop it happening, only the notice."
       padded={false}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_80px_80px] items-center gap-3 border-b border-border px-3.5 py-2 text-sm text-muted">

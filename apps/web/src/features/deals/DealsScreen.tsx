@@ -219,7 +219,6 @@ function DealBoard() {
           size="sm"
           placeholder="Owner"
         />
-        <span className="mono ml-auto text-xs text-faint">GET /deals/board</span>
       </div>
 
       {query.isPending ? (
@@ -743,7 +742,7 @@ function DealList() {
                   : {}),
               }
         }
-        endpoint="GET /deals · offset paginated"
+        endpoint="Offset paginated."
       />
 
       <ExportDialog

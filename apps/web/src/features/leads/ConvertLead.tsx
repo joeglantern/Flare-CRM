@@ -149,7 +149,7 @@ export function ConvertLeadDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Convert lead"
-      description="POST /leads/:id/convert"
+
       width={520}
       dismissable={!convert.isPending}
       footer={

@@ -340,7 +340,7 @@ export function LeadsListScreen() {
                   : {}),
               }
         }
-        endpoint="GET /leads · offset paginated"
+        endpoint="Offset paginated."
       />
 
       <LeadFormDrawer

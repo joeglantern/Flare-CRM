@@ -327,7 +327,7 @@ function GeneralSection() {
   return (
     <SectionShell
       title="General"
-      description="GET /settings · PATCH /settings"
+      description="The name, country and time zone every screen in the CRM is shown in."
       loading={loading}
       error={country.query.error}
       onRetry={() => {
@@ -418,7 +418,7 @@ function TelephonySection() {
   return (
     <>
       {perms.has('pbx:view_status') && (
-        <Panel title="PBX connection" note="GET /cti/status">
+        <Panel title="PBX connection">
           {status.isPending ? (
             <Skeleton height={100} shape="block" />
           ) : status.isError ? (
@@ -938,7 +938,7 @@ function CustomFieldsSection() {
     <>
       <Panel
         title="Custom fields"
-        note="GET /custom-fields · the key cannot change once a field exists, because data is stored under it"
+        note="The key cannot change once a field exists, because data is stored under it."
         padded={false}
         actions={
           <Button
@@ -1105,7 +1105,7 @@ function CustomFieldDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="New custom field"
-      description="POST /custom-fields"
+
       width={460}
       footer={
         <>
@@ -1251,7 +1251,7 @@ function PipelinesSection() {
                 {p.isDefault && <Badge tone="neutral">Default</Badge>}
               </span>
             }
-            note={`${String(p.stages.length)} stages · PATCH /pipelines/${p.id}`}
+            note={`${String(p.stages.length)} stages`}
             padded={false}
             actions={
               <>
@@ -1359,7 +1359,7 @@ function PipelinesSection() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="New pipeline"
-        description="POST /pipelines · it starts with a default set of stages you can then edit"
+        description="It starts with a default set of stages you can then edit."
         width={420}
         footer={
           <>
@@ -1416,7 +1416,7 @@ function PipelinesSection() {
           if (!v) setStageFor(null);
         }}
         title="Add a stage"
-        description="POST /pipelines/:id/stages"
+
         width={420}
         footer={
           <>
@@ -1568,7 +1568,7 @@ function DispositionsSection() {
     <>
       <Panel
         title="Call outcomes"
-        note="GET /call-dispositions · these are the chips an agent picks after a call"
+        note="These are the chips an agent picks after a call."
         padded={false}
       >
         {dispositions.isPending ? (
@@ -1721,7 +1721,7 @@ function ChannelsSection() {
     <>
       <Panel
         title="Messaging channels"
-        note="GET /channels · secrets are stored encrypted and never returned, so they can only be replaced, not read"
+        note="Secrets are stored encrypted and never returned, so they can only be replaced, not read."
         padded={false}
         actions={
           <Button
@@ -1806,7 +1806,7 @@ function ChannelsSection() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="New channel"
-        description="POST /channels"
+
         width={440}
         footer={
           <>
@@ -1913,7 +1913,7 @@ function ChannelEditDialog({ channel, onClose }: { channel: ChannelDto; onClose:
         if (!v) onClose();
       }}
       title={`Edit ${channel.name}`}
-      description="PATCH /channels/:id"
+
       width={520}
       footer={
         <>
@@ -2092,7 +2092,7 @@ function WebFormsSection() {
     <>
       <Panel
         title="Web forms"
-        note="GET /web-forms · each form posts to its own URL and creates a lead"
+        note="Each form posts to its own URL and creates a lead."
         padded={false}
         actions={
           <Button
@@ -2181,7 +2181,7 @@ function WebFormsSection() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="New web form"
-        description="POST /web-forms · starts with name, phone and message"
+        description="Starts with name, phone and message."
         width={440}
         footer={
           <>
@@ -2362,7 +2362,7 @@ function UsersSection() {
     <>
       <Panel
         title="Users"
-        note="GET /users · roles decide what each person can do"
+        note="Roles decide what each person can do."
         padded={false}
         actions={
           canManage ? (
@@ -2612,7 +2612,6 @@ function UserDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={editing ? 'Edit user' : 'New user'}
-      description={editing ? 'PATCH /users/:id' : 'POST /users'}
       width={440}
       footer={
         <>
@@ -2780,7 +2779,7 @@ function AuditSection() {
 
   return (
     <>
-      <Panel title="Audit log" note="GET /audit · append only, and never edited" padded={false}>
+      <Panel title="Audit log" note="Append only, and never edited." padded={false}>
         <DataTable
           tableId="audit"
           ariaLabel="Audit log"
@@ -2852,7 +2851,7 @@ function HealthSection() {
   const query = useSystemHealth();
 
   return (
-    <Panel title="System health" note="GET /ready · refreshed every 30 seconds">
+    <Panel title="System health" note="Refreshed every 30 seconds.">
       {query.isPending ? (
         <Skeleton height={140} shape="block" />
       ) : query.isError ? (

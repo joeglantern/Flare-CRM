@@ -364,7 +364,7 @@ function AgentBoard() {
         {canTasks && (
           <Panel
             title="Your tasks"
-            note="GET /tasks?mine=true&status=open"
+
             padded={false}
             actions={
               <Link to="/tasks">
@@ -440,7 +440,7 @@ function AgentBoard() {
         {canCalls && (
           <Panel
             title="Missed calls"
-            note="GET /reports/calls/missed"
+
             padded={false}
             actions={
               <Link to="/calls/missed">
@@ -503,7 +503,7 @@ function AgentBoard() {
         {canChat && (
           <Panel
             title="Your conversations"
-            note="GET /conversations?mine=true"
+
             padded={false}
             actions={
               <Link to="/inbox">
@@ -560,7 +560,7 @@ function AgentBoard() {
         {canDeals && (
           <Panel
             title="Your open deals"
-            note="GET /deals?ownerId=me&status=open"
+
             padded={false}
             actions={
               <Link to="/deals">
@@ -724,7 +724,7 @@ function TeamBoard() {
           label="Users with an extension"
           value={users.isPending ? null : withExtension}
           unit={`/ ${String(totalUsers)}`}
-          sub="GAP-15: PBX registration is not exposed"
+          sub="with an extension set"
           icon={Users}
           loading={users.isPending}
         />
@@ -756,7 +756,7 @@ function TeamBoard() {
               </span>
             </span>
           }
-          note="GET /calls/live · GET /cti/status"
+
           actions={
             <Link to="/live-calls">
               <Button variant="ghost" size="sm" icon={ArrowRight}>
@@ -814,7 +814,7 @@ function TeamBoard() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         {perms.has('deal:read') && (
-          <Panel title="Pipeline" note="GET /reports/pipeline/summary">
+          <Panel title="Pipeline">
             {pipeline.isPending ? (
               <Skeleton height={140} shape="block" />
             ) : stages.length === 0 ? (
@@ -843,7 +843,7 @@ function TeamBoard() {
           </Panel>
         )}
 
-        <Panel title="Busiest agents" note="GET /reports/calls/agents" padded={false}>
+        <Panel title="Busiest agents" padded={false}>
           {agents.isPending ? (
             <ListSkeleton />
           ) : rows.length === 0 ? (
@@ -885,7 +885,7 @@ function TeamBoard() {
         {perms.has('call:read') && (
           <Panel
             title="Missed across the team"
-            note="GET /reports/calls/missed"
+
             padded={false}
             actions={
               <Link to="/calls/missed">
@@ -942,7 +942,7 @@ function TeamBoard() {
         {perms.has('chat:read') && (
           <Panel
             title="Unassigned conversations"
-            note="GET /conversations?unassigned=true"
+
             padded={false}
             actions={
               <Link to="/inbox" search={{ scope: 'unassigned' } as never}>
@@ -995,7 +995,7 @@ function TeamBoard() {
       </div>
 
       {canPbx && cti.data !== undefined && (
-        <Panel title="PBX" note="GET /cti/status">
+        <Panel title="PBX">
           <dl className="grid grid-cols-[minmax(0,150px)_minmax(0,1fr)] gap-x-3 gap-y-2 text-base">
             <dt className="text-sm text-muted">Status</dt>
             <dd>

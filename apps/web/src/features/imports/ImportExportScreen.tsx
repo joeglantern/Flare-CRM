@@ -102,7 +102,7 @@ export function ImportExportScreen() {
 
       <Panel
         title="Import history"
-        note="GET /imports · a running job refreshes every few seconds"
+        note="A running job refreshes every few seconds."
         padded={false}
       >
         {query.isPending ? (
@@ -236,7 +236,7 @@ function ExportPanel() {
   };
 
   return (
-    <Panel title="Export" note="GET /exports/:entity · exports everything you are allowed to see">
+    <Panel title="Export" note="Exports everything you are allowed to see.">
       <div className="flex flex-wrap gap-2">
         {EXPORTABLE.filter((e) => allowed[e.value]).map((e) => (
           <Button
@@ -368,7 +368,7 @@ export function ImportWizard({
         if (!v) reset();
       }}
       title="Import a CSV"
-      description="POST /imports"
+
       width={640}
       dismissable={!start.isPending}
       footer={
@@ -459,8 +459,7 @@ export function ImportWizard({
             )}
 
             <p className="text-sm text-faint">
-              GAP-09: only contacts, companies and leads can be imported. Deals, tasks and calls are
-              export only.
+              Contacts, companies and leads can be imported. Deals, tasks and calls are export only.
             </p>
           </>
         )}

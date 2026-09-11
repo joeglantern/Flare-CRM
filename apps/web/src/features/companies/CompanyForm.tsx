@@ -184,7 +184,6 @@ export function CompanyFormDrawer({
         onOpenChange(v);
       }}
       title={editing ? 'Edit company' : 'New company'}
-      description={editing ? 'PATCH /companies/:id' : 'POST /companies'}
       dismissable={!pending}
       footer={
         <>

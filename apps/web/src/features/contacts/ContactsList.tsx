@@ -343,9 +343,6 @@ export function ContactsListScreen() {
                   : {}),
               }
         }
-        endpoint={`GET /contacts?page=${String(list.page)}&pageSize=${String(list.pageSize)}${
-          list.filters.q !== undefined ? '&q=' : ''
-        }${list.sort !== null ? '&sort=' : ''} · offset paginated`}
       />
 
       <ContactFormDrawer

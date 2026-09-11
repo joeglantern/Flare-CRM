@@ -392,7 +392,7 @@ function ConversationList({
 
       {perms.has('chat:assign') && (
         <p className="px-2 pb-1 text-xs text-faint">
-          GAP-04: GET /conversations takes one assignee, not a team, so filter by person.
+          Filter by one person at a time. There is no team filter here yet.
         </p>
       )}
     </aside>
@@ -597,7 +597,7 @@ function ConversationThread({
         open={assignOpen}
         onOpenChange={setAssignOpen}
         title="Assign conversation"
-        description="POST /conversations/:id/assign"
+
         width={420}
         footer={
           <>
@@ -777,8 +777,8 @@ function Composer({
 
         {templates.length === 0 ? (
           <p className="rounded-sm border border-border bg-surface px-3 py-2 text-sm text-faint">
-            GAP-05: no template list endpoint exists. Record the approved templates on the channel
-            in settings before you can send outside the window.
+            No approved templates are recorded yet. Add them to this channel in settings, and they
+            become available once the 24 hour window has closed.
           </p>
         ) : (
           <>
@@ -1064,7 +1064,7 @@ function StartConversationDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="New conversation"
-      description="POST /conversations"
+
       width={460}
       footer={
         <>

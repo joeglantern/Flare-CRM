@@ -151,7 +151,6 @@ export function DealFormDrawer({
       open={open}
       onOpenChange={onOpenChange}
       title={editing ? 'Edit deal' : 'New deal'}
-      description={editing ? 'PATCH /deals/:id' : 'POST /deals'}
       dismissable={!pending}
       footer={
         <>

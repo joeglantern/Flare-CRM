@@ -465,7 +465,7 @@ function TaskList() {
                     : {}),
                 }
         }
-        endpoint="GET /tasks · offset paginated. Bulk actions loop one PATCH per row (GAP-03)"
+        endpoint="Offset paginated. Bulk actions loop one PATCH per row (GAP-03)."
       />
 
       {editing !== null && (
@@ -482,7 +482,7 @@ function TaskList() {
         open={assignOpen}
         onOpenChange={setAssignOpen}
         title={`Reassign ${String(selection.length)} tasks`}
-        description="GAP-03: one PATCH per task, not a bulk endpoint."
+        description="Each task is reassigned in turn, so a large selection takes a moment."
         width={420}
         footer={
           <>
@@ -670,7 +670,7 @@ function TaskCalendar() {
               .map((u) => ({ value: u.id, label: u.name })),
           ]}
         />
-        <span className="mono ml-auto text-xs text-faint">GET /tasks/calendar · 42 day window</span>
+        <span className="ml-auto text-xs text-muted">Six weeks at a time</span>
       </div>
 
       {query.isPending ? (

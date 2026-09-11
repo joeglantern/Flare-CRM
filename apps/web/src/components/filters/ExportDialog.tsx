@@ -83,7 +83,6 @@ export function ExportDialog({
           <dt className="text-sm text-muted">Filters</dt>
           <dd className="min-w-0 break-words">{filterSummary ?? 'None'}</dd>
         </dl>
-        <p className="mono text-xs text-faint">GET /exports/{entity}?format=csv</p>
       </div>
     </Dialog>
   );

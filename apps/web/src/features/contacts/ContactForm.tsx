@@ -210,7 +210,6 @@ export function ContactFormDrawer({
         onOpenChange(v);
       }}
       title={editing ? 'Edit contact' : 'New contact'}
-      description={editing ? 'PATCH /contacts/:id' : 'POST /contacts'}
       dismissable={!pending}
       footer={
         <>

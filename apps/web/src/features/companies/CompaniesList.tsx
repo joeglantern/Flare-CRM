@@ -323,7 +323,7 @@ export function CompaniesListScreen() {
                   : {}),
               }
         }
-        endpoint="GET /companies · offset paginated. Open deals are on the DTO."
+        endpoint="Offset paginated. Open deals are on the DTO."
       />
 
       <CompanyFormDrawer

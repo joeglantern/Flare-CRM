@@ -193,7 +193,6 @@ export function LeadFormDrawer({
         onOpenChange(v);
       }}
       title={editing ? 'Edit lead' : 'New lead'}
-      description={editing ? 'PATCH /leads/:id' : 'POST /leads'}
       dismissable={!pending}
       footer={
         <>

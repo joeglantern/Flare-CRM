@@ -42,11 +42,7 @@ export function DuplicatesPanel({ contact }: { contact: ContactDto }) {
   const others = (duplicates.data ?? []).filter((d) => d.contact.id !== contact.id);
 
   return (
-    <Panel
-      title="Possible duplicates"
-      note="GET /contacts/duplicates?phone=&email= · matched on phone or email"
-      padded={false}
-    >
+    <Panel title="Possible duplicates" note="Matched on phone or email." padded={false}>
       {duplicates.isPending && (
         <div className="p-3">
           <Skeleton count={2} height={48} shape="block" className="mb-2" />
@@ -340,9 +336,10 @@ export function MergeDialog({
             })}
           </div>
 
-          <p className="mono text-xs text-faint">
-            {changes.length > 0 ? 'PATCH /contacts/:id then ' : ''}POST /contacts/
-            {target.id.slice(0, 8)}…/merge {'{'} sourceId {'}'}
+          <p className="text-xs text-muted">
+            {changes.length > 0
+              ? 'The chosen values are saved first, then the duplicate is merged into this record.'
+              : 'The duplicate is merged into this record. Its history comes with it.'}
           </p>
         </div>
       )}

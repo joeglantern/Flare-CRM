@@ -245,7 +245,7 @@ export function CallDetailScreen({ callId }: { callId: string }) {
             )}
           </Panel>
 
-          <Panel title="Notes on this call" note="POST /notes {callId}">
+          <Panel title="Notes on this call" note="{callId}.">
             <NotesPanel parent="call" id={call.id} canCreate={perms.has('note:create')} />
           </Panel>
 
@@ -356,7 +356,7 @@ export function CallDetailScreen({ callId }: { callId: string }) {
         open={linkOpen}
         onOpenChange={setLinkOpen}
         title="Link this call to a contact"
-        description="POST /calls/:id/contact"
+
         width={440}
         footer={
           <>

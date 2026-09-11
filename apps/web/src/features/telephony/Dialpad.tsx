@@ -139,7 +139,7 @@ export function DialpadScreen() {
             </Panel>
           )}
 
-          <Panel title="Your recent calls" note="GET /calls?mine=true" padded={false}>
+          <Panel title="Your recent calls" padded={false}>
             {!perms.has('call:read') ? (
               <div className="p-3">
                 <ForbiddenState permission="call:read" what="calls" compact />

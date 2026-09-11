@@ -405,8 +405,8 @@ export function ContactDetailScreen({ contactId }: { contactId: string }) {
         confirmLabel="Erase permanently"
         typedConfirmation="ERASE"
         consequences={[
-          'Admin only',
-          'POST /contacts/:id/erase',
+          'Only an administrator can do this',
+          'The record and its attachments are destroyed, not hidden',
           'The audit entry naming you is kept',
         ]}
         loading={erase.isPending}
@@ -496,7 +496,7 @@ function DealsTab({ contact }: { contact: ContactDto }) {
           </Button>
         )
       }
-      note="GET /deals?contactId="
+
       padded={false}
     >
       {deals.isPending && (
@@ -572,7 +572,7 @@ function TasksTab({ contact }: { contact: ContactDto }) {
           </Button>
         )
       }
-      note="GET /tasks?contactId="
+
       padded={false}
     >
       {tasks.isPending && (
@@ -623,7 +623,7 @@ function CallsTab({ contactId }: { contactId: string }) {
     return <ForbiddenState compact permission="call:read" what="calls" />;
   const rows = calls.data?.data ?? [];
   return (
-    <Panel title="Calls" note="GET /calls?contactId=" padded={false}>
+    <Panel title="Calls" padded={false}>
       {calls.isPending && (
         <div className="p-3">
           <Skeleton count={4} height={36} shape="block" className="mb-2" />
@@ -708,7 +708,7 @@ function ConversationsTab({ contact }: { contact: ContactDto }) {
           </Button>
         )
       }
-      note="GET /conversations?contactId="
+
       padded={false}
     >
       {conversations.isPending && (

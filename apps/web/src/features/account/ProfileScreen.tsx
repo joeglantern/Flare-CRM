@@ -143,7 +143,7 @@ export function ProfileScreen() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-4">
-          <Panel title="Profile" note="PATCH /users/me">
+          <Panel title="Profile">
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-4">
                 <Avatar name={me.name} seed={me.id} src={me.avatarUrl} size={56} />

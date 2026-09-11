@@ -139,7 +139,7 @@ export function LiveCallsBoard() {
         </div>
       )}
 
-      <Panel title="Stream" note="GET /cti/status · GET /calls/live">
+      <Panel title="Stream">
         <dl className="grid grid-cols-[minmax(0,140px)_minmax(0,1fr)] gap-x-3 gap-y-2 text-base">
           <dt className="text-sm text-muted">Leader</dt>
           <dd className="mono">{status.data?.leader ?? '—'}</dd>

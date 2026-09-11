@@ -391,11 +391,6 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
                   : {}),
               }
         }
-        endpoint={
-          missed
-            ? 'GET /calls?status=missed&direction=inbound&from=&to=&sort=-startedAt'
-            : `GET /calls?${canSeeAll ? '' : 'mine=true&'}from=&to=&sort=-startedAt`
-        }
       />
 
       <Dialpad open={dialpadOpen} onOpenChange={setDialpadOpen} />

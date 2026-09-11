@@ -140,7 +140,6 @@ export function TaskFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={editing ? 'Edit task' : 'New task'}
-      description={editing ? 'PATCH /tasks/:id' : 'POST /tasks'}
       width={520}
       dismissable={!pending}
       footer={
