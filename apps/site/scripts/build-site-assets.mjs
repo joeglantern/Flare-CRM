@@ -11,7 +11,7 @@
  *
  *   node apps/site/scripts/build-site-assets.mjs
  */
-import { mkdir, stat } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -123,7 +123,13 @@ async function slice(file, names, { quality }) {
  * or an outstretched arm crosses a nominal cell boundary and a fixed cut takes the arm off. The
  * padded box is then pulled back off every neighbour so no fragment travels with it.
  */
-async function sliceFigures(file, rows, cols, names, { quality = 62, threshold = 26 } = {}) {
+async function sliceFigures(
+  file,
+  rows,
+  cols,
+  names,
+  { quality = 62, threshold = 26, png: keepPng = false } = {},
+) {
   const source = resolve(src, file);
   const { data, info } = await sharp(source).raw().toBuffer({ resolveWithObject: true });
   const found = groupByCell(
@@ -190,6 +196,9 @@ async function sliceFigures(file, rows, cols, names, { quality = 62, threshold =
       sharp(png)
         .webp({ quality: quality + 10, effort: 6 })
         .toFile(`${target}.webp`),
+      // The object set carries a PNG as well, because those are drawn over panels rather than
+      // behind text and a browser without either modern format would show a gap where one was.
+      ...(keepPng ? [writeFile(`${target}.png`, png)] : []),
     ]);
     const written = await stat(`${target}.avif`);
     const shape = await sharp(`${target}.avif`).metadata();
@@ -201,6 +210,93 @@ async function sliceFigures(file, rows, cols, names, { quality = 62, threshold =
     sheet.push({ name, png });
   }
   return sheet;
+}
+
+/**
+ * Cuts a sheet on an even grid rather than by finding what is on it.
+ *
+ * A sequence is the one case where finding the object is wrong. Scroll scrubs these frames one
+ * after another, and a box drawn tight around each frame's contents would shift the handset a few
+ * pixels every time the light inside it changed shape, which reads as a twitch. An even cut keeps
+ * whatever the frame contains exactly where the render put it, so the only thing that moves
+ * between frames is the thing that is supposed to be moving.
+ */
+async function sliceSequence(file, cols, rows, names, { quality = 62 } = {}) {
+  const source = resolve(src, file);
+  const { width, height } = await sharp(source).metadata();
+  const cellWidth = Math.floor(width / cols);
+  const cellHeight = Math.floor(height / rows);
+  if (cols * rows !== names.length) {
+    throw new Error(`${file}: ${String(cols * rows)} cells for ${String(names.length)} names`);
+  }
+  const sheet = [];
+  for (const [i, name] of names.entries()) {
+    const target = resolve(pub, name);
+    await mkdir(dirname(target), { recursive: true });
+    const png = await sharp(source)
+      .extract({
+        left: (i % cols) * cellWidth,
+        top: Math.floor(i / cols) * cellHeight,
+        width: cellWidth,
+        height: cellHeight,
+      })
+      .png()
+      .toBuffer();
+    await Promise.all([
+      sharp(png).avif({ quality, effort: 9 }).toFile(`${target}.avif`),
+      sharp(png)
+        .webp({ quality: quality + 10, effort: 6 })
+        .toFile(`${target}.webp`),
+    ]);
+    const written = await stat(`${target}.avif`);
+    console.log(
+      `${name}.avif`,
+      `${String(cellWidth)}x${String(cellHeight)}`,
+      `${String(Math.round(written.size / 1024))} KB`,
+    );
+    sheet.push({ name, png });
+  }
+  return sheet;
+}
+
+/**
+ * Cuts a sheet that arrived as horizontal bands, one picture above the next with no gutter.
+ *
+ * These are painted places rather than objects on black, so there is nothing to find: the only
+ * honest reading of the sheet is that it is N equal strips, which is what the generator was asked
+ * for and what it returned.
+ */
+async function sliceBands(file, names, { quality = 50 } = {}) {
+  const source = resolve(src, file);
+  const { width, height } = await sharp(source).metadata();
+  const band = Math.floor(height / names.length);
+  for (const [i, name] of names.entries()) {
+    const target = resolve(pub, name);
+    await mkdir(dirname(target), { recursive: true });
+    // Two pixels in at each seam: the bands butt directly and the join carries a row of the
+    // neighbour's sky.
+    const top = i * band + (i === 0 ? 0 : 2);
+    const cut = sharp(source).extract({
+      left: 0,
+      top,
+      width,
+      height: band - (i === 0 ? 2 : 4),
+    });
+    await Promise.all([
+      cut.clone().avif({ quality, effort: 9 }).toFile(`${target}.avif`),
+      cut
+        .clone()
+        .webp({ quality: quality + 10, effort: 6 })
+        .toFile(`${target}.webp`),
+    ]);
+    const written = await stat(`${target}.avif`);
+    const shape = await sharp(`${target}.avif`).metadata();
+    console.log(
+      `${name}.avif`,
+      `${String(shape.width)}x${String(shape.height)}`,
+      `${String(Math.round(written.size / 1024))} KB`,
+    );
+  }
 }
 
 /** Every slice at thumbnail size with its name under it, so the set can be judged in one look. */
@@ -309,4 +405,62 @@ const sparks = await sliceFigures(
 
 const dive = await sliceFigures('mascot-dive.png', 1, 1, ['mascot/dive'], { quality: 66 });
 
-await contactSheet([...poses, ...faces, ...dive, ...sparks], resolve(pub, 'mascot-sheet.png'));
+/*
+ * The four the site descends on: him going away from the viewer, him halfway through an opening,
+ * him side on, and him coming down towards the viewer. The one we already had has him flying at
+ * the camera, which is the one angle a descent cannot use.
+ */
+const through = await sliceFigures(
+  'mascot-through.png',
+  2,
+  2,
+  ['mascot/dive-away', 'mascot/dive-through', 'mascot/dive-side', 'mascot/dive-under'],
+  { quality: 66 },
+);
+
+/* The handset opening, in the order scroll plays them. */
+const handset = await sliceSequence(
+  'handset-sequence.png',
+  3,
+  2,
+  [
+    'handset/01-rest',
+    'handset/02-seam',
+    'handset/03-parting',
+    'handset/04-rising',
+    'handset/05-risen',
+    'handset/06-free',
+  ],
+  { quality: 66 },
+);
+
+/* The objects of the work, for the sections and for the footer. */
+const props = await sliceFigures(
+  'props.png',
+  4,
+  3,
+  [
+    'objects/desk-bell',
+    'objects/notebook',
+    'objects/receipt-roll',
+    'objects/ledgers',
+    'objects/chai',
+    'objects/keys',
+    'objects/wall-clock',
+    'objects/delivery-box',
+    'objects/clipboard',
+    'objects/desk-fan',
+    'objects/pen-pot',
+    'objects/paper-plane',
+  ],
+  { quality: 66, png: true },
+);
+
+/* Three painted places, full bleed behind the sections that talk about the work. */
+await sliceBands('places.png', ['places/parts-shop', 'places/shopfront-row', 'places/back-office']);
+
+await contactSheet(
+  [...poses, ...faces, ...dive, ...through, ...sparks],
+  resolve(pub, 'mascot-sheet.png'),
+);
+await contactSheet([...handset, ...props], resolve(pub, 'objects-sheet.png'));
