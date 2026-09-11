@@ -7,15 +7,22 @@
  * re-issuing to every customer.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound } from 'lucide-react';
+import { AlertTriangle, Check, KeyRound, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, Input, toast } from '@crm/ui';
+import { Badge, Banner, Button, Input, toast } from '@crm/ui';
 import { CopyLine, Field, Fields } from '@/components/Bits';
 import { PageHeader, Section, StateSlot } from '@/components/Page';
 import { http } from '@/lib/api';
+import { ago } from '@/lib/format';
 import { qk } from '@/lib/query';
 import { useSocketStatus } from '@/lib/socket';
 import type { ConsoleSettings } from '@/lib/types';
+import {
+  humanise,
+  readReadiness,
+  showValue,
+  type ReadinessCheck,
+} from './readiness';
 
 export function SettingsScreen() {
   const queryClient = useQueryClient();
@@ -182,16 +189,167 @@ export function SettingsScreen() {
                     </Badge>
                   )}
                 </Field>
-                <Field label="Health">
-                  <a href="/ready" target="_blank" rel="noreferrer">
-                    Readiness report
-                  </a>
-                </Field>
               </Fields>
             </Section>
+
+            <ReadinessSection signingKeyId={settings.data.signingKey.keyId} />
           </div>
         )}
       </StateSlot>
     </>
+  );
+}
+
+/**
+ * What `/ready` says, rendered.
+ *
+ * This used to be a link that opened a tab of raw JSON. The verdict is the part anyone actually
+ * wants, and it was the part hardest to find in it.
+ *
+ * The four checks it has today are not hard coded. A check is a name, a state and an arbitrary
+ * detail object, so a fifth one added on the server appears here with its own detail spelled out in
+ * English and nothing to change in this file.
+ */
+function ReadinessSection({ signingKeyId }: { signingKeyId: string }) {
+  const readiness = useQuery({
+    queryKey: qk.readiness(),
+    queryFn: readReadiness,
+    // It is a probe, not a record: what it said a minute ago is not worth showing as if it were now.
+    staleTime: 0,
+    // readReadiness resolves for every outcome, including a dead socket, so there is nothing here
+    // that a retry would rescue and no error branch for this query to take.
+    retry: false,
+  });
+
+  const result = readiness.data;
+  const verdict =
+    result === undefined
+      ? null
+      : !result.reachable
+        ? {
+            tone: 'danger' as const,
+            title: 'The console could not answer',
+            detail:
+              'Nothing came back from /ready. A console that cannot say whether it is ready is not ready.',
+          }
+        : result.ok
+          ? {
+              tone: 'info' as const,
+              title: 'Ready',
+              detail: 'Every check the console runs on itself passed.',
+            }
+          : {
+              tone: 'danger' as const,
+              title: 'Not ready',
+              detail: 'At least one of the console’s own checks is failing.',
+            };
+
+  const checks = Object.entries(result?.checks ?? {});
+
+  return (
+    <Section
+      title="Readiness"
+      description="What this console says about itself, read live rather than from a cache."
+      actions={
+        <Button
+          icon={RefreshCw}
+          loading={readiness.isFetching}
+          onClick={() => {
+            void readiness.refetch();
+          }}
+        >
+          Check again
+        </Button>
+      }
+    >
+      <StateSlot isPending={readiness.isPending} error={null}>
+        {verdict !== null && result !== undefined && (
+          <div className="flex flex-col gap-4">
+            <Banner
+              tone={verdict.tone}
+              icon={verdict.tone === 'info' ? ShieldCheck : AlertTriangle}
+              meta={`Read ${ago(result.readAt)}`}
+            >
+              <span className="font-medium">{verdict.title}</span>
+              <span className="ml-2 text-muted">{verdict.detail}</span>
+            </Banner>
+
+            {result.checks === null ? (
+              <p className="text-base text-muted">
+                {result.reachable
+                  ? 'The console gave its verdict without itemising it. It only lists the individual checks for a request coming from the machine it runs on, so opening this console over its own address will show the verdict alone.'
+                  : 'There is nothing to itemise: the request did not reach the console.'}
+              </p>
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {checks.map(([name, check]) => (
+                  <li key={name} className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2.5">
+                    <span className="flex w-32 shrink-0 items-center gap-2">
+                      {check.ok ? (
+                        <Check size={14} className="text-success" aria-hidden />
+                      ) : (
+                        <X size={14} className="text-danger" aria-hidden />
+                      )}
+                      <span className="font-medium">{humanise(name)}</span>
+                      <span className="sr-only">{check.ok ? 'passing' : 'failing'}</span>
+                    </span>
+                    <span className="min-w-0 flex-1 text-base text-muted">
+                      <CheckDetail name={name} check={check} signingKeyId={signingKeyId} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </StateSlot>
+    </Section>
+  );
+}
+
+/**
+ * A check's own words. `error` wins over `detail`, because a check that threw has nothing useful in
+ * its detail and the message is the whole point of looking.
+ *
+ * The signing key is the one special case, and it is a comparison rather than a value: the key id is
+ * already printed further up this screen, so printing it again teaches nobody anything, while saying
+ * whether the running signer is that same key is worth knowing.
+ */
+function CheckDetail({
+  name,
+  check,
+  signingKeyId,
+}: {
+  name: string;
+  check: ReadinessCheck;
+  signingKeyId: string;
+}) {
+  if (check.error !== undefined) return <span className="text-danger">{check.error}</span>;
+
+  const detail = check.detail;
+  if (detail === undefined) return <span className="text-faint">Nothing to report</span>;
+
+  const entries = Object.entries(detail).filter(
+    ([key]) => !(name === 'signing' && key === 'keyId'),
+  );
+  const signingKey = name === 'signing' ? detail.keyId : undefined;
+
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {typeof signingKey === 'string' &&
+        (signingKey === signingKeyId ? (
+          <span>Signing with the key shown above</span>
+        ) : (
+          <span className="text-danger">
+            Signing with a different key from the one shown above. Documents issued now will not
+            match what customers were told to trust.
+          </span>
+        ))}
+      {entries.map(([key, value]) => (
+        <span key={key}>
+          {humanise(key)}: <span className="text-text">{showValue(value)}</span>
+        </span>
+      ))}
+    </span>
   );
 }

@@ -7,11 +7,18 @@
  * Then the other direction: given samples, the figures on the screen are the ones in the payload.
  */
 import { screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConsoleOverviewDto, RevenueAnalyticsDto, SeriesPoint } from '@crm/shared';
 import { getSocket } from '@/lib/socket';
 import { renderWithRouter, stubFetch, type FetchStub } from '@/test/render';
 import { OverviewScreen } from './OverviewScreen';
+
+/**
+ * The expiry in the fixture is a fixed date, so the screen's "in 10 days" is only true relative to
+ * a fixed today. Without freezing the clock this test passes until the date rolls over and then
+ * fails for a reason that has nothing to do with the code.
+ */
+const TODAY = new Date('2026-09-10T09:00:00.000Z');
 
 const OVERVIEW = '/api/v1/analytics/overview';
 const REVENUE = '/api/v1/analytics/revenue';
@@ -126,10 +133,16 @@ const revenue: RevenueAnalyticsDto = {
 
 let fetchStub: FetchStub | null = null;
 
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(TODAY);
+});
+
 afterEach(() => {
   fetchStub?.restore();
   fetchStub = null;
   getSocket().removeAllListeners('alert:changed');
+  vi.useRealTimers();
 });
 
 describe('the overview screen', () => {

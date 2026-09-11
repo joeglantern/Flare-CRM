@@ -41,5 +41,7 @@ export const qk = {
   catalogue: () => ['catalogue'] as const,
   owners: () => ['owners'] as const,
   settings: () => ['settings'] as const,
+  /** A live probe of /ready, never served from cache for longer than it takes to draw. */
+  readiness: () => ['readiness'] as const,
   audit: (filter: Record<string, unknown>) => ['audit', filter] as const,
 } as const;
