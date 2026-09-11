@@ -5,7 +5,12 @@
  * The list shows the website hostname and size lives as a custom field.
  * Open deals are part of the company DTO (formerly GAP-07).
  */
-import type { CompanyDto, ContactDto, CreateCompanyBody, UpdateCompanyBody } from '@crm/shared';
+import type {
+  CompanyDto,
+  ContactSummaryDto,
+  CreateCompanyBody,
+  UpdateCompanyBody,
+} from '@crm/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http, type OffsetList, type Query } from '@/lib/api/client';
 import { qk } from '@/lib/query';
@@ -42,7 +47,11 @@ export function useCompanyContacts(id: string | null, enabled = true) {
     queryKey: qk.list('company-contacts', { id }),
     enabled: enabled && id !== null,
     queryFn: () =>
-      http.list<ContactDto>(`/api/v1/companies/${id ?? ''}/contacts`, { pageSize: MAX_PAGE_SIZE }),
+      // The summary shape, not the full contact: this endpoint sends primaryPhone and primaryEmail,
+      // not the phones and emails arrays, and asserting the wrong one here is what crashed the tab.
+      http.list<ContactSummaryDto>(`/api/v1/companies/${id ?? ''}/contacts`, {
+        pageSize: MAX_PAGE_SIZE,
+      }),
   });
 }
 

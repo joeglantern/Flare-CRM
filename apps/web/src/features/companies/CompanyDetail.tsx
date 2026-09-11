@@ -388,7 +388,6 @@ function CompanyContactsTab({
     <Panel title={`${String(rows.length)} contacts`} padded={false}>
       <ul className="divide-y divide-border">
         {rows.map((c) => {
-          const primary = c.phones.find((p) => p.isPrimary) ?? c.phones[0];
           return (
             <li key={c.id}>
               <Link
@@ -398,12 +397,12 @@ function CompanyContactsTab({
                 <Avatar name={c.displayName} seed={c.id} src={c.avatarUrl} size={24} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{c.displayName}</span>
-                  {c.jobTitle !== null && (
-                    <span className="block truncate text-sm text-muted">{c.jobTitle}</span>
+                  {c.primaryEmail !== null && (
+                    <span className="block truncate text-sm text-muted">{c.primaryEmail}</span>
                   )}
                 </span>
                 <PhoneNumber
-                  e164={primary?.e164 ?? null}
+                  e164={c.primaryPhone}
                   contactId={c.id}
                   contactName={c.displayName}
                   actions
