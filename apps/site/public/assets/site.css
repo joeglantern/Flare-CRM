@@ -142,14 +142,38 @@
   z-index: 30;
 }
 
+/*
+ * The lockup, at the proportions the product uses in its own sidebar: the mark, "Flare" heavy and
+ * tight, then "CRM" small and widely letterspaced. Everything is sized from one --size so the same
+ * three rules serve a seventeen pixel header and a two hundred pixel footer.
+ */
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 17px;
-  letter-spacing: -0.01em;
+  gap: 0.45em;
+  font-size: var(--size, 17px);
+  line-height: 1;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.brand img {
+  width: 1.25em;
+  height: 1.25em;
+}
+
+.brand b {
+  font-size: 1.15em;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.brand i {
+  font-style: normal;
+  font-size: 0.55em;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--text-muted);
 }
 
 .site-nav {
@@ -395,10 +419,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* From the top: any pixel the hero is short of goes off the bottom, never off the headline. */
+  /*
+   * Centred when there is room and from the top when there is not. "safe" is what makes that one
+   * declaration rather than two: it falls back to the start edge the moment the content would
+   * overflow, so a tall window has no hole in the middle and a short one never clips the headline.
+   * A browser that has not heard of it keeps the line above and starts from the top always.
+   */
   justify-content: flex-start;
+  justify-content: safe center;
   text-align: center;
-  gap: clamp(16px, 3vh, 40px);
+  gap: clamp(10px, 1.6vh, 24px);
   padding: clamp(84px, 11vh, 112px) 0 clamp(48px, 7vh, 72px);
   overflow: hidden;
 }
@@ -433,9 +463,11 @@
     linear-gradient(
       to bottom,
       rgba(0, 0, 0, 0.45),
-      rgba(0, 0, 0, 0) 26%,
-      rgba(0, 0, 0, 0.55) 48%,
-      #000 64%
+      rgba(0, 0, 0, 0) 24%,
+      rgba(0, 0, 0, 0.3) 42%,
+      rgba(0, 0, 0, 0.78) 58%,
+      rgba(0, 0, 0, 0.96) 72%,
+      #000 84%
     );
   pointer-events: none;
 }
@@ -482,12 +514,15 @@
 .hero-cast {
   position: relative;
   z-index: 2;
-  width: min(1000px, 100%);
-  height: clamp(160px, 27vh, 260px);
-  min-height: 128px;
+  /*
+   * Narrow, so the five of them read as one group rather than as things scattered on a black
+   * field. Wide, they drift to the edges and the middle of the hero becomes a hole.
+   */
+  width: min(720px, 94%);
+  height: clamp(180px, 30vh, 300px);
+  min-height: 140px;
   flex-shrink: 1;
-  /* Takes whatever room is spare, so a tall phone does not leave a hole under the buttons. */
-  margin-top: auto;
+  margin-top: clamp(4px, 1.5vh, 18px);
 }
 
 .cast {
@@ -504,20 +539,22 @@
 }
 
 /* On the centre line, because the stage below opens it on the centre line. */
+/* The largest thing in the group, because it is the thing the whole page is about. */
 .cast-handset {
   left: 50%;
   bottom: 0;
   height: 100%;
-  width: 22%;
+  width: 30%;
   transform: translateX(-50%);
   z-index: 3;
 }
 
+/* Coming in from the left, aimed at it. */
 .cast-mascot {
-  left: 1%;
-  bottom: 4%;
-  width: 31%;
-  height: 74%;
+  left: 0;
+  bottom: 2%;
+  width: 30%;
+  height: 66%;
   z-index: 2;
 }
 
@@ -528,26 +565,26 @@
 }
 
 .cast-1 {
-  right: 4%;
-  bottom: 30%;
-  width: 11%;
-  height: 34%;
+  right: 0;
+  bottom: 26%;
+  width: 15%;
+  height: 36%;
   --rot: -9deg;
 }
 
 .cast-2 {
-  right: 22%;
-  top: 0;
-  width: 9%;
-  height: 28%;
+  right: 17%;
+  top: 2%;
+  width: 13%;
+  height: 30%;
   --rot: 12deg;
 }
 
 .cast-3 {
-  left: 31%;
-  bottom: 2%;
-  width: 8%;
-  height: 22%;
+  left: 27%;
+  bottom: 0;
+  width: 12%;
+  height: 24%;
   --rot: -14deg;
 }
 
@@ -575,24 +612,6 @@
 
 .cast-3 {
   --depth: 1.7;
-}
-
-.hero-hint {
-  position: absolute;
-  left: 50%;
-  bottom: clamp(16px, 3vh, 28px);
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 4;
-}
-
-.hero-hint i {
-  display: block;
-  width: 40px;
-  height: 1px;
-  background: currentColor;
 }
 
 /* ── 4. the pinned stage ─────────────────────────────────────────────────────────────── */
@@ -629,9 +648,10 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(30vh, 320px);
+  /* Bigger and on the centre now that there is no bar along the bottom to leave room for. */
+  width: min(35vh, 360px);
   aspect-ratio: 418 / 627;
-  transform: translate(-50%, -54%);
+  transform: translate(-50%, -50%);
   z-index: 2;
 }
 
@@ -745,7 +765,7 @@
  */
 .stage-lines {
   position: absolute;
-  inset: 120px 96px 140px;
+  inset: 112px 96px 96px;
   z-index: 3;
   pointer-events: none;
 }
@@ -987,100 +1007,6 @@
   font-size: 11px;
   letter-spacing: 2.4px;
   fill: #f2f1ef;
-}
-
-/* ── the progress bar ────────────────────────────────────────────────────────────────── */
-
-.stage-bar {
-  position: absolute;
-  left: 96px;
-  right: 96px;
-  bottom: 56px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  z-index: 20;
-}
-
-.stage-bar-head {
-  position: relative;
-  height: 1.2em;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.16em;
-}
-
-.stage-bar-head span {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: space-between;
-  opacity: 0;
-  /*
-   * Longhands, not the shorthand. "animation: linear steps(1, end) both" reads like it names a
-   * timing function and a fill, and a browser reads it as two timing functions with no name and
-   * throws the whole declaration away. The shorthand would also reset the duration to zero.
-   */
-  animation-timing-function: steps(1, end);
-  animation-fill-mode: both;
-  animation-timeline: --stage;
-  animation-range: contain 0% contain 100%;
-}
-
-.stage-bar-head span:nth-child(1) {
-  animation-name: say-1;
-}
-
-.stage-bar-head span:nth-child(2) {
-  animation-name: say-2;
-}
-
-.stage-bar-head span:nth-child(3) {
-  animation-name: say-3;
-}
-
-.stage-bar-head span:nth-child(4) {
-  animation-name: say-4;
-}
-
-.stage-bar-head span:nth-child(5) {
-  animation-name: say-5;
-}
-
-.stage-bar-rule {
-  height: 1px;
-  background: #3a3a3d;
-  position: relative;
-  overflow: hidden;
-}
-
-.stage-bar-rule i {
-  position: absolute;
-  inset: 0;
-  background: var(--flare);
-  transform-origin: left center;
-  transform: scaleX(0);
-  animation: bar-fill linear both;
-  animation-timeline: --stage;
-  animation-range: contain 0% contain 100%;
-}
-
-@keyframes bar-fill {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-.stage-bar-ticks {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: #5a5a5e;
 }
 
 /* ── 5. going in ─────────────────────────────────────────────────────────────────────── */
@@ -1599,27 +1525,21 @@
   z-index: 4;
 }
 
+/* The same lockup, at the largest size on the site. */
 .footer-mark {
   position: relative;
   z-index: 2;
-  display: flex;
-  align-items: flex-end;
-  gap: 32px;
   padding-inline: 48px;
   margin-bottom: 64px;
 }
 
-.footer-mark span {
-  font-size: clamp(88px, 21vw, 300px);
-  line-height: 0.8;
-  letter-spacing: -0.06em;
-  font-weight: 700;
+.footer-mark .brand {
+  --size: clamp(46px, 11.5vw, 158px);
+  color: var(--text);
 }
 
-.footer-mark img {
-  width: clamp(48px, 8vw, 120px);
-  height: auto;
-  margin-bottom: 2.6vw;
+.footer-mark .brand i {
+  color: var(--text-muted);
 }
 
 .footer-feet {
@@ -2811,11 +2731,6 @@
     left: 48px;
   }
 
-  .stage-bar {
-    left: 48px;
-    right: 48px;
-  }
-
   .place p {
     left: 48px;
     right: 48px;
@@ -2937,6 +2852,7 @@
   }
 
   .hero-cast {
+    width: 100%;
     height: clamp(150px, 24vh, 210px);
     min-height: 112px;
   }
@@ -2946,8 +2862,8 @@
   }
 
   .cast-mascot {
-    left: 4%;
-    width: 34%;
+    left: 2%;
+    width: 32%;
     height: 58%;
   }
 
@@ -2971,28 +2887,17 @@
   }
 
   .stage-frames {
-    width: min(42vh, 260px);
-    transform: translate(-50%, -58%);
+    width: min(44vh, 280px);
+    transform: translate(-50%, -52%);
   }
 
   .stage-lines {
-    inset: 84px 20px 120px;
+    inset: 84px 20px 48px;
   }
 
   .stage-line,
   .stage-line:nth-child(5) {
     width: 100%;
-  }
-
-  /* Clear of the theme toggle, which floats in the bottom corner and would sit on the number. */
-  .stage-bar {
-    left: 20px;
-    right: 20px;
-    bottom: 76px;
-  }
-
-  .stage-bar-ticks {
-    display: none;
   }
 
   /* Four stamps at this width sit on top of the object. Two, at the edges, and the other two go. */
@@ -3130,6 +3035,10 @@
     margin-bottom: 40px;
   }
 
+  .footer-mark .brand {
+    --size: clamp(30px, 9.5vw, 46px);
+  }
+
   .footer-score {
     right: 20px;
     top: 56px;
@@ -3190,20 +3099,6 @@
   .stage-shot {
     opacity: 1;
     box-shadow: 0 0 120px rgba(255, 236, 210, 0.25);
-  }
-
-  .stage-line:nth-child(-n + 4),
-  .stage-bar-head span:nth-child(-n + 4) {
-    opacity: 0;
-  }
-
-  .stage-line:nth-child(5),
-  .stage-bar-head span:nth-child(5) {
-    opacity: 1;
-  }
-
-  .stage-bar-rule i {
-    transform: scaleX(1);
   }
 
   .sat {
@@ -3350,34 +3245,6 @@
     opacity: 1 !important;
     animation: none;
     font-size: 19px;
-  }
-
-  .stage-bar {
-    position: static;
-    grid-column: 1 / -1;
-  }
-
-  .stage-bar-head {
-    height: auto;
-  }
-
-  .stage-bar-head span {
-    position: static;
-    opacity: 1 !important;
-    animation: none;
-  }
-
-  .stage-bar-head span:not(:last-child) {
-    display: none;
-  }
-
-  .stage-bar-head span:last-child {
-    opacity: 1 !important;
-  }
-
-  .stage-bar-rule i {
-    animation: none;
-    transform: scaleX(1);
   }
 
   .goingin {
