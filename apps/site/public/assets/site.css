@@ -143,26 +143,37 @@
  */
 .site-header {
   position: fixed;
-  top: 14px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(1264px, calc(100% - 28px));
-  height: 58px;
+  /* As wide as what is in it and no wider: an island that spans the window is a bar. */
+  width: max-content;
+  max-width: calc(100% - 28px);
+  height: 52px;
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 0 16px 0 20px;
-  border: 1px solid rgba(242, 241, 239, 0.1);
-  border-radius: 16px;
-  background: rgba(9, 9, 10, 0.72);
-  backdrop-filter: blur(16px) saturate(140%);
+  gap: 20px;
+  padding: 0 8px 0 18px;
+  border: 1px solid rgba(242, 241, 239, 0.12);
+  border-radius: 999px;
+  background: rgba(10, 10, 11, 0.76);
+  backdrop-filter: blur(18px) saturate(150%);
   z-index: 40;
+  /*
+   * The island carries its own two colours rather than the page's. Everything inside reads --text
+   * and --text-muted, and on the light pages those resolve to dark ink, which on a dark panel is
+   * nothing at all. Setting them here settles it for every descendant in one place, now and for
+   * anything added later.
+   */
+  --text: #f2f1ef;
+  --text-muted: #a3a19c;
+  color: var(--text);
 }
 
 /* Where the blur is not available the panel has to carry the contrast on its own. */
 @supports not (backdrop-filter: blur(4px)) {
   .site-header {
-    background: rgba(9, 9, 10, 0.94);
+    background: rgba(10, 10, 11, 0.95);
   }
 }
 
@@ -204,14 +215,13 @@
 }
 
 .site-nav {
-  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 26px;
+  gap: 22px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.1em;
-  /* White, not muted. A navigation nobody can read is decoration. */
+  /* Light, not muted. A navigation nobody can read is decoration. */
   color: var(--text);
 }
 
@@ -223,9 +233,8 @@
 .site-nav a,
 .menu-open {
   position: relative;
-  display: block;
-  overflow: hidden;
-  height: 1.4em;
+  display: inline-flex;
+  align-items: center;
   line-height: 1.4;
   text-decoration: none;
   color: inherit;
@@ -235,6 +244,17 @@
   letter-spacing: inherit;
   padding: 0;
   cursor: pointer;
+}
+
+/*
+ * The window the roll moves behind, exactly one line tall. It is its own element because the
+ * control around it is sometimes a pill with its own height, and a clip that is also the pill
+ * shows both copies at once.
+ */
+.site-nav .clip {
+  display: block;
+  height: 1.4em;
+  overflow: hidden;
 }
 
 .site-nav .roll {
@@ -265,12 +285,18 @@
   color: var(--flare);
 }
 
-/* A hairline between the pages and the two controls, so the bar has a shape without a box. */
-.site-nav .sep {
-  width: 1px;
-  height: 14px;
-  background: var(--border-strong);
-  flex-shrink: 0;
+/* The one control that is not a page, given the accent ring so it reads as the way in. */
+.menu-open {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(242, 241, 239, 0.07);
+  transition: background var(--dur-hover) ease-out;
+}
+
+.menu-open:hover,
+.menu-open:focus-visible {
+  background: rgba(255, 106, 61, 0.16);
 }
 
 .icon {
@@ -361,9 +387,10 @@
   align-items: center;
   justify-content: center;
   background: #17171a;
+  /* Quick, so the curtain behind it still has most of its wipe left to be seen. */
   transition:
-    opacity 380ms var(--ease-out),
-    visibility 0s linear 380ms;
+    opacity 240ms var(--ease-out),
+    visibility 0s linear 240ms;
 }
 
 [data-preload='done'] .preloader {
@@ -2798,26 +2825,15 @@
   border-top-color: var(--border-strong);
 }
 
-/* The island turns over with the page, or it is dark ink on a dark panel on a light document. */
+/*
+ * The island stays dark on the light pages too. It is the one piece of the brand that is on every
+ * screen, and turning it white on three of ten pages made it a different object on those pages.
+ * Its own contrast is settled: light type on a dark panel, wherever it is floating.
+ */
 [data-theme='light'] .site-header {
-  background: rgba(250, 250, 248, 0.82);
-  border-color: rgba(23, 23, 26, 0.14);
-}
-
-@supports not (backdrop-filter: blur(4px)) {
-  [data-theme='light'] .site-header {
-    background: rgba(250, 250, 248, 0.96);
-  }
-}
-
-[data-theme='light'] .site-header,
-[data-theme='light'] .brand,
-[data-theme='light'] .site-nav {
-  color: var(--text);
-}
-
-[data-theme='light'] .site-nav .sep {
-  background: rgba(23, 23, 26, 0.18);
+  /* Opaque here: a dark panel at three quarters over a white page is grey, not dark. */
+  background: #16161a;
+  border-color: rgba(242, 241, 239, 0.14);
 }
 
 /* ── narrower ────────────────────────────────────────────────────────────────────────── */
@@ -2965,10 +2981,13 @@
 
   .site-header {
     top: 10px;
-    width: calc(100% - 20px);
-    height: 52px;
-    padding: 0 10px 0 14px;
-    border-radius: 14px;
+    height: 48px;
+    padding: 0 6px 0 14px;
+  }
+
+  .menu-open {
+    height: 34px;
+    padding: 0 13px;
   }
 
   .site-nav {

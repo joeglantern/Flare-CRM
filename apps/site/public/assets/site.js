@@ -53,53 +53,82 @@
   /* ── the preloader ──────────────────────────────────────────────────────────────────── */
 
   /*
-   * The head script decided whether there is one at all. This only counts, and lets go when the
-   * hero image has decoded or 1.4 seconds have passed, whichever is sooner. Handing over sets
-   * data-preload="done", which is also what starts the curtain: the two are one movement and must
-   * not be timed independently or they overlap.
+   * The head script decided whether there is one at all. What happens here is the count, and it
+   * has to be honest twice over: never ahead of the clock, so it cannot flash past in a tenth of a
+   * second on a fast connection, and never ahead of the work, so it cannot sit on 99 while the
+   * sky is still arriving. It is the lower of the two, and it reaches a hundred by counting rather
+   * than by being told to.
+   *
+   * Handing over sets data-preload="done", which is also what releases the curtain: the two are one
+   * movement and must not be timed against each other.
    */
   if (root.getAttribute('data-preload') === 'on') {
+    /* Long enough to be read. */
+    var FLOOR = 1150;
+    /* Long enough for a slow morning in Nairobi, and no longer: nobody waits on a broken image. */
+    var CEILING = 3400;
+    /* A beat on a hundred, so the last number is seen rather than inferred. */
+    var HOLD = 220;
+
     var number = document.querySelector('[data-count]');
     var started = Date.now();
-    var LONGEST = 1400;
-    /*
-     * A floor as well as a ceiling. On a fast connection the hero decodes in under a tenth of a
-     * second and the count is gone before it is read, which is a flicker of charcoal rather than a
-     * beat. On a slow one the ceiling is what matters and this never applies.
-     */
-    var SHORTEST = 600;
 
-    var counting = true;
-    var tick = function () {
-      if (!counting) return;
-      var through = Math.min(1, (Date.now() - started) / LONGEST);
-      if (number) number.textContent = String(Math.round(through * 100)).padStart(3, '0');
-      if (through < 1) requestAnimationFrame(tick);
+    /* What the first screen is actually made of, plus the two typefaces. */
+    var first = document.querySelectorAll('[data-first]');
+    var jobs = first.length + 1;
+    var finished = 0;
+    var oneDone = function () {
+      finished += 1;
     };
-    requestAnimationFrame(tick);
+    for (var picture of first) {
+      var decoding = picture.decode ? picture.decode() : Promise.resolve();
+      decoding.then(oneDone, oneDone);
+    }
+    var fonts = document.fonts ? document.fonts.ready : Promise.resolve();
+    fonts.then(oneDone, oneDone);
 
-    var letGo = function () {
-      if (root.getAttribute('data-preload') === 'done') return;
-      var early = SHORTEST - (Date.now() - started);
-      if (early > 0) {
-        setTimeout(letGo, early);
+    var shown = 0;
+    var handedOver = false;
+
+    var handOver = function () {
+      if (handedOver) return;
+      handedOver = true;
+      if (number) number.textContent = '100';
+      setTimeout(function () {
+        root.setAttribute('data-preload', 'done');
+        try {
+          localStorage.setItem('flarehub-seen', '1');
+        } catch {
+          // Then they see the count again next time, which is a small price for a private browser.
+        }
+      }, HOLD);
+    };
+
+    var frame = function () {
+      var elapsed = Date.now() - started;
+      var byClock = elapsed / FLOOR;
+      /*
+       * A small head start so the number is never stuck on zero while the first request is still in
+       * the air, and the rest of the range belongs to the work.
+       */
+      var byWork = 0.12 + 0.88 * (finished / jobs);
+      var target = elapsed >= CEILING ? 1 : Math.min(1, byClock, byWork);
+
+      /* Eased towards the target rather than snapped to it, so the number never jumps. */
+      shown += (target - shown) * 0.16;
+      if (target >= 1 && shown > 0.985) shown = 1;
+      if (number) number.textContent = String(Math.round(shown * 100)).padStart(3, '0');
+
+      if (shown >= 1) {
+        handOver();
         return;
       }
-      // Stopped before the hand-over, or the next frame writes the running count back over the 100.
-      counting = false;
-      if (number) number.textContent = '100';
-      root.setAttribute('data-preload', 'done');
-      try {
-        localStorage.setItem('flarehub-seen', '1');
-      } catch {
-        // Then they see the count again next time, which is a small price for a private browser.
-      }
+      requestAnimationFrame(frame);
     };
+    requestAnimationFrame(frame);
 
-    var hero = document.querySelector('[data-hero-image]');
-    var decoded = hero && hero.decode ? hero.decode() : Promise.resolve();
-    decoded.then(letGo, letGo);
-    setTimeout(letGo, LONGEST);
+    /* Whatever happens above, the page is not held hostage. */
+    setTimeout(handOver, CEILING);
   }
 
   /* ── the handset answers the cursor ─────────────────────────────────────────────────── */
