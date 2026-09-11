@@ -28,9 +28,20 @@ www.{$SITE_DOMAIN} {
 	}
 
 	root * /srv/site
-	# Fingerprinted assets are immutable; the pages themselves must never be stale.
-	@assets path /assets/* /fonts/* /brand/* /shots/*
-	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# Nothing here carries a hash in its name, so almost nothing here may be immutable: a deploy
+	# rewrites these exact paths in place. "immutable" tells a browser never to ask again, and a
+	# visitor who has been here before then runs last week's stylesheet against this week's markup,
+	# which is not a stale page but a broken one. Only the fonts never change.
+	@fonts path /fonts/*
+	header @fonts Cache-Control "public, max-age=31536000, immutable"
+	# The stylesheet and the script decide what every page looks like, so they revalidate every time.
+	# They are tiny and Caddy answers an unchanged one with a 304.
+	@code path /assets/*
+	header @code Cache-Control "public, max-age=0, must-revalidate"
+	# Pictures are re-cut from time to time, so a day rather than a year.
+	@media path /brand/* /shots/* /mascot/* /objects/* /plates/* /places/* /handset/* /textures/* /spark/*
+	header @media Cache-Control "public, max-age=86400"
 	@pages path *.html /
 	header @pages Cache-Control "no-cache"
 	# /product serves product.html, so the URLs carry no extension.

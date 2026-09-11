@@ -1525,7 +1525,11 @@
   z-index: 4;
 }
 
-/* The same lockup, at the largest size on the site. */
+/*
+ * The same lockup, at the largest size on the site. The proportions are the product's own, but the
+ * relationship is set by hand here rather than by --size: at three hundred pixels the small half
+ * of a seventeen pixel lockup is still a hundred and sixty, which is not a small half any more.
+ */
 .footer-mark {
   position: relative;
   z-index: 2;
@@ -1534,12 +1538,29 @@
 }
 
 .footer-mark .brand {
-  --size: clamp(46px, 11.5vw, 158px);
+  align-items: flex-end;
+  gap: clamp(14px, 2.4vw, 34px);
   color: var(--text);
 }
 
+.footer-mark .brand img {
+  width: clamp(44px, 7.6vw, 108px);
+  height: auto;
+  margin-bottom: clamp(10px, 2vw, 30px);
+}
+
+.footer-mark .brand b {
+  font-size: clamp(84px, 20vw, 288px);
+  line-height: 0.8;
+  letter-spacing: -0.06em;
+  font-weight: 700;
+}
+
 .footer-mark .brand i {
+  font-size: clamp(20px, 3.6vw, 52px);
+  letter-spacing: 0.2em;
   color: var(--text-muted);
+  margin-bottom: clamp(12px, 2.2vw, 34px);
 }
 
 .footer-feet {
@@ -3036,7 +3057,11 @@
   }
 
   .footer-mark .brand {
-    --size: clamp(30px, 9.5vw, 46px);
+    gap: 10px;
+  }
+
+  .footer-mark .brand i {
+    margin-bottom: 8px;
   }
 
   .footer-score {
@@ -3099,6 +3124,15 @@
   .stage-shot {
     opacity: 1;
     box-shadow: 0 0 120px rgba(255, 236, 210, 0.25);
+  }
+
+  /* Only the closing sentence, or all five stack on top of each other. */
+  .stage-line:nth-child(-n + 4) {
+    opacity: 0;
+  }
+
+  .stage-line:nth-child(5) {
+    opacity: 1;
   }
 
   .sat {
