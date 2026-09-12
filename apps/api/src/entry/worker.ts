@@ -75,6 +75,24 @@ async function main(): Promise<void> {
         mailer: app.mailer,
         appUrl: env.APP_URL,
       },
+      // And may ask how this installation is doing, which changes nothing over here.
+      diagnostics: {
+        db: app.db,
+        audit: app.audit,
+        entitlements: app.entitlements,
+        readiness: app.readiness,
+        queues: app.queues,
+        queueNames: Object.values(QUEUES),
+        log: app.log,
+        version: env.APP_VERSION,
+        // Read when the console asks, which is long after this function has finished, so the
+        // subscriber declared further down is already in place by then.
+        telephony: () => ({
+          enabled: app.cti.enabled,
+          connected: subscriber !== null,
+        }),
+        whatsappEnabled: env.WHATSAPP_ENABLED,
+      },
       onAnnounce: (announcement) => {
         app.realtime.to(rooms.all).emit('system:announce', {
           at: nowIso(),

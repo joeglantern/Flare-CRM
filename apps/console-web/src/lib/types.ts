@@ -4,7 +4,7 @@
  * adding it there and nowhere else.
  */
 import type { FeatureKey, FeatureMap, LimitKey, LimitMap, OwnerContact } from '@crm/shared';
-import type { IssueStatus, StackUsage, SupportUser } from '@crm/shared';
+import type { Diagnostics, IssueStatus, StackUsage, SupportUser } from '@crm/shared';
 
 export interface Me {
   id: string;
@@ -277,6 +277,19 @@ export interface AlertMute {
   reason: string;
   createdAt: string;
   expiresAt: string | null;
+}
+
+/**
+ * What a stack says about itself when asked (docs/21 §9).
+ *
+ * Read live and never stored, so this type is the shape of an answer rather than of a row. The facts
+ * are the shared contract's, because the console has no business inventing a shape for something the
+ * stack defines.
+ */
+export interface StackDiagnostics {
+  stackId: string;
+  readAt: string;
+  facts: NonNullable<Diagnostics['facts']> | null;
 }
 
 export interface ConsoleSettings {

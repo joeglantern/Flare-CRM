@@ -10,8 +10,10 @@ import { io as connect, type Socket } from 'socket.io-client';
 import type { SupportCommand } from '@crm/shared';
 import { newId } from '../../src/lib/ids.js';
 import { catchUp } from '../../src/integrations/console/catch-up.js';
+import type { DiagnosticsDeps } from '../../src/integrations/console/diagnostics.js';
 import { ConsoleLink, type ConsoleLinkDeps } from '../../src/integrations/console/link.js';
 import type { SupportDeps } from '../../src/integrations/console/support.js';
+import { QUEUES } from '../../src/jobs/queues.js';
 import { startFakeConsole, type FakeConsole } from '../setup/fake-console.js';
 import {
   consoleEnv,
@@ -67,10 +69,27 @@ describe('the console link, from the stack side', () => {
     };
   }
 
+  /** The diagnostics deps the worker hands the link, so the provider may ask how this stack is. */
+  function diagnosticsDeps(): DiagnosticsDeps {
+    return {
+      db: ctx.app.db,
+      audit: ctx.app.audit,
+      entitlements: ctx.app.entitlements,
+      readiness: ctx.app.readiness,
+      queues: ctx.app.queues,
+      queueNames: Object.values(QUEUES),
+      log: ctx.app.log,
+      version: 'abc1234',
+      telephony: () => ({ enabled: false, connected: false }),
+      whatsappEnabled: false,
+    };
+  }
+
   /** The link as the worker builds it, minus the parts that belong to the worker. */
   function buildLink(
     onAnnounce: ConsoleLinkDeps['onAnnounce'] = () => undefined,
     support?: SupportDeps,
+    diagnostics?: DiagnosticsDeps,
   ): ConsoleLink {
     const link = new ConsoleLink({
       valkey: ctx.app.valkey,
@@ -87,6 +106,7 @@ describe('the console link, from the stack side', () => {
       },
       onAnnounce,
       ...(support === undefined ? {} : { support }),
+      ...(diagnostics === undefined ? {} : { diagnostics }),
     });
     links.push(link);
     link.start();
@@ -439,6 +459,64 @@ describe('the console link, from the stack side', () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
       expect(fake.commandResults).toHaveLength(0);
       expect(await ctx.app.db.auditLog.count()).toBe(before);
+    });
+
+    /**
+     * The fourth door. What matters is not only that it answers, but what is missing from the
+     * answer: a customer's business is not the provider's to read, and this is the check that keeps
+     * it that way as the fact list grows.
+     */
+    it('describes the installation and nothing about the business on it', async () => {
+      buildLink(() => undefined, undefined, diagnosticsDeps());
+      await fake.waitFor('hello');
+
+      const commandId = `cmd_${newId()}`;
+      expect(fake.diagnose({ commandId, requestedBy: 'owner@flare.test' })).toBe(true);
+
+      const result = await fake.waitFor('diagnosticsResult', (r) => r.commandId === commandId);
+      expect(result.ok).toBe(true);
+      const facts = result.facts;
+      expect(facts, 'a successful diagnostics answer carries facts').toBeDefined();
+      expect(facts?.version).toBe('abc1234');
+      expect(facts?.uptimeSeconds).toBeGreaterThanOrEqual(0);
+      // The schema state, read from Prisma's own table rather than guessed at.
+      expect(facts?.migrations.applied).toBeGreaterThan(0);
+      expect(facts?.migrations.pending).toBe(0);
+      expect(facts?.migrations.latest).not.toBeNull();
+      // Every queue this deployment runs is listed, whether or not it has anything in it.
+      expect(facts?.queues.map((q) => q.queue).sort()).toEqual(Object.values(QUEUES).sort());
+      expect(facts?.integrations).toEqual({
+        telephony: { enabled: false, connected: false },
+        whatsapp: { enabled: false, channels: 0 },
+      });
+      // One admin exists, so a seat is in use; the count is a number and not a list of people.
+      expect(facts?.counts.seats).toBeGreaterThanOrEqual(1);
+      expect(Object.keys(facts?.checks ?? {})).toContain('database');
+
+      // Nothing in the whole answer names a person, a company or a record.
+      const wire = JSON.stringify(result);
+      expect(wire).not.toContain(admin.email);
+      expect(wire).not.toContain('Acme');
+      expect(wire).not.toContain('contact');
+
+      // Their administrator can see that we looked, in their own log.
+      const row = await ctx.app.db.auditLog.findFirstOrThrow({
+        where: { action: 'support.diagnostics_read' },
+      });
+      expect(row.actorType).toBe('system');
+      expect(JSON.stringify(row.after)).toContain('owner@flare.test');
+    });
+
+    it('refuses to describe itself when it was never given that door', async () => {
+      buildLink(() => undefined, supportDeps());
+      await fake.waitFor('hello');
+
+      const commandId = `cmd_${newId()}`;
+      fake.diagnose({ commandId, requestedBy: 'owner@flare.test' });
+      const result = await fake.waitFor('diagnosticsResult', (r) => r.commandId === commandId);
+      expect(result.ok).toBe(false);
+      expect(result.facts).toBeUndefined();
+      expect(result.message).toContain('does not report diagnostics');
     });
 
     it('refuses every command when it was never given the support door', async () => {

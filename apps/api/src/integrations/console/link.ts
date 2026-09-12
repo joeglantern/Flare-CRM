@@ -15,6 +15,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { LINK_PROTOCOL, consoleToStackEvents, type StackToConsolePayload } from '@crm/shared';
+import { runDiagnostics, type DiagnosticsDeps } from './diagnostics.js';
 import { runSupportCommand, type SupportDeps } from './support.js';
 import type { Redis } from 'ioredis';
 import { io, type Socket } from 'socket.io-client';
@@ -55,6 +56,11 @@ export interface ConsoleLinkDeps {
    * the door is shut: a stack that was not given this refuses every command.
    */
   support?: SupportDeps;
+  /**
+   * What this stack will say about itself when the console asks. Absent means the door is shut, the
+   * same as support: a stack that was not given this answers that it does not report diagnostics.
+   */
+  diagnostics?: DiagnosticsDeps;
 }
 
 export class ConsoleLink {
@@ -183,6 +189,12 @@ export class ConsoleLink {
       });
     });
 
+    socket.on('diagnose', (raw: unknown) => {
+      void this.onDiagnose(raw).catch((err: unknown) => {
+        log.error({ err }, 'a diagnostics request failed');
+      });
+    });
+
     this.heartbeatTimer = setInterval(() => {
       void this.beat().catch((err: unknown) => {
         log.error({ err }, 'console heartbeat failed');
@@ -242,6 +254,35 @@ export class ConsoleLink {
     }
     const result = await runSupportCommand(support, command);
     await this.say('commandResult', result);
+  }
+
+  /**
+   * The console asking how this installation is doing. It changes nothing here, and the answer is
+   * counts and states about the stack itself rather than anything belonging to the business.
+   *
+   * Answered either way, for the same reason a support command is: a console that hears nothing
+   * cannot tell a stack that refuses from one that has gone away.
+   */
+  private async onDiagnose(raw: unknown): Promise<void> {
+    const parsed = consoleToStackEvents.diagnose.safeParse(raw);
+    if (!parsed.success) {
+      this.deps.log.warn(
+        { issues: parsed.error.issues },
+        'console sent a malformed diagnostics request',
+      );
+      return;
+    }
+    const request = parsed.data;
+    const diagnostics = this.deps.diagnostics;
+    if (diagnostics === undefined) {
+      await this.say('diagnosticsResult', {
+        commandId: request.commandId,
+        ok: false,
+        message: 'This stack does not report diagnostics.',
+      });
+      return;
+    }
+    await this.say('diagnosticsResult', await runDiagnostics(diagnostics, request));
   }
 
   private async hello(): Promise<StackToConsolePayload<'hello'>> {
@@ -308,7 +349,7 @@ export class ConsoleLink {
   }
 
   private say(
-    event: 'hello' | 'heartbeat' | 'ack' | 'commandResult',
+    event: 'hello' | 'heartbeat' | 'ack' | 'commandResult' | 'diagnosticsResult',
     payload: unknown,
   ): Promise<void> {
     this.socket?.emit(event, payload);

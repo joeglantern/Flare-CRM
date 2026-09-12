@@ -9,7 +9,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, Check, Radio, RefreshCw, Send, ShieldOff, X } from 'lucide-react';
+import { ArrowLeft, Check, Radio, RefreshCw, Send, ShieldOff, Stethoscope, X } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Button, ConfirmDialog, Input, Textarea, toast } from '@crm/ui';
 
@@ -25,10 +25,10 @@ import {
 import { EmptyState, PageHeader, Section, StateSlot } from '@/components/Page';
 import { stackRoute } from '@/app/router';
 import { http } from '@/lib/api';
-import { ago, bytes, dateTime } from '@/lib/format';
+import { ago, bytes, count, dateTime } from '@/lib/format';
 import { usePermissions } from '@/lib/permissions';
 import { qk } from '@/lib/query';
-import type { Issue, StackRow, StackSample } from '@/lib/types';
+import type { Issue, StackDiagnostics, StackRow, StackSample } from '@/lib/types';
 
 const ISSUES_PER_PAGE = 10;
 const SAMPLE_HOURS = 24;
@@ -273,6 +273,8 @@ export function StackScreen() {
               )}
             </Section>
 
+            <DiagnosticsSection customerId={row.customer.id} connected={row.connected} />
+
             <Section
               title="The last day"
               description={`One point every five minutes, from its own heartbeats. Kept for thirty days.`}
@@ -405,6 +407,185 @@ export function StackScreen() {
       />
     </>
   );
+}
+
+/**
+ * Asking the stack how it is, right now (docs/21 §9).
+ *
+ * Not a query with a stale time, because there is no such thing as a cached answer to this: the
+ * heartbeat already says what was true up to thirty seconds ago, and the reason to ask is to know
+ * what is true at the moment somebody is looking at it. So it is a button, and nothing is shown
+ * until it has been pressed.
+ *
+ * Nothing here changes anything on that server, which is why the section is offered to anybody who
+ * may read a stack at all.
+ */
+function DiagnosticsSection({ customerId, connected }: { customerId: string; connected: boolean }) {
+  const ask = useMutation({
+    mutationFn: () => http.post<StackDiagnostics>(`/api/v1/customers/${customerId}/diagnostics`),
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'It could not answer', description: error.message });
+    },
+  });
+
+  const facts = ask.data?.facts ?? null;
+
+  return (
+    <Section
+      title="Ask it how it is"
+      description="Read from the stack when you press this, not from its last heartbeat. It changes nothing over there."
+      actions={
+        <Button
+          icon={Stethoscope}
+          disabled={!connected}
+          title={connected ? undefined : 'It is offline, so there is nothing to ask'}
+          loading={ask.isPending}
+          onClick={() => {
+            ask.mutate();
+          }}
+        >
+          {ask.data === undefined ? 'Ask' : 'Ask again'}
+        </Button>
+      }
+    >
+      {facts === null ? (
+        <p className="text-base text-muted">
+          {connected
+            ? 'Nothing has been asked yet. The answer is its version, schema state, queue backlogs, which integrations are on, and what each of its own checks says.'
+            : 'It is offline. A stack that is not connected cannot be asked anything.'}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <Fields columns={3}>
+            <Field label="Version">
+              <code className="mono text-xs">{facts.version}</code>
+            </Field>
+            <Field label="Up for">{hours(facts.uptimeSeconds)}</Field>
+            <Field label="Read">{dateTime(ask.data?.readAt)}</Field>
+            <Field label="Schema">
+              {facts.migrations.pending === 0 && facts.migrations.failed === 0 ? (
+                <span>{count(facts.migrations.applied, 'migration')}, all applied</span>
+              ) : (
+                <Badge tone="danger">
+                  {facts.migrations.failed > 0
+                    ? `${count(facts.migrations.failed, 'migration')} rolled back`
+                    : `${count(facts.migrations.pending, 'migration')} half applied`}
+                </Badge>
+              )}
+            </Field>
+            <Field label="Newest migration">
+              <code className="mono text-xs break-all">{facts.migrations.latest ?? '—'}</code>
+            </Field>
+            <Field label="Seats in use">{facts.counts.seats}</Field>
+            <Field label="Telephony">
+              {facts.integrations.telephony.enabled ? (
+                <Badge tone={facts.integrations.telephony.connected ? 'success' : 'warning'} dot>
+                  {facts.integrations.telephony.connected ? 'Connected' : 'On, not connected'}
+                </Badge>
+              ) : (
+                <span className="text-muted">Off</span>
+              )}
+            </Field>
+            <Field label="WhatsApp">
+              {facts.integrations.whatsapp.enabled ? (
+                <Badge tone="success" dot>
+                  {count(facts.integrations.whatsapp.channels, 'channel')}
+                </Badge>
+              ) : (
+                <span className="text-muted">Off</span>
+              )}
+            </Field>
+            <Field label="Recording kept for">
+              {facts.recordingRetentionDays.effective === null
+                ? 'No limit'
+                : count(facts.recordingRetentionDays.effective, 'day')}
+            </Field>
+          </Fields>
+
+          {/* Only the queues with something in them: nine rows of zeroes is a worse answer than
+              one sentence saying everything is keeping up. */}
+          <div>
+            <p className="mb-2 text-sm font-medium text-muted">Background work</p>
+            {facts.queues.every((q) => q.waiting + q.active + q.delayed + q.failed === 0) ? (
+              <p className="text-base text-muted">
+                Every queue is empty. Nothing is waiting and nothing has failed.
+              </p>
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {facts.queues
+                  .filter((q) => q.waiting + q.active + q.delayed + q.failed > 0)
+                  .map((q) => (
+                    <li
+                      key={q.queue}
+                      className="flex flex-wrap items-center gap-x-4 py-2 text-base"
+                    >
+                      <code className="mono w-44 shrink-0 text-xs">{q.queue}</code>
+                      <span className="tnum text-muted">{q.waiting} waiting</span>
+                      <span className="tnum text-muted">{q.active} running</span>
+                      {q.delayed > 0 && (
+                        <span className="tnum text-muted">{q.delayed} delayed</span>
+                      )}
+                      {q.failed > 0 && <span className="tnum text-danger">{q.failed} failed</span>}
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium text-muted">Its own checks, in full</p>
+            <ul className="flex flex-col divide-y divide-border">
+              {Object.entries(facts.checks).map(([name, check]) => (
+                <li key={name} className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2.5">
+                  <span className="flex w-40 shrink-0 items-center gap-2">
+                    {check.ok ? (
+                      <Check size={14} className="text-success" aria-hidden />
+                    ) : (
+                      <X size={14} className="text-danger" aria-hidden />
+                    )}
+                    <span className="font-medium">{name}</span>
+                  </span>
+                  <span className="min-w-0 flex-1 text-base text-muted">
+                    {check.error !== undefined ? (
+                      <span className="text-danger">{check.error}</span>
+                    ) : (
+                      detailOf(check.detail)
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+/** A check's detail as a sentence. The shapes differ per check, so this stays deliberately plain. */
+function detailOf(detail: Record<string, unknown> | undefined): string {
+  if (detail === undefined) return 'Nothing to report';
+  const parts = Object.entries(detail).map(([key, value]) => `${key}: ${showValue(value)}`);
+  return parts.length === 0 ? 'Nothing to report' : parts.join(', ');
+}
+
+/**
+ * One value from a check's detail, as text. Only the primitives get their own spelling; anything
+ * else is JSON, because a stack is free to put a shape in there and "[object Object]" tells nobody
+ * anything.
+ */
+function showValue(value: unknown): string {
+  if (value === null) return 'none';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value);
+}
+
+/** Uptime in the unit a person would say it in. */
+function hours(seconds: number): string {
+  if (seconds < 3600) return count(Math.round(seconds / 60), 'minute');
+  const h = Math.round(seconds / 3600);
+  return h < 48 ? count(h, 'hour') : count(Math.round(h / 24), 'day');
 }
 
 /** The label and the note, which are the only things about a stack a person writes. */

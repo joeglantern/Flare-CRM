@@ -84,6 +84,86 @@ export const supportResult = z.object({
 });
 export type SupportResult = z.infer<typeof supportResult>;
 
+/**
+ * Facts the console may ask a stack for, and nothing it may change (docs/21 §9).
+ *
+ * This is a fourth door beside the three support actions, and it is deliberately the narrowest of
+ * the four: the answer is counts, states and timestamps about the installation itself. Nothing here
+ * names a person, a company, a call or a deal, and asking costs the customer nothing but a query.
+ *
+ * The readiness checks come back in full, with their detail, which the heartbeat's summary throws
+ * away. That detail is the difference between "storage is failing" and "the bucket is unreachable
+ * from this host", and it is the whole reason for asking rather than reading the last heartbeat.
+ */
+export const diagnosticsCheck = z.object({
+  ok: z.boolean(),
+  detail: z.record(z.string(), z.unknown()).optional(),
+  error: z.string().max(300).optional(),
+});
+
+/** One background queue's backlog. A number that keeps climbing is the shape of a stuck worker. */
+export const queueBacklog = z.object({
+  queue: z.string().max(40),
+  waiting: z.number().int().min(0),
+  active: z.number().int().min(0),
+  delayed: z.number().int().min(0),
+  failed: z.number().int().min(0),
+});
+
+export const diagnosticsRequest = z.object({
+  commandId,
+  /** Who asked, carried into the customer's own audit row exactly as a support action is. */
+  requestedBy: z.string().max(120),
+});
+export type DiagnosticsRequest = z.infer<typeof diagnosticsRequest>;
+
+export const diagnostics = z.object({
+  commandId,
+  ok: z.boolean(),
+  message: z.string().max(300).optional(),
+  facts: z
+    .object({
+      version: z.string().max(64),
+      uptimeSeconds: z.number().int().min(0),
+      /**
+       * Whether the schema is where the code expects it. A stack running old migrations is the
+       * quiet fault behind a surprising number of loud ones.
+       */
+      migrations: z.object({
+        applied: z.number().int().min(0),
+        pending: z.number().int().min(0),
+        failed: z.number().int().min(0),
+        latest: z.string().max(200).nullable(),
+        latestAppliedAt: isoDateTime.nullable(),
+      }),
+      queues: z.array(queueBacklog),
+      /** Switched on or off, and reachable or not. Never a credential or an endpoint. */
+      integrations: z.object({
+        telephony: z.object({ enabled: z.boolean(), connected: z.boolean() }),
+        whatsapp: z.object({ enabled: z.boolean(), channels: z.number().int().min(0) }),
+      }),
+      counts: z.object({
+        channels: z.number().int().min(0),
+        pipelines: z.number().int().min(0),
+        seats: z.number().int().min(0),
+      }),
+      storage: z.object({
+        usedBytes: z.number().int().min(0),
+        attachmentsBytes: z.number().int().min(0),
+        recordingsBytes: z.number().int().min(0),
+        backupsBytes: z.number().int().min(0),
+        refreshedAt: isoDateTime.nullable(),
+      }),
+      recordingRetentionDays: z.object({
+        configured: z.number().int().nullable(),
+        effective: z.number().int().nullable(),
+      }),
+      checks: z.record(z.string(), diagnosticsCheck),
+    })
+    .optional(),
+});
+export type Diagnostics = z.infer<typeof diagnostics>;
+
 export const stackToConsoleEvents = {
   hello: z.object({
     stackId,
@@ -108,6 +188,7 @@ export const stackToConsoleEvents = {
     reason: z.string().max(300).optional(),
   }),
   commandResult: supportResult,
+  diagnosticsResult: diagnostics,
 } as const;
 
 export const consoleToStackEvents = {
@@ -119,6 +200,8 @@ export const consoleToStackEvents = {
   /** Asks for a heartbeat now rather than at the next thirty second tick. */
   ping: z.object({ at: isoDateTime }),
   command: supportCommand,
+  /** Asks the stack to describe itself. It changes nothing over there. */
+  diagnose: diagnosticsRequest,
 } as const;
 
 export const ISSUE_STATUSES = ['pending', 'delivered', 'acked', 'rejected', 'superseded'] as const;

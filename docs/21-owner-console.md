@@ -59,9 +59,9 @@ shut, and it is why the console learns how a stack is doing only because the sta
 - **Stack to console:** `hello` (version, domain, uptime, the document it holds), `heartbeat` every
   thirty seconds (readiness, usage, last backup, the document it holds), `ack` (applied or
   rejected, with a reason).
-- **Console to stack:** `entitlements` (envelope and issue id), `announce`, `ping`, and `command`
-  (a support action, §9).
-- **Stack to console, answering that:** `commandResult`.
+- **Console to stack:** `entitlements` (envelope and issue id), `announce`, `ping`, `command`
+  (a support action, §9), and `diagnose` (facts about the installation, §9).
+- **Stack to console, answering those:** `commandResult` and `diagnosticsResult`.
 - **Console to owner browsers**, on the default namespace: `fleet:stack`, `issue:status` and
   `alert:changed`.
 - **Rate:** five events a second per stack; a stack that exceeds it is disconnected.
@@ -204,6 +204,22 @@ account or changes what anybody may do.
   no queue: a support action that lands an hour later, after the conversation has moved on, is worse
   than one that fails.
 - A stack that was never given the support wiring refuses every command, whatever the console says.
+
+There is a fourth door, and it is the narrowest: the console may ask a stack to **describe itself**.
+The answer is which version is running, whether the schema is where the code expects it, how long
+each background queue is, whether telephony and WhatsApp are switched on, how many seats, channels
+and pipelines exist, how the stored bytes divide up, the effective recording retention, and what each
+of the stack's own readiness checks says with its detail. Nothing in it names a person, a company, a
+call or a deal, and nothing over there changes, which is why asking needs only `stack:read`.
+
+- The facts are shown and never stored. A snapshot in a table is a number that was true once and goes
+  on looking current; the honest way to know how a stack is now is to ask it again. What is recorded,
+  here and in the customer's own log, is that somebody looked.
+- Same rules as the three actions above it: a stack that is not connected cannot be asked, the
+  request times out in ten seconds, and a stack that was never given the wiring refuses.
+- A stale migration or a queue that keeps growing is a candidate alert kind (§8) once there are real
+  numbers to set a threshold from. Until then it is a question an owner asks, not one the console
+  asks on a timer.
 
 ## 10. Deployment
 

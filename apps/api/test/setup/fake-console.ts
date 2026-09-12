@@ -10,6 +10,8 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import {
   LINK_PROTOCOL,
+  type Diagnostics,
+  type DiagnosticsRequest,
   type SignedEnvelope,
   type StackToConsolePayload,
   type SupportCommand,
@@ -26,6 +28,8 @@ export interface FakeConsole {
   acks: StackToConsolePayload<'ack'>[];
   /** What the stack answered when the provider asked it to do something. */
   commandResults: SupportResult[];
+  /** What the stack said about itself when the provider asked it to describe itself. */
+  diagnosticsResults: Diagnostics[];
   /** Requests made to the two bearer endpoints, with the credential presented. */
   restCalls: { method: string; path: string; authorization: string | undefined }[];
   connectedStacks: () => string[];
@@ -34,6 +38,8 @@ export interface FakeConsole {
   announce: (message: { message: string; level: 'info' | 'warning' | 'error' }) => boolean;
   /** Asks a connected stack to do one supported thing, the way a support action does. */
   command: (command: SupportCommand) => boolean;
+  /** Asks a connected stack to describe itself, the way the diagnostics route does. */
+  diagnose: (request: DiagnosticsRequest) => boolean;
   /** What the REST catch-up will hand out, or null for "nothing waiting". */
   setWaiting: (waiting: { issueId: string; envelope: SignedEnvelope } | null) => void;
   /** Forgets what it has been told, so one test's history cannot satisfy the next test's wait. */
@@ -46,13 +52,14 @@ export interface FakeConsole {
   close: () => Promise<void>;
 }
 
-type WaitableEvent = 'hello' | 'heartbeat' | 'ack' | 'commandResult';
+type WaitableEvent = 'hello' | 'heartbeat' | 'ack' | 'commandResult' | 'diagnosticsResult';
 
 export async function startFakeConsole(): Promise<FakeConsole> {
   const hellos: StackToConsolePayload<'hello'>[] = [];
   const heartbeats: StackToConsolePayload<'heartbeat'>[] = [];
   const acks: StackToConsolePayload<'ack'>[] = [];
   const commandResults: SupportResult[] = [];
+  const diagnosticsResults: Diagnostics[] = [];
   const restCalls: FakeConsole['restCalls'] = [];
   const listeners = new Set<(event: string, payload: unknown) => void>();
   let waiting: { issueId: string; envelope: SignedEnvelope } | null = null;
@@ -143,6 +150,10 @@ export async function startFakeConsole(): Promise<FakeConsole> {
       commandResults.push(raw as SupportResult);
       for (const l of listeners) l('commandResult', raw);
     });
+    socket.on('diagnosticsResult', (raw: unknown) => {
+      diagnosticsResults.push(raw as Diagnostics);
+      for (const l of listeners) l('diagnosticsResult', raw);
+    });
     socket.on('disconnect', () => {
       if (live.get(stackId)?.id === socket.id) live.delete(stackId);
     });
@@ -159,6 +170,7 @@ export async function startFakeConsole(): Promise<FakeConsole> {
     heartbeats,
     acks,
     commandResults,
+    diagnosticsResults,
     restCalls,
     connectedStacks: () => [...live.keys()],
     push: (envelope, issueId) => {
@@ -179,6 +191,12 @@ export async function startFakeConsole(): Promise<FakeConsole> {
       socket.emit('command', command);
       return true;
     },
+    diagnose: (request) => {
+      const socket = live.get(TEST_STACK_ID);
+      if (!socket) return false;
+      socket.emit('diagnose', request);
+      return true;
+    },
     setWaiting: (next) => {
       waiting = next;
     },
@@ -187,6 +205,7 @@ export async function startFakeConsole(): Promise<FakeConsole> {
       heartbeats.length = 0;
       acks.length = 0;
       commandResults.length = 0;
+      diagnosticsResults.length = 0;
       restCalls.length = 0;
       waiting = null;
     },
@@ -201,6 +220,7 @@ export async function startFakeConsole(): Promise<FakeConsole> {
           heartbeat: heartbeats,
           ack: acks,
           commandResult: commandResults,
+          diagnosticsResult: diagnosticsResults,
         }[event] as StackToConsolePayload<E>[];
         const found = [...already].reverse().find((p) => predicate?.(p) ?? true);
         if (found !== undefined) {

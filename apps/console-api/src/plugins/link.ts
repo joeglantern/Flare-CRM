@@ -14,6 +14,7 @@ import {
   LINK_PROTOCOL,
   type ConsoleServerEventName,
   type ConsoleServerPayload,
+  type DiagnosticsRequest,
   type SupportCommand,
 } from '@crm/shared';
 import { newId } from '../lib/ids.js';
@@ -42,6 +43,8 @@ export interface ConsoleLink {
   connectedStacks: () => string[];
   /** Asks a connected stack to do one supported thing and waits for its answer. */
   command: (stackId: string, command: SupportCommand, timeoutMs: number) => Promise<unknown>;
+  /** Asks a connected stack to describe itself. Changes nothing over there (docs/21 §9). */
+  diagnose: (stackId: string, request: DiagnosticsRequest, timeoutMs: number) => Promise<unknown>;
   /** Asks for a heartbeat now rather than at the next tick. */
   ping: (stackId: string) => boolean;
 }
@@ -285,6 +288,20 @@ export default fp(
         settle(parsed.data);
       });
 
+      // The same waiting map as a support command, keyed the same way: a request id is unique
+      // whichever question it asked, so one map settles both kinds of answer.
+      socket.on('diagnosticsResult', (raw: unknown) => {
+        const parsed = stackToConsoleEvents.diagnosticsResult.safeParse(raw);
+        if (!parsed.success) {
+          app.log.warn({ stackId }, 'a stack answered a diagnostics request with a bad shape');
+          return;
+        }
+        const settle = waiting.get(parsed.data.commandId);
+        if (!settle) return;
+        waiting.delete(parsed.data.commandId);
+        settle(parsed.data);
+      });
+
       socket.on('disconnect', () => {
         void (async () => {
           // Only if this socket is still the one on record: a replaced socket already handed over.
@@ -445,6 +462,21 @@ export default fp(
             resolve(answer);
           });
           socket.emit('command', payload);
+        });
+      },
+      diagnose(stackId, payload, timeoutMs) {
+        const socket = live.get(stackId);
+        if (!socket) return Promise.resolve(null);
+        return new Promise<unknown>((resolve) => {
+          const timer = setTimeout(() => {
+            waiting.delete(payload.commandId);
+            resolve(null);
+          }, timeoutMs);
+          waiting.set(payload.commandId, (answer) => {
+            clearTimeout(timer);
+            resolve(answer);
+          });
+          socket.emit('diagnose', payload);
         });
       },
       ping(stackId) {

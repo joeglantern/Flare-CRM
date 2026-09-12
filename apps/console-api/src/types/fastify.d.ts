@@ -9,6 +9,7 @@ import type { AlertsService } from '../modules/alerts.service.js';
 import type { AnalyticsService } from '../modules/analytics.service.js';
 import type { AuditService } from '../modules/audit.service.js';
 import type { CustomersService } from '../modules/customers.service.js';
+import type { DiagnosticsService } from '../modules/diagnostics.service.js';
 import type { OwnersService } from '../modules/owners.service.js';
 import type { RollupService } from '../modules/rollup.service.js';
 import type { ConsoleSettingsService } from '../modules/settings.service.js';
@@ -44,6 +45,7 @@ declare module 'fastify' {
     owners: OwnersService;
     customers: CustomersService;
     support: SupportService;
+    diagnostics: DiagnosticsService;
     signer: Signer;
     entitlements: ConsoleEntitlementsService;
     stacks: StacksService;
