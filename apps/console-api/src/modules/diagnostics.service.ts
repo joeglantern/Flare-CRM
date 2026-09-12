@@ -12,12 +12,10 @@
 import { randomUUID } from 'node:crypto';
 import { diagnostics as diagnosticsSchema, type Diagnostics } from '@crm/shared';
 import { ConflictError, NotFoundError } from '../lib/errors.js';
+import { STACK_ANSWER_MS, STACK_SILENT_MESSAGE } from '../lib/stack-wait.js';
 import type { ConsoleLink } from '../plugins/link.js';
 import type { Db } from '../plugins/prisma.js';
 import type { AuditContext, AuditService } from './audit.service.js';
-
-/** The same ten seconds a support command waits. A stack that is well answers in milliseconds. */
-const TIMEOUT_MS = 10_000;
 
 export interface DiagnosticsOutcome {
   ok: boolean;
@@ -61,7 +59,11 @@ export class DiagnosticsService {
       after: { commandId, stackId: stack.id },
     });
 
-    const answer = await this.deps.link.diagnose(stack.id, { commandId, requestedBy }, TIMEOUT_MS);
+    const answer = await this.deps.link.diagnose(
+      stack.id,
+      { commandId, requestedBy },
+      STACK_ANSWER_MS,
+    );
     const outcome = this.parse(answer, stack.id);
 
     await this.deps.audit.write(ctx, {
@@ -79,7 +81,7 @@ export class DiagnosticsService {
     if (answer === null) {
       return {
         ok: false,
-        message: 'The stack did not answer in ten seconds.',
+        message: STACK_SILENT_MESSAGE,
         stackId,
         facts: null,
       };

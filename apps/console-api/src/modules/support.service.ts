@@ -17,12 +17,10 @@ import {
   type SupportUser,
 } from '@crm/shared';
 import { ConflictError, NotFoundError } from '../lib/errors.js';
+import { STACK_ANSWER_MS, STACK_SILENT_MESSAGE } from '../lib/stack-wait.js';
 import type { ConsoleLink } from '../plugins/link.js';
 import type { Db } from '../plugins/prisma.js';
 import type { AuditContext, AuditService } from './audit.service.js';
-
-/** How long to wait for a stack to answer before telling the owner it did not. */
-const TIMEOUT_MS = 10_000;
 
 export interface SupportRequest {
   customerId: string;
@@ -84,7 +82,7 @@ export class SupportService {
         ...(request.reason === undefined ? {} : { reason: request.reason }),
         requestedBy: request.requestedBy,
       },
-      TIMEOUT_MS,
+      STACK_ANSWER_MS,
     );
 
     const outcome = this.read(answer, stack.id);
@@ -107,7 +105,7 @@ export class SupportService {
     if (answer === null) {
       return {
         ok: false,
-        message: 'The stack did not answer in ten seconds.',
+        message: STACK_SILENT_MESSAGE,
         users: [],
         stackId,
       };

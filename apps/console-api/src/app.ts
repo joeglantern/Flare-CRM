@@ -60,6 +60,8 @@ export async function buildApp(options: BuildAppOptions): Promise<App> {
     logger: options.logger === false ? false : buildLoggerOptions(env),
     trustProxy: (_address: string, hop: number) => hop < env.TRUST_PROXY_HOPS,
     bodyLimit: 1024 * 1024,
+    // Socket inactivity. Anything that waits on a customer's stack must finish inside this or the
+    // socket is destroyed before the reply is written: see STACK_ANSWER_MS in lib/stack-wait.ts.
     connectionTimeout: 10_000,
     requestTimeout: 30_000,
     keepAliveTimeout: 72_000,

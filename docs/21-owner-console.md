@@ -200,7 +200,7 @@ account or changes what anybody may do.
   needed to look.
 - The stack audits it again in the customer's own log, as a system action naming the provider and
   the reason given, so their administrator sees what we did without having to ask us.
-- A command only reaches a stack that is connected right now, and times out in ten seconds. There is
+- A command only reaches a stack that is connected right now, and times out in eight seconds. There is
   no queue: a support action that lands an hour later, after the conversation has moved on, is worse
   than one that fails.
 - A stack that was never given the support wiring refuses every command, whatever the console says.
@@ -216,7 +216,7 @@ call or a deal, and nothing over there changes, which is why asking needs only `
   on looking current; the honest way to know how a stack is now is to ask it again. What is recorded,
   here and in the customer's own log, is that somebody looked.
 - Same rules as the three actions above it: a stack that is not connected cannot be asked, the
-  request times out in ten seconds, and a stack that was never given the wiring refuses.
+  request times out in eight seconds, and a stack that was never given the wiring refuses.
 - A stale migration or a queue that keeps growing is a candidate alert kind (§8) once there are real
   numbers to set a threshold from. Until then it is a question an owner asks, not one the console
   asks on a timer.
