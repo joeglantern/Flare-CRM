@@ -118,6 +118,9 @@ export const consoleOverviewDto = z.object({
     mrrMinor: money,
     arpuMinor: money,
     openAlerts: z.number().int(),
+    /** Customers paying nothing yet, and agreements coming round again within the month. */
+    trials: z.number().int(),
+    renewalsDue30d: z.number().int(),
   }),
   series: z.object({
     customers: series,
@@ -193,6 +196,25 @@ export const customerAnalyticsDto = z.object({
 });
 export type CustomerAnalyticsDto = z.infer<typeof customerAnalyticsDto>;
 
+/**
+ * Why money is at risk, in the four shapes it actually takes. A total on its own is a worry; with
+ * the reason beside it, it is something somebody can go and do something about.
+ */
+export const AT_RISK_REASONS = [
+  'expiring',
+  'trial_ending',
+  'suspended',
+  'discount_ending',
+] as const;
+export type AtRiskReason = (typeof AT_RISK_REASONS)[number];
+
+export const AT_RISK_REASON_COPY: Record<AtRiskReason, string> = {
+  expiring: 'Plan runs out within the month',
+  trial_ending: 'Trial ends within the month',
+  suspended: 'Held read only, so earning nothing',
+  discount_ending: 'Discount ends within the month',
+};
+
 export const revenueAnalyticsDto = z.object({
   currency: z.string(),
   mrrMinor: money,
@@ -207,7 +229,22 @@ export const revenueAnalyticsDto = z.object({
       mrrMinor: money,
     }),
   ),
-  atRisk: z.object({ minor: money, customers: z.number().int(), withinDays: z.number().int() }),
+  atRisk: z.object({
+    minor: money,
+    customers: z.number().int(),
+    withinDays: z.number().int(),
+    byReason: z.array(
+      z.object({
+        reason: z.enum(AT_RISK_REASONS),
+        minor: money,
+        customers: z.number().int(),
+      }),
+    ),
+  }),
+  /** What trials would be worth if every one of them converted at the list price. */
+  trials: z.object({ count: z.number().int(), minorWhenConverted: money }),
+  /** What the discounts currently in force cost us a month. */
+  discounts: z.object({ count: z.number().int(), minorGivenAway: money }),
 });
 export type RevenueAnalyticsDto = z.infer<typeof revenueAnalyticsDto>;
 

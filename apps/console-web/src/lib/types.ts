@@ -71,6 +71,21 @@ export interface Plan {
   priceMonthlyMinor: number | null;
   currency: string;
   isDefault: boolean;
+  /** Retired: not offered to anybody new, without deleting one customers are still on. */
+  isArchived: boolean;
+  /** How many customers are on it, which is what makes retiring or deleting it a real decision. */
+  customers: number;
+}
+
+/** One customer on a plan, as the plan's own list returns them. */
+export interface PlanCustomer {
+  customerId: string;
+  name: string;
+  status: string;
+  chargedPriceMonthlyMinor: number;
+  priceState: 'trial' | 'discounted' | 'expired' | 'full';
+  renewsOn: string | null;
+  expiresAt: string | null;
 }
 
 export interface Stack {
@@ -142,6 +157,11 @@ export interface EffectiveEntitlements {
   /** What this customer is actually billed: their override, or the plan's price. */
   priceMonthlyMinor: number | null;
   currency: string;
+  /** The shelf price before a trial or a discount is applied to it. */
+  listPriceMonthlyMinor: number;
+  /** What they are billed this month once a trial, a discount or an expiry is taken into account. */
+  chargedPriceMonthlyMinor: number;
+  priceState: 'trial' | 'discounted' | 'expired' | 'full';
 }
 
 export interface CustomerEntitlements {
@@ -149,9 +169,19 @@ export interface CustomerEntitlements {
   featureOverrides: Partial<Record<FeatureKey, boolean>>;
   limitOverrides: Partial<Record<LimitKey, number | null>>;
   expiresAt: string | null;
+  /** What the expiry was before they were held, so lifting it gives back that date and not forever. */
+  expiresAtBeforeSuspension: string | null;
   /** Minor units, and null to charge whatever the plan charges. */
   priceMonthlyMinorOverride: number | null;
   agreementNotes: string;
+  /** Paying nothing until this moment, and the full price after it. */
+  trialEndsAt: string | null;
+  /** The day the agreement comes round again. */
+  renewsOn: string | null;
+  /** Whole percent off the list price, with an optional end and the reason it was given. */
+  discountPercent: number | null;
+  discountUntil: string | null;
+  discountNote: string;
   effective: EffectiveEntitlements;
 }
 

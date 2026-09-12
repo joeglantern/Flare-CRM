@@ -8,6 +8,8 @@ import {
   effectiveLimits,
   fromServer,
   isDirty,
+  parsePercent,
+  previewCharge,
   savePayload,
   setFeature,
   setLimit,
@@ -23,6 +25,8 @@ const plan: Plan = {
   priceMonthlyMinor: 150000,
   currency: 'KES',
   isDefault: true,
+  isArchived: false,
+  customers: 3,
 };
 
 const empty: EditorState = {
@@ -32,7 +36,79 @@ const empty: EditorState = {
   expiryDay: '',
   priceMajor: '',
   agreementNotes: '',
+  trialDay: '',
+  renewsOnDay: '',
+  discountPercent: '',
+  discountUntilDay: '',
+  discountNote: '',
 };
+
+describe('what the editor says they will pay', () => {
+  const NOW = new Date('2026-09-12T12:00:00.000Z');
+  const day = (offsetDays: number) =>
+    new Date(NOW.getTime() + offsetDays * 86_400_000).toISOString().slice(0, 10);
+
+  it('charges the plan price when nothing else applies', () => {
+    expect(previewCharge(empty, plan, 'KES', NOW)).toEqual({
+      listMinor: 150000,
+      chargedMinor: 150000,
+      state: 'full',
+    });
+  });
+
+  it('charges what was negotiated instead of what the plan says', () => {
+    const state = { ...empty, priceMajor: '900' };
+    expect(previewCharge(state, plan, 'KES', NOW).chargedMinor).toBe(90000);
+  });
+
+  it('charges nothing during a trial, and names what it would be worth', () => {
+    const state = { ...empty, trialDay: day(20) };
+    expect(previewCharge(state, plan, 'KES', NOW)).toEqual({
+      listMinor: 150000,
+      chargedMinor: 0,
+      state: 'trial',
+    });
+  });
+
+  it('takes a percentage off, and stops once its day has passed', () => {
+    const running = { ...empty, discountPercent: '20', discountUntilDay: day(30) };
+    expect(previewCharge(running, plan, 'KES', NOW).chargedMinor).toBe(120000);
+    const over = { ...empty, discountPercent: '20', discountUntilDay: day(-1) };
+    expect(previewCharge(over, plan, 'KES', NOW).state).toBe('full');
+  });
+
+  it('puts an expiry ahead of both, because a read only CRM earns nothing', () => {
+    const state = { ...empty, expiryDay: day(-1), trialDay: day(10), discountPercent: '50' };
+    expect(previewCharge(state, plan, 'KES', NOW).state).toBe('expired');
+    expect(previewCharge(state, plan, 'KES', NOW).chargedMinor).toBe(0);
+  });
+
+  it('reads a percentage only when it is a whole one that makes sense', () => {
+    expect(parsePercent('25')).toBe(25);
+    expect(parsePercent(' 100 ')).toBe(100);
+    expect(parsePercent('')).toBeNull();
+    expect(parsePercent('0')).toBeNull();
+    expect(parsePercent('120')).toBeNull();
+    expect(parsePercent('half')).toBeNull();
+  });
+
+  it('sends the commercial fields as the server expects them', () => {
+    const state = {
+      ...empty,
+      trialDay: '2026-10-01',
+      renewsOnDay: '2027-01-15',
+      discountPercent: '15',
+      discountUntilDay: '2026-12-31',
+      discountNote: '  Intro rate.  ',
+    };
+    const payload = savePayload(state, 'KES');
+    expect(payload.renewsOn).toBe('2027-01-15');
+    expect(payload.discountPercent).toBe(15);
+    expect(payload.discountNote).toBe('Intro rate.');
+    // A trial ends at the end of its day, the same way an expiry does.
+    expect(new Date(payload.trialEndsAt ?? '').getHours()).toBe(23);
+  });
+});
 
 describe('the entitlements editor rules', () => {
   it('starts from the plan when nothing is overridden', () => {
@@ -94,6 +170,11 @@ describe('the entitlements editor rules', () => {
       expiryDay: '2026-12-31',
       priceMajor: '1200.50',
       agreementNotes: 'Two year deal, invoiced yearly.',
+      trialDay: '',
+      renewsOnDay: '',
+      discountPercent: '',
+      discountUntilDay: '',
+      discountNote: '',
     };
     const payload = savePayload(state, plan.currency);
     expect(payload.planId).toBe(plan.id);
@@ -123,8 +204,14 @@ describe('the entitlements editor rules', () => {
       featureOverrides: { exports: false },
       limitOverrides: { seats: 5 },
       expiresAt: '2026-12-31T23:59:59.000Z',
+      expiresAtBeforeSuspension: null,
       priceMonthlyMinorOverride: null,
       agreementNotes: 'notes',
+      trialEndsAt: null,
+      renewsOn: null,
+      discountPercent: null,
+      discountUntil: null,
+      discountNote: '',
       effective: {
         plan: { id: plan.id, name: plan.name },
         features: plan.features,
@@ -132,6 +219,9 @@ describe('the entitlements editor rules', () => {
         expiresAt: '2026-12-31T23:59:59.000Z',
         priceMonthlyMinor: plan.priceMonthlyMinor,
         currency: plan.currency,
+        listPriceMonthlyMinor: 150000,
+        chargedPriceMonthlyMinor: 150000,
+        priceState: 'full',
       },
     });
     expect(state.expiryDay).toBe('2026-12-31');

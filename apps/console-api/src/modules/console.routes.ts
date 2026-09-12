@@ -29,6 +29,7 @@ import { permissionsFor, ROLE_NAMES } from '../auth/permissions.js';
 import { auditContext, requireUser } from '../lib/request.js';
 import { OWNER_CONTACT_KEY, readOwnerContact } from '../lib/owner-contact.js';
 import { planMaps } from './entitlements.service.js';
+import { RollupService } from './rollup.service.js';
 
 const uuid = z.uuid();
 /** How many customers one bulk action may touch. Each one signs a document and pushes it. */
@@ -110,6 +111,10 @@ const planDto = z.object({
   priceMonthlyMinor: z.number().int().nullable(),
   currency: z.string(),
   isDefault: z.boolean(),
+  /** Not sold any more, without deleting one that customers are still on. */
+  isArchived: z.boolean(),
+  /** How many customers are on it, which is what makes deleting or archiving a real decision. */
+  customers: z.number().int(),
 });
 
 /** Money never crosses this boundary as a float. */
@@ -1015,9 +1020,18 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
   // ── plans ────────────────────────────────────────────────────────────────────────────
   app.get('/plans', {
     config: { auth: { permission: 'plan:read' } },
-    schema: { tags: ['console'], response: { 200: offsetListResponse(planDto) } },
-    handler: async () => {
-      const rows = await app.db.plan.findMany({ orderBy: { name: 'asc' } });
+    schema: {
+      tags: ['console'],
+      querystring: z.object({ includeArchived: z.enum(['true', 'false']).default('false') }),
+      response: { 200: offsetListResponse(planDto) },
+    },
+    handler: async (request) => {
+      const where = request.query.includeArchived === 'true' ? {} : { isArchived: false };
+      const rows = await app.db.plan.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        include: { _count: { select: { entitlements: true } } },
+      });
       const data = rows.map((p) => ({
         id: p.id,
         name: p.name,
@@ -1025,9 +1039,71 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         priceMonthlyMinor: p.priceMonthlyMinor,
         currency: p.currency,
         isDefault: p.isDefault,
+        isArchived: p.isArchived,
+        customers: p._count.entitlements,
         ...planMaps(p.features, p.limits),
       }));
       return { data, page: { page: 1, pageSize: data.length, total: data.length } };
+    },
+  });
+
+  /**
+   * Who is on this plan, what each of them pays, and when they come round again. The answer to
+   * "can I retire this plan", and the picker for moving a selection of them onto another one.
+   */
+  app.get('/plans/:id/customers', {
+    config: { auth: { permission: 'plan:read' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      querystring: z.object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(200).default(50),
+      }),
+      response: {
+        200: offsetListResponse(
+          z.object({
+            customerId: z.string(),
+            name: z.string(),
+            status: z.string(),
+            chargedPriceMonthlyMinor: z.number().int(),
+            priceState: z.enum(['trial', 'discounted', 'expired', 'full']),
+            renewsOn: z.string().nullable(),
+            expiresAt: z.string().nullable(),
+          }),
+        ),
+      },
+    },
+    handler: async (request) => {
+      const plan = await app.db.plan.findUnique({ where: { id: request.params.id } });
+      if (!plan) throw new NotFoundError('Plan');
+      const where = { planId: plan.id };
+      const [total, rows] = await Promise.all([
+        app.db.customerEntitlement.count({ where }),
+        app.db.customerEntitlement.findMany({
+          where,
+          include: { plan: true, customer: { select: { name: true, status: true } } },
+          orderBy: { customer: { name: 'asc' } },
+          skip: (request.query.page - 1) * request.query.pageSize,
+          take: request.query.pageSize,
+        }),
+      ]);
+      const now = new Date();
+      return {
+        data: rows.map((e) => {
+          const charge = RollupService.effectivePrice(e, now);
+          return {
+            customerId: e.customerId,
+            name: e.customer.name,
+            status: e.customer.status,
+            chargedPriceMonthlyMinor: charge.chargedMinor,
+            priceState: charge.state,
+            renewsOn: e.renewsOn === null ? null : e.renewsOn.toISOString().slice(0, 10),
+            expiresAt: e.expiresAt?.toISOString() ?? null,
+          };
+        }),
+        page: { page: request.query.page, pageSize: request.query.pageSize, total },
+      };
     },
   });
 
@@ -1044,6 +1120,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           priceMonthlyMinor: priceMinor.default(null),
           currency: z.string().trim().length(3).toUpperCase().default('KES'),
           isDefault: z.boolean().default(false),
+          isArchived: z.boolean().default(false),
         })
         .strict(),
       response: { 201: dataResponse(planDto) },
@@ -1064,6 +1141,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
             priceMonthlyMinor: b.priceMonthlyMinor,
             currency: b.currency,
             isDefault: b.isDefault,
+            isArchived: b.isArchived,
           },
         });
       });
@@ -1081,6 +1159,9 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           priceMonthlyMinor: created.priceMonthlyMinor,
           currency: created.currency,
           isDefault: created.isDefault,
+          isArchived: created.isArchived,
+          // Nobody can be on a plan that did not exist a moment ago.
+          customers: 0,
           ...maps,
         },
       });
@@ -1101,6 +1182,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           priceMonthlyMinor: priceMinor.optional(),
           currency: z.string().trim().length(3).toUpperCase().optional(),
           isDefault: z.boolean().optional(),
+          isArchived: z.boolean().optional(),
         })
         .strict(),
       response: { 200: dataResponse(planDto) },
@@ -1126,6 +1208,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
               ? { priceMonthlyMinor: b.priceMonthlyMinor }
               : {}),
             ...(b.currency !== undefined ? { currency: b.currency } : {}),
+            ...(b.isArchived !== undefined ? { isArchived: b.isArchived } : {}),
             features: maps.features,
             limits: maps.limits,
           },
@@ -1138,6 +1221,9 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         before: { name: before.name, price: before.priceMonthlyMinor, ...current },
         after: { name: updated.name, price: updated.priceMonthlyMinor, ...maps },
       });
+      // Read rather than assumed: archiving a plan is a decision about the customers on it, so the
+      // answer that comes back says how many that is.
+      const customers = await app.db.customerEntitlement.count({ where: { planId: updated.id } });
       return {
         data: {
           id: updated.id,
@@ -1146,6 +1232,8 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           priceMonthlyMinor: updated.priceMonthlyMinor,
           currency: updated.currency,
           isDefault: updated.isDefault,
+          isArchived: updated.isArchived,
+          customers,
           ...maps,
         },
       };
@@ -1187,8 +1275,15 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
             featureOverrides: z.record(z.string(), z.boolean()),
             limitOverrides: z.record(z.string(), z.number().nullable()),
             expiresAt: z.string().nullable(),
+            /** What the expiry was before they were held, so lifting it restores that date. */
+            expiresAtBeforeSuspension: z.string().nullable(),
             priceMonthlyMinorOverride: z.number().int().nullable(),
             agreementNotes: z.string(),
+            trialEndsAt: z.string().nullable(),
+            renewsOn: z.string().nullable(),
+            discountPercent: z.number().int().nullable(),
+            discountUntil: z.string().nullable(),
+            discountNote: z.string(),
             effective: z.object({
               plan: z.object({ id: z.string(), name: z.string() }).nullable(),
               features: featureMapFull,
@@ -1197,6 +1292,10 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
               /** What this customer is billed: their override, or the plan's price. */
               priceMonthlyMinor: z.number().int().nullable(),
               currency: z.string(),
+              /** The shelf price, what they actually pay this month, and why those differ. */
+              listPriceMonthlyMinor: z.number().int(),
+              chargedPriceMonthlyMinor: z.number().int(),
+              priceState: z.enum(['trial', 'discounted', 'expired', 'full']),
             }),
           }),
         ),
@@ -1213,8 +1312,15 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           featureOverrides: (row.featureOverrides ?? {}) as Record<string, boolean>,
           limitOverrides: (row.limitOverrides ?? {}) as Record<string, number | null>,
           expiresAt: row.expiresAt?.toISOString() ?? null,
+          expiresAtBeforeSuspension: row.expiresAtBeforeSuspension?.toISOString() ?? null,
           priceMonthlyMinorOverride: row.priceMonthlyMinorOverride,
           agreementNotes: row.agreementNotes,
+          trialEndsAt: row.trialEndsAt?.toISOString() ?? null,
+          // A date, not a moment: the day it comes round again, without a time of day attached.
+          renewsOn: row.renewsOn === null ? null : row.renewsOn.toISOString().slice(0, 10),
+          discountPercent: row.discountPercent,
+          discountUntil: row.discountUntil?.toISOString() ?? null,
+          discountNote: row.discountNote,
           effective: await app.entitlements.effective(request.params.id),
         },
       };
@@ -1234,6 +1340,13 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           expiresAt: z.iso.datetime({ offset: true }).nullable().optional(),
           priceMonthlyMinorOverride: priceMinor.optional(),
           agreementNotes: z.string().max(4000).optional(),
+          /** Paying nothing until this moment, and the list price from then on. */
+          trialEndsAt: z.iso.datetime({ offset: true }).nullable().optional(),
+          /** A day, not a moment: the agreement comes round again on a date. */
+          renewsOn: z.iso.date().nullable().optional(),
+          discountPercent: z.number().int().min(1).max(100).nullable().optional(),
+          discountUntil: z.iso.datetime({ offset: true }).nullable().optional(),
+          discountNote: z.string().max(500).optional(),
         })
         .strict(),
       response: { 200: dataResponse(z.object({ ok: z.literal(true) })) },
@@ -1257,6 +1370,17 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
             ? { priceMonthlyMinorOverride: b.priceMonthlyMinorOverride }
             : {}),
           ...(b.agreementNotes !== undefined ? { agreementNotes: b.agreementNotes } : {}),
+          ...(b.trialEndsAt !== undefined
+            ? { trialEndsAt: b.trialEndsAt === null ? null : new Date(b.trialEndsAt) }
+            : {}),
+          ...(b.renewsOn !== undefined
+            ? { renewsOn: b.renewsOn === null ? null : new Date(`${b.renewsOn}T00:00:00.000Z`) }
+            : {}),
+          ...(b.discountPercent !== undefined ? { discountPercent: b.discountPercent } : {}),
+          ...(b.discountUntil !== undefined
+            ? { discountUntil: b.discountUntil === null ? null : new Date(b.discountUntil) }
+            : {}),
+          ...(b.discountNote !== undefined ? { discountNote: b.discountNote } : {}),
           updatedById: requireUser(request).id,
         },
       });

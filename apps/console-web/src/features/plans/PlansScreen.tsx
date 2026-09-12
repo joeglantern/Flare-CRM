@@ -6,7 +6,7 @@
  * what it says.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import {
   FEATURES,
@@ -20,27 +20,65 @@ import {
   type LimitKey,
   type LimitMap,
 } from '@crm/shared';
-import { Badge, Button, ConfirmDialog, Input, Sheet, Switch, Textarea, toast } from '@crm/ui';
-import { Table, type Column } from '@/components/Bits';
+import {
+  Badge,
+  Button,
+  Checkbox,
+  ConfirmDialog,
+  Input,
+  Sheet,
+  Switch,
+  Textarea,
+  toast,
+} from '@crm/ui';
+import { Pager, Table, type Column } from '@/components/Bits';
 import { EmptyState, PageHeader, StateSlot, Section } from '@/components/Page';
 import { http } from '@/lib/api';
 import { fromMinor, isCurrency, limitLabel, money, toMinor } from '@/lib/format';
 import { usePermissions } from '@/lib/permissions';
 import { qk } from '@/lib/query';
-import type { Plan } from '@/lib/types';
+import type { Plan, PlanCustomer } from '@/lib/types';
+import { Link } from '@tanstack/react-router';
 
 export function PlansScreen() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   const [deleting, setDeleting] = useState<Plan | null>(null);
+  const [retiring, setRetiring] = useState<Plan | null>(null);
+  const [showing, setShowing] = useState<Plan | null>(null);
+  const [includeArchived, setIncludeArchived] = useState(false);
   // What is sold is an owner's decision. A support account reaching this screen by its address
   // reads the shelf and changes nothing on it.
   const { can } = usePermissions();
   const mayWrite = can('plan:write');
 
   const plans = useQuery({
-    queryKey: qk.plans(),
-    queryFn: async () => (await http.list<Plan>('/api/v1/plans')).data,
+    queryKey: qk.plans(includeArchived),
+    queryFn: async () =>
+      (await http.list<Plan>('/api/v1/plans', includeArchived ? { includeArchived: 'true' } : {}))
+        .data,
+  });
+
+  /**
+   * Retiring a plan is the answer to "we do not sell this any more" that does not require moving
+   * everybody off it first. Deleting still refuses while anybody is on it, and always will.
+   */
+  const retire = useMutation({
+    mutationFn: (plan: Plan) =>
+      http.patch<Plan>(`/api/v1/plans/${plan.id}`, { isArchived: !plan.isArchived }),
+    onSuccess: async (_data, plan) => {
+      await queryClient.invalidateQueries({ queryKey: ['plans'] });
+      toast({
+        tone: 'success',
+        title: plan.isArchived ? 'Back on the shelf' : 'Retired',
+        description: plan.isArchived
+          ? 'It can be sold again.'
+          : 'Customers already on it are untouched; it is simply not offered to anybody new.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'Could not change that plan', description: error.message });
+    },
   });
 
   const remove = useMutation({
@@ -67,6 +105,7 @@ export function PlansScreen() {
                 Default
               </Badge>
             )}
+            {plan.isArchived && <Badge tone="neutral">Retired</Badge>}
           </span>
           {plan.description !== '' && (
             <span className="text-sm text-muted">{plan.description}</span>
@@ -92,6 +131,24 @@ export function PlansScreen() {
       key: 'price',
       header: 'Price',
       cell: (plan) => <span className="tnum">{money(plan.priceMonthlyMinor, plan.currency)}</span>,
+    },
+    {
+      key: 'customers',
+      header: 'Customers',
+      cell: (plan) =>
+        plan.customers === 0 ? (
+          <span className="text-sm text-muted">None</span>
+        ) : (
+          <button
+            type="button"
+            className="tnum text-flare-link underline underline-offset-2"
+            onClick={() => {
+              setShowing(plan);
+            }}
+          >
+            {plan.customers}
+          </button>
+        ),
     },
     {
       key: 'seats',
@@ -120,6 +177,16 @@ export function PlansScreen() {
           </Button>
           <Button
             size="sm"
+            icon={plan.isArchived ? ArchiveRestore : Archive}
+            loading={retire.isPending && retire.variables.id === plan.id}
+            onClick={() => {
+              setRetiring(plan);
+            }}
+          >
+            {plan.isArchived ? 'Restore' : 'Retire'}
+          </Button>
+          <Button
+            size="sm"
             variant="danger"
             icon={Trash2}
             onClick={() => {
@@ -140,17 +207,24 @@ export function PlansScreen() {
         title="Plans"
         description="What a customer gets by default. Anything specific to one customer is an override on their own screen."
         actions={
-          mayWrite ? (
-            <Button
-              variant="primary"
-              icon={Plus}
-              onClick={() => {
-                setEditing('new');
-              }}
-            >
-              New plan
-            </Button>
-          ) : undefined
+          <>
+            <Checkbox
+              checked={includeArchived}
+              label="Show retired"
+              onChange={setIncludeArchived}
+            />
+            {mayWrite && (
+              <Button
+                variant="primary"
+                icon={Plus}
+                onClick={() => {
+                  setEditing('new');
+                }}
+              >
+                New plan
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -193,6 +267,45 @@ export function PlansScreen() {
         }}
       />
 
+      <PlanCustomers
+        plan={showing}
+        onClose={() => {
+          setShowing(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={retiring !== null}
+        onOpenChange={(v) => {
+          if (!v) setRetiring(null);
+        }}
+        title={
+          retiring?.isArchived === true
+            ? `Sell ${retiring.name} again?`
+            : `Retire ${retiring?.name ?? 'this plan'}?`
+        }
+        description={
+          retiring?.isArchived === true
+            ? 'It goes back on the shelf and can be chosen for a customer again.'
+            : 'It stops being offered to anybody new. Every customer already on it stays on it, on exactly the terms they have.'
+        }
+        consequences={
+          retiring?.isArchived === true
+            ? []
+            : [
+                `${String(retiring?.customers ?? 0)} customer${retiring?.customers === 1 ? '' : 's'} stay on it, unchanged`,
+                'It disappears from this list unless you ask for retired ones',
+              ]
+        }
+        confirmLabel={retiring?.isArchived === true ? 'Sell it again' : 'Retire'}
+        tone="primary"
+        loading={retire.isPending}
+        onConfirm={() => {
+          if (retiring !== null) retire.mutate(retiring);
+          setRetiring(null);
+        }}
+      />
+
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(v) => {
@@ -210,6 +323,108 @@ export function PlansScreen() {
     </>
   );
 }
+
+/**
+ * Who is on this plan, and what each of them actually pays.
+ *
+ * The count in the table is the question; this is the answer, and it is also what makes retiring a
+ * plan a decision somebody can take rather than guess at.
+ */
+function PlanCustomers({ plan, onClose }: { plan: Plan | null; onClose: () => void }) {
+  const [page, setPage] = useState(1);
+  const customers = useQuery({
+    queryKey: qk.planCustomers(plan?.id ?? '', page),
+    enabled: plan !== null,
+    queryFn: () =>
+      http.list<PlanCustomer>(`/api/v1/plans/${plan?.id ?? ''}/customers`, {
+        page,
+        pageSize: PLAN_CUSTOMERS_PER_PAGE,
+      }),
+  });
+
+  if (plan === null) return null;
+
+  const columns: Column<PlanCustomer>[] = [
+    {
+      key: 'name',
+      header: 'Customer',
+      cell: (row) => (
+        <Link
+          to="/customers/$customerId"
+          params={{ customerId: row.customerId }}
+          className="no-underline hover:underline"
+        >
+          {row.name}
+        </Link>
+      ),
+    },
+    {
+      key: 'pays',
+      header: 'Pays',
+      cell: (row) => (
+        <span className="flex items-center gap-2">
+          <span className="tnum">{money(row.chargedPriceMonthlyMinor, plan.currency)}</span>
+          {row.priceState !== 'full' && <Badge tone="neutral">{PRICE_STATE[row.priceState]}</Badge>}
+        </span>
+      ),
+    },
+    {
+      key: 'renews',
+      header: 'Renews',
+      cell: (row) => <span className="text-sm text-muted">{row.renewsOn ?? '—'}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (row) => <span className="text-base">{row.status}</span>,
+    },
+  ];
+
+  return (
+    <Sheet
+      open
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+      title={`On ${plan.name}`}
+      footer={<Button onClick={onClose}>Close</Button>}
+    >
+      <StateSlot
+        isPending={customers.isPending}
+        error={customers.error}
+        isEmpty={customers.data?.data.length === 0}
+        empty={<EmptyState title="Nobody is on this plan" />}
+      >
+        <div className="rounded-md border border-border bg-surface">
+          <Table
+            caption={`Customers on ${plan.name}`}
+            columns={columns}
+            rows={customers.data?.data ?? []}
+            rowKey={(row) => row.customerId}
+          />
+        </div>
+        <div className="mt-3">
+          <Pager
+            page={page}
+            pageSize={PLAN_CUSTOMERS_PER_PAGE}
+            total={customers.data?.page.total ?? 0}
+            onChange={setPage}
+            noun="customers"
+          />
+        </div>
+      </StateSlot>
+    </Sheet>
+  );
+}
+
+const PLAN_CUSTOMERS_PER_PAGE = 25;
+
+const PRICE_STATE: Record<PlanCustomer['priceState'], string> = {
+  trial: 'On trial',
+  discounted: 'Discounted',
+  expired: 'Expired',
+  full: 'Full price',
+};
 
 /** Mounted only while a plan is open, so the form starts from that plan and nothing else. */
 function PlanEditor({ plan, onClose }: { plan: Plan | 'new' | null; onClose: () => void }) {

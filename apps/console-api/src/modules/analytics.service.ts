@@ -13,6 +13,7 @@ import {
   type AlertDto,
   type AlertKind,
   type AlertLevel,
+  type AtRiskReason,
   type ConsoleOverviewDto,
   type CustomerAnalyticsDto,
   type RevenueAnalyticsDto,
@@ -50,6 +51,8 @@ export class AnalyticsService {
     let storageSold = 0;
     let storageUnlimited = 0;
     let currency = 'KES';
+    let trials = 0;
+    let renewalsDue30d = 0;
     const planMix = new Map<
       string,
       { planId: string | null; name: string; customers: number; mrrMinor: number }
@@ -58,9 +61,13 @@ export class AnalyticsService {
     for (const e of entitlements) {
       const customer = byCustomer.get(e.customerId);
       if (customer?.status !== 'active') continue;
-      const expired = e.expiresAt !== null && e.expiresAt.getTime() <= now.getTime();
-      const price = expired ? 0 : RollupService.effectivePrice(e.plan, e.priceMonthlyMinorOverride);
+      const charge = RollupService.effectivePrice(e, now);
+      const price = charge.chargedMinor;
       mrrMinor += price;
+      if (charge.state === 'trial') trials += 1;
+      if (e.renewsOn !== null && e.renewsOn.getTime() - now.getTime() <= 30 * DAY_MS) {
+        renewalsDue30d += 1;
+      }
       if (e.plan?.currency) currency = e.plan.currency;
 
       const limits = mergeLimits(e.plan?.limits, e.limitOverrides);
@@ -106,7 +113,7 @@ export class AnalyticsService {
           name: byCustomer.get(e.customerId)?.name ?? 'Unknown',
           expiresAt: expiresAt.toISOString(),
           days: Math.ceil((expiresAt.getTime() - now.getTime()) / DAY_MS),
-          mrrMinor: RollupService.effectivePrice(e.plan, e.priceMonthlyMinorOverride),
+          mrrMinor: RollupService.effectivePrice(e, now).listMinor,
         };
       })
       .filter((e) => e.days <= 90)
@@ -136,6 +143,8 @@ export class AnalyticsService {
         mrrMinor,
         arpuMinor: active.length === 0 ? 0 : Math.round(mrrMinor / active.length),
         openAlerts: alerts.length,
+        trials,
+        renewalsDue30d,
       },
       series: {
         customers: pick('customers'),
@@ -298,6 +307,14 @@ export class AnalyticsService {
     let currency = 'KES';
     let atRiskMinor = 0;
     let atRiskCustomers = 0;
+    let trials = 0;
+    let trialMinor = 0;
+    let discounts = 0;
+    let discountMinor = 0;
+    const byReason = new Map<
+      AtRiskReason,
+      { reason: AtRiskReason; minor: number; customers: number }
+    >();
     const byPlan = new Map<
       string,
       { planId: string | null; name: string; customers: number; mrrMinor: number }
@@ -305,18 +322,41 @@ export class AnalyticsService {
 
     for (const e of entitlements) {
       if (!active.has(e.customerId)) continue;
-      const expired = e.expiresAt !== null && e.expiresAt.getTime() <= now.getTime();
-      const price = expired ? 0 : RollupService.effectivePrice(e.plan, e.priceMonthlyMinorOverride);
+      const charge = RollupService.effectivePrice(e, now);
+      const price = charge.chargedMinor;
       mrrMinor += price;
       if (price > 0) paying += 1;
       if (e.plan?.currency) currency = e.plan.currency;
-      if (
-        e.expiresAt !== null &&
-        !expired &&
-        e.expiresAt.getTime() - now.getTime() <= 30 * DAY_MS
-      ) {
-        atRiskMinor += price;
+
+      if (charge.state === 'trial') {
+        trials += 1;
+        trialMinor += charge.listMinor;
+      }
+      if (charge.state === 'discounted') {
+        discounts += 1;
+        discountMinor += charge.listMinor - charge.chargedMinor;
+      }
+
+      // What is at risk, and for which of the four reasons it is at risk. A figure without the
+      // reason is a worry; with the reason it is a thing somebody can go and do something about.
+      const soon = (at: Date | null) =>
+        at !== null && at.getTime() > now.getTime() && at.getTime() - now.getTime() <= 30 * DAY_MS;
+      let reason: AtRiskReason | null = null;
+      if (charge.state === 'expired') reason = 'suspended';
+      else if (soon(e.expiresAt)) reason = 'expiring';
+      else if (soon(e.trialEndsAt)) reason = 'trial_ending';
+      else if (soon(e.discountUntil)) reason = 'discount_ending';
+      if (reason !== null) {
+        // An expiring plan risks what they pay; a trial ending risks what they would start paying.
+        const atStake = reason === 'trial_ending' ? charge.listMinor : Math.max(price, 0);
+        atRiskMinor += atStake;
         atRiskCustomers += 1;
+        const current = byReason.get(reason) ?? { reason, minor: 0, customers: 0 };
+        byReason.set(reason, {
+          reason,
+          minor: current.minor + atStake,
+          customers: current.customers + 1,
+        });
       }
       const key = e.planId ?? 'none';
       const current = byPlan.get(key) ?? {
@@ -345,7 +385,14 @@ export class AnalyticsService {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([month, v]) => ({ t: `${month}-01`, v })),
       byPlan: [...byPlan.values()].sort((a, b) => b.mrrMinor - a.mrrMinor),
-      atRisk: { minor: atRiskMinor, customers: atRiskCustomers, withinDays: 30 },
+      atRisk: {
+        minor: atRiskMinor,
+        customers: atRiskCustomers,
+        withinDays: 30,
+        byReason: [...byReason.values()].sort((a, b) => b.minor - a.minor),
+      },
+      trials: { count: trials, minorWhenConverted: trialMinor },
+      discounts: { count: discounts, minorGivenAway: discountMinor },
     };
   }
 

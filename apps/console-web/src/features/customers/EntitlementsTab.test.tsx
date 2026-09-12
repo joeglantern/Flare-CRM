@@ -22,6 +22,8 @@ const plan: Plan = {
   priceMonthlyMinor: 150000,
   currency: 'KES',
   isDefault: true,
+  isArchived: false,
+  customers: 3,
 };
 
 const entitlements: CustomerEntitlements = {
@@ -29,8 +31,14 @@ const entitlements: CustomerEntitlements = {
   featureOverrides: {},
   limitOverrides: {},
   expiresAt: null,
+  expiresAtBeforeSuspension: null,
   priceMonthlyMinorOverride: null,
   agreementNotes: '',
+  trialEndsAt: null,
+  renewsOn: null,
+  discountPercent: null,
+  discountUntil: null,
+  discountNote: '',
   effective: {
     plan: { id: plan.id, name: plan.name },
     features: plan.features,
@@ -38,6 +46,9 @@ const entitlements: CustomerEntitlements = {
     expiresAt: null,
     priceMonthlyMinor: plan.priceMonthlyMinor,
     currency: plan.currency,
+    listPriceMonthlyMinor: 150000,
+    chargedPriceMonthlyMinor: 150000,
+    priceState: 'full',
   },
 };
 

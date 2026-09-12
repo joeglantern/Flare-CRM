@@ -26,8 +26,10 @@ import {
   fromServer,
   isDirty,
   limitKeys,
+  parsePercent,
   planFeatures,
   planLimits,
+  previewCharge,
   savePayload,
   setFeature,
   setLimit,
@@ -205,6 +207,14 @@ export function EntitlementsTab({
         </div>
       </Section>
 
+      <Commercials
+        state={state}
+        plan={plan}
+        currency={currency}
+        readOnly={!mayIssue}
+        onChange={setState}
+      />
+
       <Section
         title="Features"
         description="Off means hidden in their app and refused by their server. Data is never deleted, so switching something back on restores it."
@@ -314,6 +324,123 @@ export function EntitlementsTab({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * What this customer actually pays, as opposed to what the plan says on the shelf.
+ *
+ * A trial is not a hundred percent discount and neither is an expired plan: they end on different
+ * days and what is worth chasing about each is different, so they are separate fields. The sentence
+ * underneath is the whole point of the section, because three fields that interact are otherwise a
+ * puzzle somebody has to solve in their head at renewal time.
+ */
+function Commercials({
+  state,
+  plan,
+  currency,
+  readOnly,
+  onChange,
+}: {
+  state: EditorState;
+  plan: Plan | undefined;
+  currency: string;
+  readOnly: boolean;
+  onChange: (next: EditorState) => void;
+}) {
+  const charge = previewCharge(state, plan, currency);
+  const percentError =
+    state.discountPercent.trim() === '' || parsePercent(state.discountPercent) !== null
+      ? undefined
+      : 'A whole percentage between 1 and 100.';
+
+  const sentence =
+    charge.state === 'expired'
+      ? 'Nothing, while their plan is expired. Their CRM is read only until it is lifted.'
+      : charge.state === 'trial'
+        ? `Nothing until the trial ends, then ${money(charge.listMinor, currency)} a month.`
+        : charge.state === 'discounted'
+          ? `${money(charge.chargedMinor, currency)} a month: ${state.discountPercent.trim()} percent off ${money(charge.listMinor, currency)}${state.discountUntilDay === '' ? '' : ` until ${state.discountUntilDay}`}.`
+          : `${money(charge.chargedMinor, currency)} a month.`;
+
+  return (
+    <Section
+      title="Commercials"
+      description="What they are actually charged, and when the agreement comes round again."
+    >
+      <Fields columns={3}>
+        <Field label="Trial ends">
+          <Input
+            type="date"
+            aria-label="Trial ends"
+            disabled={readOnly}
+            value={state.trialDay}
+            onChange={(e) => {
+              onChange({ ...state, trialDay: e.target.value });
+            }}
+          />
+          <span className="mt-1 block text-sm text-muted">
+            They pay nothing until the end of this day, and the full price afterwards.
+          </span>
+        </Field>
+        <Field label="Renews on">
+          <Input
+            type="date"
+            aria-label="Renews on"
+            disabled={readOnly}
+            value={state.renewsOnDay}
+            onChange={(e) => {
+              onChange({ ...state, renewsOnDay: e.target.value });
+            }}
+          />
+          <span className="mt-1 block text-sm text-muted">
+            Recorded so the overview can say what is coming round this month.
+          </span>
+        </Field>
+        <Field label="Discount">
+          <Input
+            aria-label="Discount percent"
+            inputMode="numeric"
+            placeholder="None"
+            suffix={<span className="text-sm text-muted">percent</span>}
+            error={percentError}
+            disabled={readOnly}
+            value={state.discountPercent}
+            onChange={(e) => {
+              onChange({ ...state, discountPercent: e.target.value });
+            }}
+          />
+        </Field>
+        <Field label="Discount until">
+          <Input
+            type="date"
+            aria-label="Discount until"
+            disabled={readOnly}
+            value={state.discountUntilDay}
+            onChange={(e) => {
+              onChange({ ...state, discountUntilDay: e.target.value });
+            }}
+          />
+          <span className="mt-1 block text-sm text-muted">
+            Leave it empty for a discount with no end.
+          </span>
+        </Field>
+        <Field label="Why">
+          <Input
+            aria-label="Why the discount was given"
+            placeholder="Two year commitment"
+            disabled={readOnly}
+            value={state.discountNote}
+            onChange={(e) => {
+              onChange({ ...state, discountNote: e.target.value });
+            }}
+          />
+        </Field>
+        <Field label="They pay">
+          <span className="text-base">{sentence}</span>
+        </Field>
+      </Fields>
+    </Section>
   );
 }
 

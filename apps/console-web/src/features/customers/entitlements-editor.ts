@@ -32,6 +32,14 @@ export interface EditorState {
    */
   priceMajor: string;
   agreementNotes: string;
+  /** `yyyy-MM-dd`, or empty. A trial pays nothing until this day and the full price after it. */
+  trialDay: string;
+  /** `yyyy-MM-dd`, or empty. The day the agreement comes round again. */
+  renewsOnDay: string;
+  /** Whole percent off the list price, as typed. Empty means no discount at all. */
+  discountPercent: string;
+  discountUntilDay: string;
+  discountNote: string;
 }
 
 export function planFeatures(plan: Plan | undefined): FeatureMap {
@@ -106,7 +114,25 @@ export function fromServer(entitlements: CustomerEntitlements): EditorState {
     expiryDay: entitlements.expiresAt === null ? '' : entitlements.expiresAt.slice(0, 10),
     priceMajor: fromMinor(entitlements.priceMonthlyMinorOverride, entitlements.effective.currency),
     agreementNotes: entitlements.agreementNotes,
+    trialDay: entitlements.trialEndsAt === null ? '' : entitlements.trialEndsAt.slice(0, 10),
+    renewsOnDay: entitlements.renewsOn === null ? '' : entitlements.renewsOn.slice(0, 10),
+    discountPercent:
+      entitlements.discountPercent === null ? '' : String(entitlements.discountPercent),
+    discountUntilDay:
+      entitlements.discountUntil === null ? '' : entitlements.discountUntil.slice(0, 10),
+    discountNote: entitlements.discountNote,
   };
+}
+
+/** A whole percent between nothing and everything, or null when the field is empty or nonsense. */
+export function parsePercent(typed: string): number | null {
+  const trimmed = typed.trim();
+  if (trimmed === '') return null;
+  const value = Number(trimmed);
+  if (!Number.isFinite(value)) return null;
+  const whole = Math.round(value);
+  if (whole <= 0 || whole > 100) return null;
+  return whole;
 }
 
 export interface SavePayload {
@@ -117,6 +143,11 @@ export interface SavePayload {
   /** Minor units, never a float, and null to charge whatever the plan charges. */
   priceMonthlyMinorOverride: number | null;
   agreementNotes: string;
+  trialEndsAt: string | null;
+  renewsOn: string | null;
+  discountPercent: number | null;
+  discountUntil: string | null;
+  discountNote: string;
 }
 
 /**
@@ -133,7 +164,53 @@ export function savePayload(state: EditorState, currency: string): SavePayload {
     expiresAt,
     priceMonthlyMinorOverride: toMinor(state.priceMajor, currency),
     agreementNotes: state.agreementNotes,
+    // A trial and a discount both end at the end of their day, for the same reason an expiry does.
+    trialEndsAt:
+      state.trialDay === '' ? null : new Date(`${state.trialDay}T23:59:59`).toISOString(),
+    renewsOn: state.renewsOnDay === '' ? null : state.renewsOnDay,
+    discountPercent: parsePercent(state.discountPercent),
+    discountUntil:
+      state.discountUntilDay === ''
+        ? null
+        : new Date(`${state.discountUntilDay}T23:59:59`).toISOString(),
+    discountNote: state.discountNote.trim(),
   };
+}
+
+/**
+ * What this customer would actually pay if the editor were saved as it stands.
+ *
+ * The same order the server applies, so the sentence under the price field and the figure the
+ * dashboard adds up can never disagree: an expiry beats a trial, a trial beats a discount, and
+ * anything else pays the list price.
+ */
+export function previewCharge(
+  state: EditorState,
+  plan: Plan | undefined,
+  currency: string,
+  now = new Date(),
+): { listMinor: number; chargedMinor: number; state: 'trial' | 'discounted' | 'expired' | 'full' } {
+  const listMinor = toMinor(state.priceMajor, currency) ?? plan?.priceMonthlyMinor ?? 0;
+  const endOf = (day: string) => (day === '' ? null : new Date(`${day}T23:59:59`));
+
+  const expiry = endOf(state.expiryDay);
+  if (expiry !== null && expiry.getTime() <= now.getTime()) {
+    return { listMinor, chargedMinor: 0, state: 'expired' };
+  }
+  const trial = endOf(state.trialDay);
+  if (trial !== null && trial.getTime() > now.getTime()) {
+    return { listMinor, chargedMinor: 0, state: 'trial' };
+  }
+  const percent = parsePercent(state.discountPercent);
+  const until = endOf(state.discountUntilDay);
+  if (percent !== null && (until === null || until.getTime() > now.getTime())) {
+    return {
+      listMinor,
+      chargedMinor: Math.round((listMinor * (100 - percent)) / 100),
+      state: 'discounted',
+    };
+  }
+  return { listMinor, chargedMinor: listMinor, state: 'full' };
 }
 
 export function isDirty(state: EditorState, saved: EditorState): boolean {

@@ -203,6 +203,8 @@ model Plan {
   priceMonthlyMinor Int?    @map("price_monthly_minor")
   currency          String  @default("KES")
   isDefault   Boolean  @default(false) @map("is_default")
+  /// Not sold any more, without deleting one that customers are still on.
+  isArchived  Boolean  @default(false) @map("is_archived")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -222,6 +224,15 @@ model CustomerEntitlement {
   expiresAtBeforeSuspension DateTime? @map("expires_at_before_suspension") @db.Timestamptz(3)
   /// What this customer actually pays, when it differs from the plan.
   priceMonthlyMinorOverride Int? @map("price_monthly_minor_override")
+  /// Paying nothing until this date, and the full price after it. Not a hundred percent discount:
+  /// a trial ends, and what starts being owed then is worth being able to see coming.
+  trialEndsAt      DateTime? @map("trial_ends_at") @db.Timestamptz(3)
+  /// The day of the month the agreement comes round again. A date, not a moment.
+  renewsOn         DateTime? @map("renews_on") @db.Date
+  /// A percentage off the list price, optionally until a date, with the reason it was given.
+  discountPercent  Int?      @map("discount_percent")
+  discountUntil    DateTime? @map("discount_until") @db.Timestamptz(3)
+  discountNote     String    @default("") @map("discount_note")
   agreementNotes   String    @default("") @map("agreement_notes")
   updatedById      String?   @map("updated_by_id") @db.Uuid
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -230,6 +241,8 @@ model CustomerEntitlement {
   plan     Plan?    @relation(fields: [planId], references: [id], onDelete: SetNull)
 
   @@index([planId])
+  @@index([renewsOn])
+  @@index([trialEndsAt])
   @@map("customer_entitlements")
 }
 

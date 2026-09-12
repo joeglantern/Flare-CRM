@@ -49,7 +49,9 @@ export const qk = {
   overview: (days: number) => ['overview', days] as const,
   customerAnalytics: (id: string, days: number) => ['customerAnalytics', id, days] as const,
   revenue: () => ['revenue'] as const,
-  plans: () => ['plans'] as const,
+  plans: (includeArchived = false) =>
+    includeArchived ? (['plans', 'all'] as const) : (['plans'] as const),
+  planCustomers: (id: string, page: number) => ['planCustomers', id, page] as const,
   catalogue: () => ['catalogue'] as const,
   owners: () => ['owners'] as const,
   settings: () => ['settings'] as const,

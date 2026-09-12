@@ -45,6 +45,8 @@ const empty: ConsoleOverviewDto = {
     mrrMinor: 0,
     arpuMinor: 0,
     openAlerts: 0,
+    trials: 0,
+    renewalsDue30d: 0,
   },
   series: {
     customers: flat,
@@ -75,6 +77,8 @@ const reporting: ConsoleOverviewDto = {
     mrrMinor: 450_000,
     arpuMinor: 150_000,
     openAlerts: 1,
+    trials: 1,
+    renewalsDue30d: 2,
   },
   series: {
     customers: series([2, 3, 3]),
@@ -128,7 +132,14 @@ const revenue: RevenueAnalyticsDto = {
     { t: '2026-09-01', v: 450_000 },
   ],
   byPlan: [{ planId: 'plan-1', name: 'Standard', customers: 2, mrrMinor: 300_000 }],
-  atRisk: { minor: 150_000, customers: 1, withinDays: 14 },
+  atRisk: {
+    minor: 150_000,
+    customers: 1,
+    withinDays: 14,
+    byReason: [{ reason: 'expiring', minor: 150_000, customers: 1 }],
+  },
+  trials: { count: 1, minorWhenConverted: 150_000 },
+  discounts: { count: 0, minorGivenAway: 0 },
 };
 
 let fetchStub: FetchStub | null = null;

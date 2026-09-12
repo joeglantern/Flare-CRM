@@ -25,16 +25,62 @@ export interface RollupSummary {
   mrrMinor: number;
 }
 
+/** Everything that decides what a customer pays, in one object so no caller forgets a field. */
+export interface Agreement {
+  plan: { priceMonthlyMinor: number | null } | null;
+  priceMonthlyMinorOverride: number | null;
+  expiresAt: Date | null;
+  trialEndsAt: Date | null;
+  discountPercent: number | null;
+  discountUntil: Date | null;
+}
+
+export type ChargeState = 'trial' | 'discounted' | 'expired' | 'full';
+
+export interface Charge {
+  /** What the plan says, or what this customer negotiated as their own price. */
+  listMinor: number;
+  /** What they are actually billed this month. */
+  chargedMinor: number;
+  state: ChargeState;
+}
+
 export class RollupService {
   constructor(private readonly db: Db) {}
 
-  /** The price a customer is actually agreed to pay, in minor units. */
-  static effectivePrice(
-    plan: { priceMonthlyMinor: number | null } | null,
-    override: number | null,
-  ): number {
-    if (override !== null) return override;
-    return plan?.priceMonthlyMinor ?? 0;
+  /**
+   * What a customer is actually charged this month, and why.
+   *
+   * Four things can hold the figure down and they are not the same thing. A trial pays nothing and
+   * then pays in full on a date. A discount takes a percentage off, sometimes until a date. An
+   * expired plan earns nothing, because their CRM is read only. Anything else pays the list price,
+   * which is the plan's unless this customer negotiated their own.
+   *
+   * All of it lives here rather than at the three places that ask, because those three used to
+   * re-implement the expiry rule separately and a fourth caller would have re-implemented it again.
+   */
+  static effectivePrice(agreement: Agreement, now: Date): Charge {
+    const listMinor = agreement.priceMonthlyMinorOverride ?? agreement.plan?.priceMonthlyMinor ?? 0;
+
+    if (agreement.expiresAt !== null && agreement.expiresAt.getTime() <= now.getTime()) {
+      return { listMinor, chargedMinor: 0, state: 'expired' };
+    }
+    if (agreement.trialEndsAt !== null && agreement.trialEndsAt.getTime() > now.getTime()) {
+      return { listMinor, chargedMinor: 0, state: 'trial' };
+    }
+    const percent = agreement.discountPercent;
+    const stillOff =
+      percent !== null &&
+      percent > 0 &&
+      (agreement.discountUntil === null || agreement.discountUntil.getTime() > now.getTime());
+    if (stillOff) {
+      return {
+        listMinor,
+        chargedMinor: Math.round((listMinor * (100 - percent)) / 100),
+        state: 'discounted',
+      };
+    }
+    return { listMinor, chargedMinor: listMinor, state: 'full' };
   }
 
   async run(now = new Date()): Promise<RollupSummary> {
@@ -101,9 +147,9 @@ export class RollupService {
     let seatsSold = 0;
     let currency = 'KES';
     for (const e of entitlements) {
-      const expired = e.expiresAt !== null && e.expiresAt.getTime() <= now.getTime();
-      if (!active.has(e.customerId) || expired) continue;
-      mrrMinor += RollupService.effectivePrice(e.plan, e.priceMonthlyMinorOverride);
+      if (!active.has(e.customerId)) continue;
+      // A snapshot of what was true today, including nothing at all for a trial or an expired plan.
+      mrrMinor += RollupService.effectivePrice(e, now).chargedMinor;
       if (e.plan?.currency) currency = e.plan.currency;
       const limits = (e.limitOverrides ?? {}) as { seats?: number | null };
       const planLimits = (e.plan?.limits ?? {}) as { seats?: number | null };

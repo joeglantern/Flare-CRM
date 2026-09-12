@@ -20,6 +20,7 @@ import {
 import { newId } from '../lib/ids.js';
 import type { Db } from '../plugins/prisma.js';
 import type { Signer } from '../lib/signing.js';
+import { RollupService, type ChargeState } from './rollup.service.js';
 
 export interface EffectiveEntitlements {
   plan: { id: string; name: string } | null;
@@ -29,6 +30,11 @@ export interface EffectiveEntitlements {
   /** Minor units: the customer's override where there is one, otherwise the plan's price. */
   priceMonthlyMinor: number | null;
   currency: string;
+  /** The shelf price, before a trial or a discount is taken into account. */
+  listPriceMonthlyMinor: number;
+  /** What they are actually billed this month, which a trial or an expiry can make nothing. */
+  chargedPriceMonthlyMinor: number;
+  priceState: ChargeState;
 }
 
 /** "iss_" plus a uuid, so a log line says what kind of id it is looking at. */
@@ -85,6 +91,12 @@ export class ConsoleEntitlementsService {
       ...asFeatureOverrides(row?.featureOverrides),
     });
     const limits: LimitMap = { ...base.limits, ...asLimitOverrides(row?.limitOverrides) };
+    // What they are charged is the same arithmetic the rollup and the revenue report use, so a
+    // customer's own screen can never disagree with the figure the dashboard is adding up.
+    const charge =
+      row === null
+        ? { listMinor: 0, chargedMinor: 0, state: 'full' as ChargeState }
+        : RollupService.effectivePrice(row, new Date());
     return {
       plan: row?.plan ? { id: row.plan.id, name: row.plan.name } : null,
       features,
@@ -92,6 +104,9 @@ export class ConsoleEntitlementsService {
       expiresAt: row?.expiresAt?.toISOString() ?? null,
       priceMonthlyMinor: row?.priceMonthlyMinorOverride ?? row?.plan?.priceMonthlyMinor ?? null,
       currency: row?.plan?.currency ?? 'KES',
+      listPriceMonthlyMinor: charge.listMinor,
+      chargedPriceMonthlyMinor: charge.chargedMinor,
+      priceState: charge.state,
     };
   }
 
