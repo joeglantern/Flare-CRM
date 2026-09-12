@@ -23,6 +23,7 @@ import {
 } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { csvStream } from '../lib/csv.js';
 import { ConflictError, NotFoundError } from '../lib/errors.js';
 import { newId } from '../lib/ids.js';
 import { permissionsFor, ROLE_NAMES } from '../auth/permissions.js';
@@ -34,6 +35,11 @@ import { RollupService } from './rollup.service.js';
 const uuid = z.uuid();
 /** How many customers one bulk action may touch. Each one signs a document and pushes it. */
 const BULK_LIMIT = 100;
+/**
+ * The most rows one export carries. Past this the answer is a database dump rather than a CSV, and
+ * a cap that is stated is kinder than a request that dies halfway through writing a file.
+ */
+const AUDIT_EXPORT_LIMIT = 50_000;
 const slug = z
   .string()
   .trim()
@@ -1629,14 +1635,24 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     schema: {
       tags: ['console'],
       params: z.object({ id: uuid }),
+      querystring: z.object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      }),
       response: { 200: offsetListResponse(announcementDto) },
     },
     handler: async (request) => {
-      const rows = await app.db.announcement.findMany({
-        where: { customerId: request.params.id },
-        orderBy: { sentAt: 'desc' },
-        take: 50,
-      });
+      const { page, pageSize } = request.query;
+      const where = { customerId: request.params.id };
+      const [rows, total] = await Promise.all([
+        app.db.announcement.findMany({
+          where,
+          orderBy: { sentAt: 'desc' },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        app.db.announcement.count({ where }),
+      ]);
       const senders = await app.db.user.findMany({
         where: { id: { in: [...new Set(rows.map((r) => r.sentById))] } },
         select: { id: true, name: true },
@@ -1650,7 +1666,52 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         sentByName: byId.get(r.sentById) ?? null,
         sentAt: r.sentAt.toISOString(),
       }));
-      return { data, page: { page: 1, pageSize: data.length, total: data.length } };
+      return { data, page: { page, pageSize, total } };
+    },
+  });
+
+  /**
+   * Every document this customer has been issued, paged.
+   *
+   * The customer screen carries the twenty newest so the page has something to show without a
+   * second request. This is how somebody reads further back than that, which matters most on the
+   * customers who have been here longest and have the most to explain.
+   */
+  app.get('/customers/:id/issues', {
+    config: { auth: { permission: 'customer:read' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      querystring: z.object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      }),
+      response: { 200: offsetListResponse(issueDto) },
+    },
+    handler: async (request) => {
+      const { page, pageSize } = request.query;
+      const where = { customerId: request.params.id };
+      const [rows, total] = await Promise.all([
+        app.db.entitlementIssue.findMany({
+          where,
+          orderBy: { issuedAt: 'desc' },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        app.db.entitlementIssue.count({ where }),
+      ]);
+      return {
+        data: rows.map((i) => ({
+          id: i.id,
+          stackId: i.stackId,
+          status: i.status,
+          issuedAt: i.issuedAt.toISOString(),
+          deliveredAt: i.deliveredAt?.toISOString() ?? null,
+          ackedAt: i.ackedAt?.toISOString() ?? null,
+          rejectReason: i.rejectReason,
+        })),
+        page: { page, pageSize, total },
+      };
     },
   });
 
@@ -1750,6 +1811,46 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         data: {
           ok: true as const,
           message: outcome.message ?? 'They have been signed out everywhere.',
+        },
+      };
+    },
+  });
+
+  /**
+   * How a customer's installation is doing, asked of the stack itself.
+   *
+   * Only `stack:read`, because nothing here changes anything: the answer is counts and states about
+   * the machine, and the alternative to asking is guessing from a heartbeat that is up to thirty
+   * seconds old and carries no detail. The answer is returned and not stored (docs/21 §9).
+   */
+  app.post('/customers/:id/diagnostics', {
+    config: { auth: { permission: 'stack:read' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      response: {
+        200: dataResponse(
+          z.object({
+            stackId: z.string(),
+            readAt: z.string(),
+            facts: z.unknown().nullable(),
+          }),
+        ),
+      },
+    },
+    handler: async (request) => {
+      const actor = requireUser(request);
+      const outcome = await app.diagnostics.read(
+        request.params.id,
+        actor.email,
+        auditContext(request),
+      );
+      if (!outcome.ok) throw new ConflictError(outcome.message ?? 'The stack could not answer');
+      return {
+        data: {
+          stackId: outcome.stackId,
+          readAt: new Date().toISOString(),
+          facts: outcome.facts,
         },
       };
     },
@@ -2006,6 +2107,86 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         after: request.body.ownerContact,
       });
       return { data: { ok: true as const } };
+    },
+  });
+
+  /**
+   * The whole filtered log as a file (docs/21 §9).
+   *
+   * Audit rows are never pruned, because the trigger that makes them immutable would refuse the
+   * delete and weakening it would cost the guarantee. So the answer to a log that has grown large is
+   * to take a copy of it, which is what this is.
+   *
+   * Streamed rather than assembled: fifty thousand rows with two JSON blobs each is not a thing to
+   * hold in memory. No `response` schema on purpose, so the zod serializer leaves the stream alone.
+   */
+  app.get('/audit/export.csv', {
+    config: {
+      auth: { permission: 'audit:export' },
+      rateLimit: { max: 5, timeWindow: '10 minutes' },
+    },
+    schema: {
+      tags: ['console'],
+      querystring: z.object({
+        entityId: z.string().max(80).optional(),
+        action: z.string().max(80).optional(),
+      }),
+    },
+    handler: async (request, reply) => {
+      const q = request.query;
+      const where = {
+        ...(q.entityId !== undefined ? { entityId: q.entityId } : {}),
+        ...(q.action !== undefined ? { action: { startsWith: q.action } } : {}),
+      };
+
+      // Taking the export is itself a thing somebody did, and the log records it before it is read.
+      await app.audit.write(auditContext(request), {
+        action: 'audit.export',
+        entity: 'system',
+        after: { entityId: q.entityId ?? null, action: q.action ?? null },
+      });
+
+      const rows = await app.db.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: AUDIT_EXPORT_LIMIT,
+      });
+      const actorIds = [...new Set(rows.map((r) => r.actorId).filter((id) => id !== null))];
+      const actors =
+        actorIds.length > 0
+          ? await app.db.user.findMany({
+              where: { id: { in: actorIds } },
+              select: { id: true, name: true },
+            })
+          : [];
+      const byId = new Map(actors.map((a) => [a.id, a.name]));
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      void reply.header('content-type', 'text/csv; charset=utf-8');
+      void reply.header(
+        'content-disposition',
+        `attachment; filename="flare-console-audit-${stamp}.csv"`,
+      );
+      return reply.send(
+        csvStream(
+          ['When', 'Who', 'Kind', 'Action', 'Entity', 'Entity id', 'Before', 'After', 'IP'],
+          (async function* () {
+            for (const r of rows) {
+              yield [
+                r.createdAt,
+                r.actorId === null ? '' : (byId.get(r.actorId) ?? r.actorId),
+                r.actorType,
+                r.action,
+                r.entity,
+                r.entityId,
+                r.before,
+                r.after,
+                r.ip,
+              ];
+            }
+          })(),
+        ),
+      );
     },
   });
 

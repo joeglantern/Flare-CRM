@@ -10,6 +10,7 @@
  * they are today, and yesterday's row keeps what they were yesterday. Backfilling them from today's
  * plans would quietly rewrite history every time a price changed.
  */
+import { DEFAULT_RETENTION } from '@crm/shared';
 import { Prisma } from '../generated/prisma/client.js';
 import type { Db } from '../plugins/prisma.js';
 
@@ -18,6 +19,12 @@ export const ROLLUP_TZ = 'Africa/Nairobi';
 
 /** A sample stands for the five minutes it gates, capped at a full day. */
 const MINUTES_PER_SAMPLE = 5;
+
+/**
+ * What the prune keeps when nobody has said otherwise. The same numbers the settings schema
+ * defaults to, so a console with no settings row behaves exactly as one with an untouched one.
+ */
+const DEFAULT_PRUNE = DEFAULT_RETENTION;
 
 export interface RollupSummary {
   stackDays: number;
@@ -202,17 +209,68 @@ export class RollupService {
   }
 
   /**
-   * Raw samples last a month; the days they were folded into last much longer. The fleet rows are
-   * one a day forever, which is a rounding error in a database this size.
+   * Throwing away what the console has finished with.
+   *
+   * Raw samples last weeks; the days they were folded into last much longer, because a day row is
+   * one per stack per day and that is a rounding error in a database this size. How long each kind
+   * is kept is a setting rather than a constant here: how much history is worth its disk is a
+   * judgement about somebody's business, not a fact about this code.
+   *
+   * Audit rows are deliberately absent. The immutability trigger would refuse the delete, and
+   * weakening it would cost the guarantee that makes the log worth keeping (docs/21 §9).
    */
-  async prune(now = new Date()): Promise<{ samples: number; days: number }> {
-    const sampleCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const dayCutoff = new Date(now.getTime() - 400 * 24 * 60 * 60 * 1000);
-    const [samples, days] = await Promise.all([
-      this.db.stackSample.deleteMany({ where: { at: { lt: sampleCutoff } } }),
-      this.db.stackDay.deleteMany({ where: { day: { lt: dayCutoff } } }),
+  async prune(
+    now = new Date(),
+    retention: {
+      sampleDays: number;
+      stackDayDays: number;
+      resolvedAlertDays: number;
+      issueDays: number;
+    } = DEFAULT_PRUNE,
+  ): Promise<{ samples: number; days: number; alerts: number; issues: number }> {
+    const at = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+    const [samples, days, alerts] = await Promise.all([
+      this.db.stackSample.deleteMany({ where: { at: { lt: at(retention.sampleDays) } } }),
+      this.db.stackDay.deleteMany({ where: { day: { lt: at(retention.stackDayDays) } } }),
+      // Only alerts that ended: an open one is current however old it is, and a closed one carries
+      // somebody's reason for closing it, so both outlive this.
+      this.db.consoleAlert.deleteMany({
+        where: { resolvedAt: { not: null, lt: at(retention.resolvedAlertDays) }, closedAt: null },
+      }),
     ]);
-    return { samples: samples.count, days: days.count };
+
+    return {
+      samples: samples.count,
+      days: days.count,
+      alerts: alerts.count,
+      issues: await this.pruneIssues(at(retention.issueDays)),
+    };
+  }
+
+  /**
+   * Old documents, never the newest one a stack holds.
+   *
+   * What a stack is running on has to stay readable however old it is: that row is the answer to
+   * "what is this customer actually entitled to", and a console that pruned it would be guessing.
+   * So the newest issue per stack is excluded whatever its age, and only settled ones go at all.
+   */
+  private async pruneIssues(before: Date): Promise<number> {
+    const newest = await this.db.entitlementIssue.groupBy({
+      by: ['stackId'],
+      _max: { issuedAt: true },
+    });
+    const keep = newest
+      .map((row) => row._max.issuedAt)
+      .filter((issuedAt): issuedAt is Date => issuedAt !== null);
+
+    const deleted = await this.db.entitlementIssue.deleteMany({
+      where: {
+        issuedAt: { lt: before, ...(keep.length === 0 ? {} : { notIn: keep }) },
+        status: { in: ['acked', 'superseded', 'rejected'] },
+      },
+    });
+    return deleted.count;
   }
 }
 

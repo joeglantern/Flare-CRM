@@ -145,7 +145,7 @@ export function CustomerScreen() {
                 connected={liveStack !== undefined}
               />
             )}
-            {tab === 'history' && <HistoryTab issues={detail.data.issues} />}
+            {tab === 'history' && <HistoryTab customerId={customerId} />}
           </>
         )}
       </StateSlot>

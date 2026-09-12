@@ -43,6 +43,7 @@ export const qk = {
   stackSamples: (id: string, hours: number) => ['stackSamples', id, hours] as const,
   stackIssues: (id: string, page: number) => ['stackIssues', id, page] as const,
   notes: (id: string, page: number) => ['notes', id, page] as const,
+  customerIssues: (id: string, page: number) => ['customerIssues', id, page] as const,
   announcements: (id: string) => ['announcements', id] as const,
   /** Who can sign in to that customer's CRM, fetched only while the support tab is open. */
   supportUsers: (id: string) => ['supportUsers', id] as const,
@@ -60,6 +61,8 @@ export const qk = {
   alertSummary: () => ['alertSummary'] as const,
   alertSettings: () => ['alertSettings'] as const,
   alertMutes: () => ['alertMutes'] as const,
+  /** Asked for rather than cached: the answer is how a stack is now, not how it was. */
+  diagnostics: (customerId: string) => ['diagnostics', customerId] as const,
   /** A live probe of /ready, never served from cache for longer than it takes to draw. */
   readiness: () => ['readiness'] as const,
   audit: (filter: Record<string, unknown>) => ['audit', filter] as const,

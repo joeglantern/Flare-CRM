@@ -71,6 +71,17 @@ interface Envelope<T> {
   data: T;
 }
 
+/**
+ * A URL for the browser to fetch itself, for a download.
+ *
+ * An export is the one thing this client does not fetch: a CSV of fifty thousand rows has no
+ * business passing through JavaScript on its way to a file, so the screen uses a plain anchor and
+ * the browser streams it straight to disk with the session cookie it already has.
+ */
+export function downloadUrl(path: string, query?: Query): string {
+  return `${path}${search(query)}`;
+}
+
 export const http = {
   /** `{ data }` endpoints. */
   get: async <T>(path: string, query?: Query): Promise<T> =>

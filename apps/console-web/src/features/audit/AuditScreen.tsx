@@ -3,12 +3,14 @@
  * When a customer asks why a feature stopped working, this is the answer.
  */
 import { useQuery } from '@tanstack/react-query';
+import { Download } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Input, Select } from '@crm/ui';
 import { Pager, Table, type Column } from '@/components/Bits';
 import { EmptyState, PageHeader, StateSlot } from '@/components/Page';
-import { http } from '@/lib/api';
+import { downloadUrl, http } from '@/lib/api';
 import { dateTime } from '@/lib/format';
+import { usePermissions } from '@/lib/permissions';
 import { qk } from '@/lib/query';
 import type { AuditRow } from '@/lib/types';
 
@@ -20,12 +22,16 @@ const ACTIONS = [
   { value: 'stack', label: 'Stacks' },
   { value: 'owner', label: 'Owners' },
   { value: 'settings', label: 'Settings' },
+  { value: 'alert', label: 'Alerts' },
+  { value: 'support', label: 'Support actions' },
+  { value: 'analytics', label: 'Housekeeping' },
   { value: 'access.denied', label: 'Refused requests' },
 ];
 
 const PAGE_SIZE = 50;
 
 export function AuditScreen() {
+  const { can } = usePermissions();
   const [action, setAction] = useState('');
   const [entityId, setEntityId] = useState('');
   const [page, setPage] = useState(1);
@@ -108,6 +114,20 @@ export function AuditScreen() {
                 setPage(1);
               }}
             />
+            {/* A plain anchor, not a fetch: the browser streams the file to disk with the session
+                cookie it already has, and fifty thousand rows never pass through JavaScript. */}
+            {can('audit:export') && (
+              <a
+                className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-border px-2.5 text-base no-underline hover:bg-hover hover:no-underline"
+                href={downloadUrl('/api/v1/audit/export.csv', {
+                  ...(action === '' ? {} : { action }),
+                  ...(entityId.trim() === '' ? {} : { entityId: entityId.trim() }),
+                })}
+              >
+                <Download size={14} aria-hidden />
+                Export
+              </a>
+            )}
           </>
         }
       />

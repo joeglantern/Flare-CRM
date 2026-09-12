@@ -75,8 +75,10 @@ export default fp(
     });
 
     every(PRUNE_EVERY_MS, 'prune', async () => {
-      const summary = await app.rollup.prune();
-      app.log.info(summary, 'old samples pruned');
+      // How long each kind is kept is an owner's setting, read each time rather than at boot so a
+      // change on the settings screen takes effect at the next nightly run.
+      const summary = await app.rollup.prune(new Date(), await app.settings.retention());
+      app.log.info(summary, 'what the console had finished with was pruned');
       await app.audit.write(
         { actorId: null, actorType: 'system' },
         { action: 'analytics.prune', entity: 'system', after: summary },

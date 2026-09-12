@@ -5,7 +5,13 @@
  * has to set up an authenticator before the console will let them do anything.
  */
 import { PrismaPg } from '@prisma/adapter-pg';
-import { DEFAULT_ENTITLEMENTS, normaliseFeatures } from '@crm/shared';
+import {
+  CONSOLE_SETTING_KEYS,
+  DEFAULT_ALERT_THRESHOLDS,
+  DEFAULT_ENTITLEMENTS,
+  DEFAULT_RETENTION,
+  normaliseFeatures,
+} from '@crm/shared';
 import { loadEnv } from '../src/config/env.js';
 import { newId } from '../src/lib/ids.js';
 import { PrismaClient } from '../src/generated/prisma/client.js';
@@ -56,6 +62,20 @@ export async function seed(
     },
     update: {},
   });
+
+  // The three settings the console reads on a schedule. Seeded with what the code already defaults
+  // to, so writing them changes nothing and a screen has something to show and edit.
+  for (const [key, value] of [
+    [CONSOLE_SETTING_KEYS.alertThresholds, DEFAULT_ALERT_THRESHOLDS],
+    [CONSOLE_SETTING_KEYS.alertRecipients, { default: [], byKind: {} }],
+    [CONSOLE_SETTING_KEYS.retention, DEFAULT_RETENTION],
+  ] as const) {
+    await db.consoleSetting.upsert({
+      where: { key },
+      create: { key, value },
+      update: {},
+    });
+  }
 
   return {
     plans: await db.plan.count(),
