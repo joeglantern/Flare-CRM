@@ -39,6 +39,28 @@ export interface Customer {
   createdAt: string;
 }
 
+/** Somebody at the customer worth ringing. The one on the customer row is who we bill. */
+export interface CustomerContact {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: string;
+  isPrimary: boolean;
+  notes: string;
+  createdAt: string;
+}
+
+/** A dated entry about this customer, as opposed to the standing paragraph on the row itself. */
+export interface CustomerNote {
+  id: string;
+  body: string;
+  authorId: string | null;
+  authorName: string | null;
+  pinned: boolean;
+  createdAt: string;
+}
+
 export interface Plan {
   id: string;
   name: string;

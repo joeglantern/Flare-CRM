@@ -7,9 +7,40 @@
  * checklist reflects real state only: a tick means the console has seen it happen.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Circle, Pencil, Radio, RefreshCw, Server, ShieldOff, X } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  Check,
+  Circle,
+  Pencil,
+  Radio,
+  RefreshCw,
+  Server,
+  ShieldOff,
+  X,
+} from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, ConfirmDialog, Dialog, Input, Segmented, Textarea, toast } from '@crm/ui';
+import {
+  CHURN_REASONS,
+  CHURN_REASON_COPY,
+  ONBOARDING_CHECKLIST,
+  ONBOARDING_STAGES,
+  ONBOARDING_STAGE_COPY,
+  type ChurnReason,
+  type OnboardingStage,
+} from '@crm/shared';
+import {
+  Badge,
+  Button,
+  Checkbox,
+  ConfirmDialog,
+  Dialog,
+  Input,
+  Segmented,
+  Select,
+  Textarea,
+  toast,
+} from '@crm/ui';
 import { CopyLine, Field, Fields, StatusDot } from '@/components/Bits';
 import { Section } from '@/components/Page';
 import { http } from '@/lib/api';
@@ -34,6 +65,7 @@ import {
   type CustomerDraft,
   type CustomerStatus,
 } from './customer-edit';
+import { CustomerPeople } from './CustomerPeople';
 
 export function OverviewTab({ detail }: { detail: CustomerDetail }) {
   const { customer, stacks } = detail;
@@ -47,6 +79,7 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
   const mayEdit = can('customer:write');
   const mayManageStacks = can('stack:manage');
   const mayOperate = can('stack:operate');
+  const mayArchive = can('customer:archive');
 
   const settings = useQuery({
     queryKey: qk.settings(),
@@ -167,6 +200,10 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
       <StatusSection customer={customer} stacks={stacks} />
 
       <DomainSection customer={customer} />
+
+      <CustomerPeople customerId={customer.id} />
+
+      <OnboardingSection customer={customer} />
 
       <Section
         title="Stacks"
@@ -293,6 +330,8 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
         </div>
       </Section>
 
+      {mayArchive && <DangerZone customer={customer} />}
+
       <EditCustomerDialog customer={customer} open={editing} onOpenChange={setEditing} />
 
       <StackCredentials
@@ -321,6 +360,201 @@ export function OverviewTab({ detail }: { detail: CustomerDetail }) {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * How far along setting them up is, in the part the console cannot observe.
+ *
+ * The provisioning list below reflects what heartbeats prove. This one is the human half: whether a
+ * contract was signed, whether their data came across, whether anybody has been trained. Ticking a
+ * box sends only that box, because the server merges rather than replaces.
+ */
+function OnboardingSection({ customer }: { customer: Customer }) {
+  const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const mayEdit = can('customer:write');
+  const stage = (ONBOARDING_STAGES as readonly string[]).includes(customer.onboardingStage)
+    ? (customer.onboardingStage as OnboardingStage)
+    : 'signed_up';
+
+  const save = useMutation({
+    mutationFn: (patch: Record<string, unknown>) =>
+      http.patch<Customer>(`/api/v1/customers/${customer.id}`, patch),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: qk.customer(customer.id) });
+      await queryClient.invalidateQueries({ queryKey: qk.fleet() });
+    },
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'Could not save that', description: error.message });
+    },
+  });
+
+  return (
+    <Section title="Getting started" description={ONBOARDING_STAGE_COPY[stage].description}>
+      <div className="flex flex-col gap-4">
+        {mayEdit ? (
+          <Segmented<OnboardingStage>
+            ariaLabel="How far along they are"
+            value={stage}
+            onChange={(next) => {
+              save.mutate({ onboardingStage: next });
+            }}
+            options={ONBOARDING_STAGES.map((value) => ({
+              value,
+              label: ONBOARDING_STAGE_COPY[value].label,
+            }))}
+          />
+        ) : (
+          <span>
+            <Badge tone="neutral">{ONBOARDING_STAGE_COPY[stage].label}</Badge>
+          </span>
+        )}
+
+        <ul className="flex flex-col gap-2">
+          {ONBOARDING_CHECKLIST.map((item) => (
+            <li key={item.key}>
+              <Checkbox
+                checked={customer.onboardingChecklist[item.key] === true}
+                label={item.label}
+                disabled={!mayEdit}
+                onChange={(next) => {
+                  save.mutate({ onboardingChecklist: { [item.key]: next } });
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * A reason read back from the server is a string, not one of ours: a reason we stopped offering
+ * still has to render as whatever was recorded at the time rather than as nothing.
+ */
+function churnLabel(reason: string): string {
+  return (CHURN_REASONS as readonly string[]).includes(reason)
+    ? CHURN_REASON_COPY[reason as ChurnReason]
+    : reason;
+}
+
+/**
+ * Filing a customer away, and taking them back out.
+ *
+ * The reason is chosen before the question is asked, so the confirmation can say it back. Archiving
+ * holds their CRM read only, which is what churned already means, and deletes nothing: the database
+ * refuses to delete a customer at all.
+ */
+function DangerZone({ customer }: { customer: Customer }) {
+  const queryClient = useQueryClient();
+  const [reason, setReason] = useState<ChurnReason>('went_quiet');
+  const [confirming, setConfirming] = useState<'archive' | 'unarchive' | null>(null);
+  const archived = customer.archivedAt !== null;
+
+  const run = useMutation({
+    mutationFn: (what: 'archive' | 'unarchive') =>
+      what === 'archive'
+        ? http.post<Customer>(`/api/v1/customers/${customer.id}/archive`, { reason })
+        : http.post<Customer>(`/api/v1/customers/${customer.id}/unarchive`),
+    onSuccess: async (_data, what) => {
+      await queryClient.invalidateQueries({ queryKey: qk.customer(customer.id) });
+      await queryClient.invalidateQueries({ queryKey: qk.fleet() });
+      toast({
+        tone: 'success',
+        title: what === 'archive' ? 'Filed away' : 'Back in the list',
+        description:
+          what === 'archive'
+            ? 'Their CRM is read only and nothing of theirs has been removed.'
+            : 'They are still churned until you mark them active again.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'That did not work', description: error.message });
+    },
+  });
+
+  return (
+    <Section
+      title="Filing"
+      description={
+        archived
+          ? `Archived ${dateTime(customer.archivedAt ?? '')}. They are out of the customer list until they are brought back.`
+          : 'When we stop working with them. Nothing is ever deleted here, by anyone.'
+      }
+    >
+      <div className="flex flex-wrap items-end gap-2">
+        {archived ? (
+          <Button
+            icon={ArchiveRestore}
+            onClick={() => {
+              setConfirming('unarchive');
+            }}
+          >
+            Bring them back
+          </Button>
+        ) : (
+          <>
+            <Select
+              ariaLabel="Why they left"
+              value={reason}
+              onChange={(v) => {
+                setReason(v as ChurnReason);
+              }}
+              options={CHURN_REASONS.map((value) => ({ value, label: CHURN_REASON_COPY[value] }))}
+              className="w-56"
+            />
+            <Button
+              variant="danger"
+              icon={Archive}
+              onClick={() => {
+                setConfirming('archive');
+              }}
+            >
+              Archive this customer
+            </Button>
+          </>
+        )}
+      </div>
+      {customer.churnReason !== null && (
+        <p className="mt-3 text-base text-muted">
+          Recorded as: {churnLabel(customer.churnReason)}.
+        </p>
+      )}
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(v) => {
+          if (!v) setConfirming(null);
+        }}
+        title={
+          confirming === 'archive' ? `Archive ${customer.name}?` : `Bring ${customer.name} back?`
+        }
+        description={
+          confirming === 'archive'
+            ? `Recorded as: ${CHURN_REASON_COPY[reason].toLowerCase()}. Their CRM goes read only and they leave the customer list.`
+            : 'They reappear in the list. Their status stays churned until you mark them active.'
+        }
+        consequences={
+          confirming === 'archive'
+            ? [
+                'Their people can still sign in and read everything',
+                'Every attempt to change anything over there is refused',
+                'Nothing is deleted, here or on their own server',
+              ]
+            : ['Nothing about what they are entitled to changes']
+        }
+        confirmLabel={confirming === 'archive' ? 'Archive' : 'Bring them back'}
+        tone={confirming === 'archive' ? 'danger' : 'primary'}
+        typedConfirmation={confirming === 'archive' ? customer.slug : undefined}
+        loading={run.isPending}
+        onConfirm={() => {
+          if (confirming !== null) run.mutate(confirming);
+          setConfirming(null);
+        }}
+      />
+    </Section>
   );
 }
 

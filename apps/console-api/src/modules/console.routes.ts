@@ -80,6 +80,26 @@ const customerDto = z.object({
   createdAt: z.string(),
 });
 
+const customerContactDto = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  phone: z.string().nullable(),
+  role: z.string(),
+  isPrimary: z.boolean(),
+  notes: z.string(),
+  createdAt: z.string(),
+});
+
+const customerNoteDto = z.object({
+  id: z.string(),
+  body: z.string(),
+  authorId: z.string().nullable(),
+  authorName: z.string().nullable(),
+  pinned: z.boolean(),
+  createdAt: z.string(),
+});
+
 const planDto = z.object({
   id: z.string(),
   name: z.string(),
@@ -632,6 +652,293 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     handler: async (request) => ({
       data: toCustomer(await app.customers.unarchive(request.params.id, auditContext(request))),
     }),
+  });
+
+  // ── the people at a customer, and what happened with them ────────────────────────────
+  /**
+   * The contact on the customer row is the one we bill and the one carried inside every signed
+   * document. These are everybody else worth being able to ring, which is the difference between
+   * knowing a business and knowing one person at it who has since left.
+   */
+  const toContact = (c: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    role: string;
+    isPrimary: boolean;
+    notes: string;
+    createdAt: Date;
+  }) => ({ ...c, createdAt: c.createdAt.toISOString() });
+
+  const customerOr404 = async (id: string) => {
+    const customer = await app.db.customer.findUnique({ where: { id } });
+    if (!customer) throw new NotFoundError('Customer');
+    return customer;
+  };
+
+  app.get('/customers/:id/contacts', {
+    config: { auth: { permission: 'customer:read' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      response: { 200: dataResponse(z.array(customerContactDto)) },
+    },
+    handler: async (request) => {
+      await customerOr404(request.params.id);
+      const rows = await app.db.customerContact.findMany({
+        where: { customerId: request.params.id },
+        orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }],
+      });
+      return { data: rows.map(toContact) };
+    },
+  });
+
+  app.post('/customers/:id/contacts', {
+    config: { auth: { permission: 'customer:write' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      body: z
+        .object({
+          name: z.string().trim().min(1).max(120),
+          email: z.string().trim().max(254).default(''),
+          phone: z.string().trim().max(32).nullable().default(null),
+          role: z.string().trim().max(80).default(''),
+          isPrimary: z.boolean().default(false),
+          notes: z.string().trim().max(1000).default(''),
+        })
+        .strict(),
+      response: { 201: dataResponse(customerContactDto) },
+    },
+    handler: async (request, reply) => {
+      const customer = await customerOr404(request.params.id);
+      const b = request.body;
+      // One primary at a time, settled in a transaction: two people both marked as the person to
+      // call is the same as nobody being marked at all.
+      const created = await app.db.$transaction(async (tx) => {
+        if (b.isPrimary) {
+          await tx.customerContact.updateMany({
+            where: { customerId: customer.id, isPrimary: true },
+            data: { isPrimary: false },
+          });
+        }
+        return tx.customerContact.create({
+          data: { id: newId(), customerId: customer.id, ...b },
+        });
+      });
+      await app.audit.write(auditContext(request), {
+        action: 'customer.contact_add',
+        entity: 'customer',
+        entityId: customer.id,
+        after: { contactId: created.id, name: b.name, isPrimary: b.isPrimary },
+      });
+      return reply.status(201).send({ data: toContact(created) });
+    },
+  });
+
+  app.patch('/customers/:id/contacts/:contactId', {
+    config: { auth: { permission: 'customer:write' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid, contactId: uuid }),
+      body: z
+        .object({
+          name: z.string().trim().min(1).max(120).optional(),
+          email: z.string().trim().max(254).optional(),
+          phone: z.string().trim().max(32).nullable().optional(),
+          role: z.string().trim().max(80).optional(),
+          isPrimary: z.boolean().optional(),
+          notes: z.string().trim().max(1000).optional(),
+        })
+        .strict(),
+      response: { 200: dataResponse(customerContactDto) },
+    },
+    handler: async (request) => {
+      const before = await app.db.customerContact.findFirst({
+        where: { id: request.params.contactId, customerId: request.params.id },
+      });
+      if (!before) throw new NotFoundError('Contact');
+      const data = Object.fromEntries(
+        Object.entries(request.body).filter(([, v]) => v !== undefined),
+      );
+      const updated = await app.db.$transaction(async (tx) => {
+        if (request.body.isPrimary === true) {
+          await tx.customerContact.updateMany({
+            where: { customerId: request.params.id, isPrimary: true },
+            data: { isPrimary: false },
+          });
+        }
+        return tx.customerContact.update({ where: { id: before.id }, data });
+      });
+      await app.audit.write(auditContext(request), {
+        action: 'customer.contact_update',
+        entity: 'customer',
+        entityId: request.params.id,
+        before: { name: before.name, isPrimary: before.isPrimary },
+        after: { contactId: before.id, ...request.body },
+      });
+      return { data: toContact(updated) };
+    },
+  });
+
+  app.delete('/customers/:id/contacts/:contactId', {
+    config: { auth: { permission: 'customer:write' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid, contactId: uuid }),
+      response: { 200: dataResponse(z.object({ ok: z.literal(true) })) },
+    },
+    handler: async (request) => {
+      const before = await app.db.customerContact.findFirst({
+        where: { id: request.params.contactId, customerId: request.params.id },
+      });
+      if (!before) throw new NotFoundError('Contact');
+      await app.db.customerContact.delete({ where: { id: before.id } });
+      await app.audit.write(auditContext(request), {
+        action: 'customer.contact_delete',
+        entity: 'customer',
+        entityId: request.params.id,
+        before: { contactId: before.id, name: before.name, email: before.email },
+      });
+      return { data: { ok: true as const } };
+    },
+  });
+
+  /**
+   * What happened with this customer, dated. The `notes` field on the customer row is one standing
+   * paragraph about who they are; these accumulate, and a support account can add one without being
+   * able to change anything else about them.
+   */
+  app.get('/customers/:id/notes', {
+    config: { auth: { permission: 'customer:read' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      querystring: z.object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(25),
+      }),
+      response: { 200: offsetListResponse(customerNoteDto) },
+    },
+    handler: async (request) => {
+      await customerOr404(request.params.id);
+      const where = { customerId: request.params.id };
+      const [total, rows] = await Promise.all([
+        app.db.customerNote.count({ where }),
+        app.db.customerNote.findMany({
+          where,
+          orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
+          skip: (request.query.page - 1) * request.query.pageSize,
+          take: request.query.pageSize,
+        }),
+      ]);
+      const authorIds = [...new Set(rows.map((r) => r.authorId).filter((a) => a !== null))];
+      const authors = await app.db.user.findMany({
+        where: { id: { in: authorIds } },
+        select: { id: true, name: true },
+      });
+      const nameOf = new Map(authors.map((a) => [a.id, a.name]));
+      return {
+        data: rows.map((r) => ({
+          id: r.id,
+          body: r.body,
+          authorId: r.authorId,
+          authorName: r.authorId === null ? null : (nameOf.get(r.authorId) ?? null),
+          pinned: r.pinned,
+          createdAt: r.createdAt.toISOString(),
+        })),
+        page: { page: request.query.page, pageSize: request.query.pageSize, total },
+      };
+    },
+  });
+
+  app.post('/customers/:id/notes', {
+    config: { auth: { permission: 'customer:note' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid }),
+      body: z
+        .object({
+          body: z.string().trim().min(1).max(4000),
+          pinned: z.boolean().default(false),
+        })
+        .strict(),
+      response: { 201: dataResponse(customerNoteDto) },
+    },
+    handler: async (request, reply) => {
+      const customer = await customerOr404(request.params.id);
+      const actor = requireUser(request);
+      const created = await app.db.customerNote.create({
+        data: {
+          id: newId(),
+          customerId: customer.id,
+          body: request.body.body,
+          pinned: request.body.pinned,
+          authorId: actor.id,
+        },
+      });
+      await app.audit.write(auditContext(request), {
+        action: 'customer.note_add',
+        entity: 'customer',
+        entityId: customer.id,
+        after: { noteId: created.id, pinned: created.pinned },
+      });
+      return reply.status(201).send({
+        data: {
+          id: created.id,
+          body: created.body,
+          authorId: created.authorId,
+          authorName: actor.name,
+          pinned: created.pinned,
+          createdAt: created.createdAt.toISOString(),
+        },
+      });
+    },
+  });
+
+  app.patch('/customers/:id/notes/:noteId', {
+    config: { auth: { permission: 'customer:note' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid, noteId: uuid }),
+      body: z.object({ pinned: z.boolean() }).strict(),
+      response: { 200: dataResponse(z.object({ ok: z.literal(true) })) },
+    },
+    handler: async (request) => {
+      const before = await app.db.customerNote.findFirst({
+        where: { id: request.params.noteId, customerId: request.params.id },
+      });
+      if (!before) throw new NotFoundError('Note');
+      await app.db.customerNote.update({
+        where: { id: before.id },
+        data: { pinned: request.body.pinned },
+      });
+      return { data: { ok: true as const } };
+    },
+  });
+
+  app.delete('/customers/:id/notes/:noteId', {
+    config: { auth: { permission: 'customer:write' } },
+    schema: {
+      tags: ['console'],
+      params: z.object({ id: uuid, noteId: uuid }),
+      response: { 200: dataResponse(z.object({ ok: z.literal(true) })) },
+    },
+    handler: async (request) => {
+      const before = await app.db.customerNote.findFirst({
+        where: { id: request.params.noteId, customerId: request.params.id },
+      });
+      if (!before) throw new NotFoundError('Note');
+      await app.db.customerNote.delete({ where: { id: before.id } });
+      await app.audit.write(auditContext(request), {
+        action: 'customer.note_delete',
+        entity: 'customer',
+        entityId: request.params.id,
+        before: { noteId: before.id, authorId: before.authorId },
+      });
+      return { data: { ok: true as const } };
+    },
   });
 
   // ── the fleet ────────────────────────────────────────────────────────────────────────

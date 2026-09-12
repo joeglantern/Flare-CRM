@@ -74,7 +74,15 @@ const me: Me = {
   email: 'liban@example.com',
   role: 'owner',
   twoFactorEnabled: true,
-  permissions: ['customer:read', 'customer:write', 'stack:read', 'stack:manage', 'stack:operate'],
+  permissions: [
+    'customer:read',
+    'customer:write',
+    'customer:archive',
+    'customer:note',
+    'stack:read',
+    'stack:manage',
+    'stack:operate',
+  ],
 };
 
 let fetchStub: FetchStub | null = null;
@@ -83,8 +91,16 @@ function renderTab(customer: Partial<CustomerDetail['customer']> = {}) {
   fetchStub = stubFetch({
     'GET /api/v1/me': me,
     'GET /api/v1/console/settings': settings,
+    // The tab now asks who the people are and what has been written down about them.
+    [`GET ${CUSTOMER_PATH}/contacts`]: [],
+    [`GET ${CUSTOMER_PATH}/notes`]: { data: [], page: { page: 1, pageSize: 10, total: 0 } },
+    [`POST ${CUSTOMER_PATH}/notes`]: { id: 'note-1' },
     [`PATCH ${CUSTOMER_PATH}`]: { ...detail.customer, ...customer },
     [`POST ${CUSTOMER_PATH}/issue`]: { issues: [] },
+    [`POST ${CUSTOMER_PATH}/archive`]: {
+      ...detail.customer,
+      archivedAt: '2026-09-12T00:00:00.000Z',
+    },
   });
   return renderWithQuery(
     <OverviewTab detail={{ ...detail, customer: { ...detail.customer, ...customer } }} />,
@@ -166,6 +182,8 @@ describe('the customer overview tab', () => {
     fetchStub = stubFetch({
       'GET /api/v1/me': me,
       'GET /api/v1/console/settings': settings,
+      [`GET ${CUSTOMER_PATH}/contacts`]: [],
+      [`GET ${CUSTOMER_PATH}/notes`]: { data: [], page: { page: 1, pageSize: 10, total: 0 } },
       [`PATCH ${CUSTOMER_PATH}`]: detail.customer,
     });
     const offline = detail.stacks.map((stack) => ({ ...stack, connected: false }));
@@ -190,6 +208,34 @@ describe('the customer overview tab', () => {
     // Issuing used to be a second thing an owner had to remember. It is not any more, and asking
     // for it again here would sign and deliver a duplicate document for no reason.
     expect(fetchStub?.requests.some((r) => r.path === `${CUSTOMER_PATH}/issue`)).toBe(false);
+  });
+
+  it('asks for the slug to be typed before filing a customer away', async () => {
+    const user = userEvent.setup();
+    renderTab();
+
+    await user.click(await screen.findByRole('button', { name: 'Archive this customer' }));
+
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(
+      dialog.getByText(/Every attempt to change anything over there is refused/),
+    ).toBeVisible();
+    expect(dialog.getByText(/Nothing is deleted/)).toBeVisible();
+    // Typing the slug is the gate: nothing has been sent while the question is still open.
+    expect(fetchStub?.requests.some((r) => r.path === `${CUSTOMER_PATH}/archive`)).toBe(false);
+  });
+
+  it('sends only the checklist box that was ticked', async () => {
+    const user = userEvent.setup();
+    renderTab();
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Agreement signed' }));
+
+    await waitFor(() => {
+      expect(fetchStub?.lastBody('PATCH', CUSTOMER_PATH)).toEqual({
+        onboardingChecklist: { agreement_signed: true },
+      });
+    });
   });
 
   it('says since when a held customer has been held', () => {

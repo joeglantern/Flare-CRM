@@ -36,6 +36,8 @@ export const qk = {
   customers: () => ['customers'] as const,
   customer: (id: string) => ['customer', id] as const,
   entitlements: (id: string) => ['entitlements', id] as const,
+  contacts: (id: string) => ['contacts', id] as const,
+  notes: (id: string, page: number) => ['notes', id, page] as const,
   announcements: (id: string) => ['announcements', id] as const,
   /** Who can sign in to that customer's CRM, fetched only while the support tab is open. */
   supportUsers: (id: string) => ['supportUsers', id] as const,
