@@ -32,6 +32,7 @@ import requestContextPlugin from './plugins/request-context.js';
 import securityPlugin from './plugins/security.js';
 import servicesPlugin from './plugins/services.js';
 import valkeyPlugin from './plugins/valkey.js';
+import alertsRoutes from './modules/alerts.routes.js';
 import analyticsRoutes from './modules/analytics.routes.js';
 import consoleRoutes from './modules/console.routes.js';
 import linkRoutes from './modules/link.routes.js';
@@ -92,6 +93,7 @@ export async function buildApp(options: BuildAppOptions): Promise<App> {
   await app.register(linkRoutes);
   await app.register(consoleRoutes, { prefix: API_PREFIX });
   await app.register(stacksRoutes, { prefix: API_PREFIX });
+  await app.register(alertsRoutes, { prefix: API_PREFIX });
   await app.register(analyticsRoutes, { prefix: API_PREFIX });
 
   app.readiness.register('signing', () =>

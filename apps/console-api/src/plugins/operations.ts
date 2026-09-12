@@ -47,13 +47,24 @@ export default fp(
         db: app.db,
         mailer: app.mailer,
         log: app.log,
+        settings: app.settings,
         consoleUrl: app.config.CONSOLE_URL,
         ...(app.config.MAIL_MARK_URL === undefined ? {} : { markUrl: app.config.MAIL_MARK_URL }),
-        /** Whoever the console is told is the provider's contact, which customers also see. */
-        ownerEmail: async () => {
+        /**
+         * Who hears about one kind of alert. A kind with its own list gets that; anything else
+         * goes to the general one, and with neither set it falls back to the provider contact the
+         * customers themselves are given, which is always somebody real.
+         */
+        recipientsFor: async (kind: string) => {
+          const configured = await app.settings.alertRecipients();
+          const chosen = configured.byKind[kind] ?? configured.default;
+          if (chosen.length > 0) return chosen;
           const row = await app.db.consoleSetting.findUnique({ where: { key: OWNER_CONTACT_KEY } });
           const parsed = ownerContactSchema.safeParse(row?.value);
-          return parsed.success ? parsed.data.email : (app.config.FIRST_OWNER_EMAIL ?? '');
+          const fallback = parsed.success
+            ? parsed.data.email
+            : (app.config.FIRST_OWNER_EMAIL ?? '');
+          return fallback === '' ? [] : [fallback];
         },
         onChange: (change) => {
           app.io.of('/').to('owners').emit('alert:changed', {

@@ -9,6 +9,7 @@ import { AnalyticsService } from '../modules/analytics.service.js';
 import { AuditService } from '../modules/audit.service.js';
 import { ConsoleEntitlementsService } from '../modules/entitlements.service.js';
 import { RollupService } from '../modules/rollup.service.js';
+import { ConsoleSettingsService } from '../modules/settings.service.js';
 import { StacksService } from '../modules/stacks.service.js';
 
 export default fp(
@@ -26,6 +27,9 @@ export default fp(
     );
     app.decorate('analytics', new AnalyticsService(app.db));
     app.decorate('rollup', new RollupService(app.db));
+    // Thresholds, recipients and retention: the judgements an owner makes, read as real shapes
+    // rather than as blobs, so a sweep never has to guess what a setting meant.
+    app.decorate('settings', new ConsoleSettingsService(app.db));
     // Injected so domain verification can be tested without touching real DNS.
     app.decorate('dnsResolver', {
       resolveCname: (h: string) => dns.resolveCname(h),

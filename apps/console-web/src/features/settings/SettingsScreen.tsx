@@ -9,6 +9,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Check, KeyRound, RefreshCw, ShieldCheck, X } from 'lucide-react';
 import { useState } from 'react';
+import type { AlertRecipients, AlertThresholds } from '@crm/shared';
 import { Badge, Banner, Button, Input, toast } from '@crm/ui';
 import { CopyLine, Field, Fields } from '@/components/Bits';
 import { PageHeader, Section, StateSlot } from '@/components/Page';
@@ -197,6 +198,8 @@ export function SettingsScreen() {
               </Fields>
             </Section>
 
+            <AlertSettingsSection />
+
             <ReadinessSection signingKeyId={settings.data.signingKey.keyId} />
           </div>
         )}
@@ -204,6 +207,165 @@ export function SettingsScreen() {
     </>
   );
 }
+
+/**
+ * How long the console waits before calling something a problem, and who hears about it.
+ *
+ * These were constants in a source file, which meant every judgement about somebody else's business
+ * was a deployment. They are judgements, not facts: a customer who backs up to their own tape and one
+ * who relies on ours deserve different answers about a stale backup.
+ *
+ * Recipients are deliberately plain. Per-kind routing exists on the server, but the screen offers the
+ * one list that matters, because an address per check is a way to end up with a check nobody reads.
+ */
+function AlertSettingsSection() {
+  const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const mayManage = can('alert:manage');
+
+  const config = useQuery({
+    queryKey: qk.alertSettings(),
+    queryFn: () =>
+      http.get<{ thresholds: AlertThresholds; recipients: AlertRecipients }>(
+        '/api/v1/alerts/settings',
+      ),
+  });
+
+  const [draft, setDraft] = useState<Partial<Record<ThresholdKey, string>> | null>(null);
+  const [emails, setEmails] = useState<string | null>(null);
+
+  const stored = config.data;
+  const valueOf = (key: ThresholdKey): string =>
+    draft?.[key] ?? (stored === undefined ? '' : String(stored.thresholds[key]));
+  const emailsValue = emails ?? stored?.recipients.default.join(', ') ?? '';
+
+  const save = useMutation({
+    mutationFn: () => {
+      const thresholds: Record<string, number> = {};
+      for (const field of THRESHOLD_FIELDS) {
+        const parsed = Number(valueOf(field.key));
+        if (Number.isFinite(parsed)) thresholds[field.key] = parsed;
+      }
+      const addresses = emailsValue
+        .split(',')
+        .map((e) => e.trim())
+        .filter((e) => e !== '');
+      return http.put('/api/v1/alerts/settings', {
+        thresholds,
+        recipients: { default: addresses, byKind: stored?.recipients.byKind ?? {} },
+      });
+    },
+    onSuccess: async () => {
+      setDraft(null);
+      setEmails(null);
+      await queryClient.invalidateQueries({ queryKey: qk.alertSettings() });
+      toast({
+        tone: 'success',
+        title: 'Saved',
+        description: 'The next sweep uses these. Alerts already open are left alone.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ tone: 'danger', title: 'Could not save that', description: error.message });
+    },
+  });
+
+  return (
+    <Section
+      title="What counts as a problem"
+      description="How long the console waits before opening an alert, and who is emailed when it does."
+    >
+      <StateSlot
+        isPending={config.isPending}
+        error={config.error}
+        onRetry={() => {
+          void config.refetch();
+        }}
+      >
+        {stored !== undefined && (
+          <div className="flex flex-col gap-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              {THRESHOLD_FIELDS.map((field) => (
+                <Input
+                  key={field.key}
+                  label={field.label}
+                  description={field.description}
+                  disabled={!mayManage}
+                  inputMode="numeric"
+                  value={valueOf(field.key)}
+                  onChange={(e) => {
+                    setDraft({ ...draft, [field.key]: e.target.value });
+                  }}
+                />
+              ))}
+            </div>
+
+            <Input
+              label="Email alerts to"
+              description="Comma separated. Empty falls back to the support contact above, which is always somebody real."
+              disabled={!mayManage}
+              value={emailsValue}
+              onChange={(e) => {
+                setEmails(e.target.value);
+              }}
+            />
+
+            {mayManage && (
+              <div className="flex justify-end">
+                <Button
+                  variant="primary"
+                  loading={save.isPending}
+                  disabled={draft === null && emails === null}
+                  onClick={() => {
+                    save.mutate();
+                  }}
+                >
+                  Save thresholds
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </StateSlot>
+    </Section>
+  );
+}
+
+type ThresholdKey = keyof AlertThresholds;
+
+/** Only the ones an operator has an opinion about. The rest keep their defaults. */
+const THRESHOLD_FIELDS: { key: ThresholdKey; label: string; description: string }[] = [
+  {
+    key: 'offlineMinutes',
+    label: 'Offline after',
+    description: 'Minutes of silence from a stack that was talking.',
+  },
+  {
+    key: 'neverConnectedHours',
+    label: 'Never connected after',
+    description: 'Hours from issuing credentials to calling it a fault.',
+  },
+  {
+    key: 'backupStaleHours',
+    label: 'Backup stale after',
+    description: 'Hours since the last backup was reported.',
+  },
+  {
+    key: 'undeliveredMinutes',
+    label: 'Document unapplied after',
+    description: 'Minutes a connected stack has to apply one.',
+  },
+  {
+    key: 'expiryWarningDays',
+    label: 'Warn before expiry',
+    description: 'Days ahead of a plan running out.',
+  },
+  {
+    key: 'trialEndingDays',
+    label: 'Warn before a trial ends',
+    description: 'Days ahead of a trial turning into an invoice.',
+  },
+];
 
 /**
  * What `/ready` says, rendered.

@@ -20,6 +20,7 @@ import { twoFactorStep } from '@crm/shared';
 import { ToastHost } from '@crm/ui';
 import { ConsoleShell } from '@/app/ConsoleShell';
 import { LoadingState, ErrorState } from '@/components/Page';
+import { AlertsScreen } from '@/features/alerts/AlertsScreen';
 import { OverviewScreen } from '@/features/analytics/OverviewScreen';
 import { AuditScreen } from '@/features/audit/AuditScreen';
 import {
@@ -139,6 +140,16 @@ const stackRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/stacks/$stackId',
   component: StackScreen,
+});
+
+/**
+ * What the console has noticed. Separate from the overview's Attention strip because that answers
+ * what is wrong now, and this answers what was done about everything that has been wrong.
+ */
+const alertsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/alerts',
+  component: AlertsScreen,
 });
 
 const plansRoute = createRoute({
@@ -313,6 +324,7 @@ const routeTree = rootRoute.addChildren([
     customerRoute,
     stacksRoute,
     stackRoute,
+    alertsRoute,
     plansRoute,
     ownersRoute,
     auditRoute,

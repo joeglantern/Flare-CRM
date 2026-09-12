@@ -29,6 +29,10 @@ export const ALERT_KINDS = [
   'plan_expired',
   'backup_stale',
   'document_rejected',
+  'stack_never_connected',
+  'document_undelivered',
+  'version_drift',
+  'trial_ending',
 ] as const;
 export type AlertKind = (typeof ALERT_KINDS)[number];
 
@@ -79,7 +83,42 @@ export const ALERTS: Record<AlertKind, { label: string; description: string; lev
         'The stack refused the entitlements it was sent, and is running on the previous one.',
       level: 'danger',
     },
+    stack_never_connected: {
+      label: 'Never connected',
+      description:
+        'Credentials were issued for this stack and it has never once reported in, so nobody has noticed it is not running.',
+      level: 'danger',
+    },
+    document_undelivered: {
+      label: 'Document not applied',
+      description:
+        'The stack is connected but has not applied the document it was sent, so it is running on the previous one.',
+      level: 'warning',
+    },
+    version_drift: {
+      label: 'Behind the fleet',
+      description: 'This stack is running an older version than the rest of the fleet.',
+      level: 'warning',
+    },
+    trial_ending: {
+      label: 'Trial ending',
+      description: 'This customer stops paying nothing shortly, and starts paying the list price.',
+      level: 'warning',
+    },
   };
+
+/**
+ * The words for a kind, without assuming it is one we still watch for.
+ *
+ * A resolved alert is kept for months, so a kind retired from the sweep can still be read back out
+ * of the log. Indexing `ALERTS` directly would throw on the screen showing it, which is a poor way
+ * to learn that history outlives a constant.
+ */
+export function alertCopy(kind: string): { label: string; description: string; level: AlertLevel } {
+  return (ALERT_KINDS as readonly string[]).includes(kind)
+    ? ALERTS[kind as AlertKind]
+    : { label: kind, description: 'A check the console no longer runs.', level: 'warning' };
+}
 
 export const alertDto = z.object({
   id: z.string(),

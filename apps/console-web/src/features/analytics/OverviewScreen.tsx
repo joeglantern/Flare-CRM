@@ -14,7 +14,7 @@ import { Link } from '@tanstack/react-router';
 import { Activity } from 'lucide-react';
 import { useCallback } from 'react';
 import {
-  ALERTS,
+  alertCopy,
   type AlertDto,
   type ConsoleOverviewDto,
   type RevenueAnalyticsDto,
@@ -456,9 +456,9 @@ const alertColumns: Column<AlertDto>[] = [
     cell: (alert) => (
       <span className="flex flex-col items-start gap-0.5">
         <Badge tone={LEVEL_TONE[alert.level]} dot>
-          {ALERTS[alert.kind].label}
+          {alertCopy(alert.kind).label}
         </Badge>
-        <span className="text-sm text-muted">{ALERTS[alert.kind].description}</span>
+        <span className="text-sm text-muted">{alertCopy(alert.kind).description}</span>
       </span>
     ),
   },

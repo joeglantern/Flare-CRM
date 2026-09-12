@@ -255,14 +255,13 @@ describe('doing something to a selection', () => {
       payload: { ids: [without, withStack] },
     });
     expect(res.statusCode, res.body).toBe(200);
-    const outcome =
-      res.json<
-        Envelope<{
-          ok: number;
-          failed: number;
-          results: { customerId: string; ok: boolean; error?: string }[];
-        }>
-      >().data;
+    const outcome = res.json<
+      Envelope<{
+        ok: number;
+        failed: number;
+        results: { customerId: string; ok: boolean; error?: string }[];
+      }>
+    >().data;
     expect(outcome).toMatchObject({ ok: 1, failed: 1 });
     const failure = outcome.results.find((r) => !r.ok);
     expect(failure?.customerId).toBe(without);

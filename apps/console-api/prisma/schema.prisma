@@ -148,6 +148,7 @@ model Customer {
   announcements Announcement[]
   contacts      CustomerContact[]
   noteEntries   CustomerNote[]
+  alertMutes    AlertMute[]
 
   @@index([status])
   @@index([archivedAt])
@@ -377,11 +378,27 @@ model ConsoleAlert {
   resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(3)
   lastNotifiedAt DateTime? @map("last_notified_at") @db.Timestamptz(3)
   context        Json      @default("{}")
+  /// Somebody has seen it and it is in hand: it stays open and stops being mentioned again.
+  acknowledgedAt   DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  acknowledgedById String?   @map("acknowledged_by_id") @db.Uuid
+  acknowledgeNote  String?   @map("acknowledge_note")
+  /// Set aside until this moment, after which it is open again like any other.
+  snoozedUntil     DateTime? @map("snoozed_until") @db.Timestamptz(3)
+  /// Closed by hand. If the thing it was about is still true, the next sweep opens a fresh one
+  /// rather than quietly reopening this, so the decision to close stays on the record.
+  closedAt         DateTime? @map("closed_at") @db.Timestamptz(3)
+  closedById       String?   @map("closed_by_id") @db.Uuid
+  closeReason      String?   @map("close_reason")
+  notifyCount      Int       @default(0) @map("notify_count")
+  /// The sentence the inbox sorts and searches on, rather than digging it out of `context`.
+  summary          String?
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId, kind, resolvedAt])
   @@index([resolvedAt, openedAt(sort: Desc)])
+  @@index([kind, openedAt(sort: Desc)])
+  @@index([snoozedUntil])
   @@map("console_alerts")
 }
 
@@ -399,6 +416,26 @@ model Announcement {
 
   @@index([customerId, sentAt(sort: Desc)])
   @@map("announcements")
+}
+
+/// "Never tell me about this again", for one kind, one customer, or one kind at one customer.
+/// A mute stops an alert opening; it does not pretend the thing it was about is untrue.
+model AlertMute {
+  id          String    @id @db.Uuid
+  /// Null means every kind, as long as a customer is named.
+  kind        String?
+  /// Null means every customer, as long as a kind is named.
+  customerId  String?   @map("customer_id") @db.Uuid
+  reason      String
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Null is forever, which is why the screen asks for a reason.
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(3)
+
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("alert_mutes")
 }
 
 model ConsoleSetting {

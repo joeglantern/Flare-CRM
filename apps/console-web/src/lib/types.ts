@@ -241,6 +241,44 @@ export interface Owner {
   lastSeenAt: string | null;
 }
 
+/** One alert as the inbox reads it: the fact, and how it stands with whoever is looking after it. */
+export interface Alert {
+  id: string;
+  kind: string;
+  level: 'info' | 'warning' | 'danger';
+  state: 'open' | 'acked' | 'snoozed' | 'resolved' | 'closed';
+  customerId: string;
+  customerName: string;
+  stackId: string | null;
+  summary: string;
+  openedAt: string;
+  resolvedAt: string | null;
+  acknowledgedAt: string | null;
+  acknowledgedByName: string | null;
+  snoozedUntil: string | null;
+  closedAt: string | null;
+  closeReason: string | null;
+  context: Record<string, unknown>;
+}
+
+/** How many alerts stand in each state, for the nav badge and the inbox header. */
+export interface AlertSummary {
+  open: number;
+  acked: number;
+  snoozed: number;
+  byLevel: { danger: number; warning: number; info: number };
+}
+
+export interface AlertMute {
+  id: string;
+  kind: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  reason: string;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
 export interface ConsoleSettings {
   brandDomain: string;
   consoleUrl: string;

@@ -11,6 +11,7 @@ import type { AuditService } from '../modules/audit.service.js';
 import type { CustomersService } from '../modules/customers.service.js';
 import type { OwnersService } from '../modules/owners.service.js';
 import type { RollupService } from '../modules/rollup.service.js';
+import type { ConsoleSettingsService } from '../modules/settings.service.js';
 import type { SupportService } from '../modules/support.service.js';
 import type { ConsoleEntitlementsService } from '../modules/entitlements.service.js';
 import type { StacksService } from '../modules/stacks.service.js';
@@ -38,6 +39,7 @@ declare module 'fastify' {
     audit: AuditService;
     analytics: AnalyticsService;
     rollup: RollupService;
+    settings: ConsoleSettingsService;
     alerts: AlertsService;
     owners: OwnersService;
     customers: CustomersService;

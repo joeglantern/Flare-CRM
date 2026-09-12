@@ -84,7 +84,9 @@ export function PlansScreen() {
   const remove = useMutation({
     mutationFn: (plan: Plan) => http.del(`/api/v1/plans/${plan.id}`),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: qk.plans() });
+      // The prefix, not one list: retired and current are separate cached lists now, and a plan
+      // deleted while retired ones are shown must leave both.
+      await queryClient.invalidateQueries({ queryKey: ['plans'] });
       toast({ tone: 'success', title: 'Plan deleted' });
     },
     onError: (error: Error) => {

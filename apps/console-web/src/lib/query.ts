@@ -55,6 +55,11 @@ export const qk = {
   catalogue: () => ['catalogue'] as const,
   owners: () => ['owners'] as const,
   settings: () => ['settings'] as const,
+  alerts: (filter: Record<string, unknown> = {}) =>
+    Object.keys(filter).length === 0 ? (['alerts'] as const) : (['alerts', filter] as const),
+  alertSummary: () => ['alertSummary'] as const,
+  alertSettings: () => ['alertSettings'] as const,
+  alertMutes: () => ['alertMutes'] as const,
   /** A live probe of /ready, never served from cache for longer than it takes to draw. */
   readiness: () => ['readiness'] as const,
   audit: (filter: Record<string, unknown>) => ['audit', filter] as const,

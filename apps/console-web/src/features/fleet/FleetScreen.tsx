@@ -14,7 +14,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { Archive, Plus, RefreshCw, Send, Server, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ALERTS,
+  alertCopy,
   CHURN_REASONS,
   CHURN_REASON_COPY,
   type ChurnReason,
@@ -754,7 +754,7 @@ function AttentionStrip() {
         {open.map((alert) => (
           <li key={alert.id} className="flex flex-wrap items-start gap-x-3 gap-y-1 py-2.5">
             <Badge tone={alert.level === 'danger' ? 'danger' : 'warning'}>
-              {ALERTS[alert.kind].label}
+              {alertCopy(alert.kind).label}
             </Badge>
             <Link
               to="/customers/$customerId"
@@ -764,7 +764,7 @@ function AttentionStrip() {
               {alert.customerName}
             </Link>
             <span className="min-w-0 flex-1 text-base text-muted">
-              {ALERTS[alert.kind].description}
+              {alertCopy(alert.kind).description}
             </span>
             <span className="shrink-0 text-sm text-muted">{ago(alert.openedAt)}</span>
           </li>

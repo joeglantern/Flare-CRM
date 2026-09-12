@@ -7,6 +7,7 @@
  * they go back to it.
  */
 import {
+  BellRing,
   Building2,
   Gauge,
   KeyRound,
@@ -45,6 +46,7 @@ const NAV = [
     permission: 'customer:read',
   },
   { to: '/stacks', label: 'Stacks', icon: Server, exact: false, permission: 'stack:read' },
+  { to: '/alerts', label: 'Alerts', icon: BellRing, exact: false, permission: 'alert:read' },
   { to: '/plans', label: 'Plans', icon: Layers, exact: false, permission: 'plan:write' },
   { to: '/owners', label: 'Owners', icon: Users, exact: false, permission: 'owner:manage' },
   { to: '/audit', label: 'Audit', icon: ScrollText, exact: false, permission: 'audit:read' },
