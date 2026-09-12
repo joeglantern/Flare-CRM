@@ -1348,67 +1348,8 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     },
   });
 
-  app.post('/stacks/:stackId/rotate', {
-    config: { auth: { permission: 'stack:manage' } },
-    schema: {
-      tags: ['console'],
-      params: z.object({ stackId: z.string().min(4).max(64) }),
-      response: {
-        200: dataResponse(
-          z.object({ stackId: z.string(), secret: z.string(), envLines: z.array(z.string()) }),
-        ),
-      },
-    },
-    handler: async (request) => {
-      const stack = await app.db.stack.findUnique({ where: { id: request.params.stackId } });
-      if (!stack) throw new NotFoundError('Stack');
-      const rotated = await app.stacks.rotate(stack.id);
-      app.link.disconnect(stack.id);
-      await app.audit.write(auditContext(request), {
-        action: 'stack.rotate',
-        entity: 'stack',
-        entityId: stack.id,
-      });
-      return { data: rotated };
-    },
-  });
-
-  app.post('/stacks/:stackId/ping', {
-    config: { auth: { permission: 'stack:operate' } },
-    schema: {
-      tags: ['console'],
-      params: z.object({ stackId: z.string().min(4).max(64) }),
-      response: { 200: dataResponse(z.object({ asked: z.boolean() })) },
-    },
-    handler: (request) => {
-      // No audit row: asking a stack to speak sooner changes nothing about it.
-      return Promise.resolve({ data: { asked: app.link.ping(request.params.stackId) } });
-    },
-  });
-
-  app.delete('/stacks/:stackId', {
-    config: { auth: { permission: 'stack:manage' } },
-    schema: {
-      tags: ['console'],
-      params: z.object({ stackId: z.string().min(4).max(64) }),
-      response: { 204: z.null() },
-    },
-    handler: async (request, reply) => {
-      const stack = await app.db.stack.findUnique({ where: { id: request.params.stackId } });
-      if (!stack) throw new NotFoundError('Stack');
-      const { closed } = await app.stacks.revoke(stack.id);
-      app.link.disconnect(stack.id);
-      await app.audit.write(auditContext(request), {
-        action: 'stack.revoke',
-        entity: 'stack',
-        entityId: stack.id,
-        // How many documents stopped waiting because of this, which is the part that would
-        // otherwise look like a number nobody could explain a week later.
-        after: { customerId: stack.customerId, documentsClosed: closed },
-      });
-      return reply.status(204).send(null);
-    },
-  });
+  // Everything else about a stack lives in stacks.routes.ts: what is done to one server is asked
+  // across the fleet as often as it is asked about a single customer.
 
   // ── domains ──────────────────────────────────────────────────────────────────────────
   app.put('/customers/:id/domain', {

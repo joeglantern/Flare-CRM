@@ -89,6 +89,27 @@ export class StacksService {
   }
 
   /**
+   * Sends a stack the newest document it was ever given, again.
+   *
+   * For the case where a stack applied something and then lost it: a restored backup, a rebuilt
+   * server, a database rolled back. Nothing is re-signed, because the document that was signed is
+   * still the agreement; it is only put back into the queue and pushed. A stack that has never been
+   * issued anything has nothing to resend, and says so rather than quietly doing nothing.
+   */
+  async redeliver(stackId: string): Promise<{ issueId: string; envelope: unknown } | null> {
+    const newest = await this.db.entitlementIssue.findFirst({
+      where: { stackId },
+      orderBy: { issuedAt: 'desc' },
+    });
+    if (!newest) return null;
+    await this.db.entitlementIssue.update({
+      where: { id: newest.id },
+      data: { status: 'pending', deliveredAt: null },
+    });
+    return { issueId: newest.id, envelope: newest.envelope };
+  }
+
+  /**
    * Checks a presented credential. Returns the stack only when the secret matches and the stack
    * has not been revoked; every failure looks the same from outside.
    */

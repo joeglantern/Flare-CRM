@@ -46,8 +46,10 @@ const detail: CustomerDetail = {
     {
       id: STACK_ID,
       label: 'primary',
+      notes: '',
       connected: true,
       lastSeenAt: '2026-09-10T09:00:00.000Z',
+      startedAt: '2026-09-10T06:00:00.000Z',
       version: 'abc1234',
       domain: 'acme.raniafrica.co.ke',
       lastBackupAt: null,

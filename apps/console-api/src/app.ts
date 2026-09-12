@@ -35,6 +35,7 @@ import valkeyPlugin from './plugins/valkey.js';
 import analyticsRoutes from './modules/analytics.routes.js';
 import consoleRoutes from './modules/console.routes.js';
 import linkRoutes from './modules/link.routes.js';
+import stacksRoutes from './modules/stacks.routes.js';
 
 export type App = FastifyInstance<
   Server,
@@ -90,6 +91,7 @@ export async function buildApp(options: BuildAppOptions): Promise<App> {
   if (env.NODE_ENV !== 'test') await app.register(schedulerPlugin);
   await app.register(linkRoutes);
   await app.register(consoleRoutes, { prefix: API_PREFIX });
+  await app.register(stacksRoutes, { prefix: API_PREFIX });
   await app.register(analyticsRoutes, { prefix: API_PREFIX });
 
   app.readiness.register('signing', () =>

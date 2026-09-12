@@ -64,8 +64,10 @@ const row: FleetRow = {
     {
       id: STACK_ID,
       label: 'primary',
+      notes: '',
       connected: false,
       lastSeenAt: null,
+      startedAt: null,
       version: null,
       domain: null,
       lastBackupAt: null,

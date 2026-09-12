@@ -44,8 +44,10 @@ const entitlements: CustomerEntitlements = {
 const stack: Stack = {
   id: 'stk_abcdefghijklmnopqrst',
   label: 'primary',
+  notes: '',
   connected: true,
   lastSeenAt: '2026-09-10T00:00:00.000Z',
+  startedAt: '2026-09-09T22:00:00.000Z',
   version: 'abc1234',
   domain: 'acme.example.com',
   lastBackupAt: null,

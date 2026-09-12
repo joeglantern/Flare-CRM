@@ -37,6 +37,11 @@ export const qk = {
   customer: (id: string) => ['customer', id] as const,
   entitlements: (id: string) => ['entitlements', id] as const,
   contacts: (id: string) => ['contacts', id] as const,
+  stacks: (filter: Record<string, unknown> = {}) =>
+    Object.keys(filter).length === 0 ? (['stacks'] as const) : (['stacks', filter] as const),
+  stack: (id: string) => ['stack', id] as const,
+  stackSamples: (id: string, hours: number) => ['stackSamples', id, hours] as const,
+  stackIssues: (id: string, page: number) => ['stackIssues', id, page] as const,
   notes: (id: string, page: number) => ['notes', id, page] as const,
   announcements: (id: string) => ['announcements', id] as const,
   /** Who can sign in to that customer's CRM, fetched only while the support tab is open. */

@@ -76,8 +76,12 @@ export interface Plan {
 export interface Stack {
   id: string;
   label: string;
+  /** Whatever an operator needs to remember about this particular server. */
+  notes: string;
   connected: boolean;
   lastSeenAt: string | null;
+  /** When that server last came up, which it reports on every hello. */
+  startedAt: string | null;
   version: string | null;
   domain: string | null;
   lastBackupAt: string | null;
