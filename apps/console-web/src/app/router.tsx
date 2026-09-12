@@ -34,6 +34,8 @@ import { FleetScreen } from '@/features/fleet/FleetScreen';
 import { OwnersScreen } from '@/features/owners/OwnersScreen';
 import { PlansScreen } from '@/features/plans/PlansScreen';
 import { SettingsScreen } from '@/features/settings/SettingsScreen';
+import { StackScreen } from '@/features/stacks/StackScreen';
+import { StacksScreen } from '@/features/stacks/StacksScreen';
 import { authClient, meQuery } from '@/lib/auth';
 import { isApiError } from '@/lib/errors';
 import { createQueryClient } from '@/lib/query';
@@ -121,6 +123,22 @@ const customerRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/customers/$customerId',
   component: CustomerScreen,
+});
+
+/**
+ * The servers themselves. The customers screen answers how a business is doing; this one answers
+ * which machine is unhappy, which is the question asked when something is wrong.
+ */
+const stacksRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/stacks',
+  component: StacksScreen,
+});
+
+const stackRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/stacks/$stackId',
+  component: StackScreen,
 });
 
 const plansRoute = createRoute({
@@ -293,6 +311,8 @@ const routeTree = rootRoute.addChildren([
     overviewRoute,
     customersRoute,
     customerRoute,
+    stacksRoute,
+    stackRoute,
     plansRoute,
     ownersRoute,
     auditRoute,
@@ -330,4 +350,4 @@ export function App() {
   );
 }
 
-export { customerRoute, twoFactorRoute };
+export { customerRoute, stackRoute, twoFactorRoute };

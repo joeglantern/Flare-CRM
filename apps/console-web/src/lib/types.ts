@@ -91,6 +91,20 @@ export interface Stack {
   health: { ok: boolean; checks: Record<string, { ok: boolean; error?: string }> } | null;
 }
 
+/** A stack as the fleet-wide list returns it: the server, plus whose it is. */
+export interface StackRow extends Stack {
+  customer: { id: string; name: string; slug: string };
+}
+
+/** One heartbeat kept, at the five minute resolution the console samples at. */
+export interface StackSample {
+  at: string;
+  seatsActive: number;
+  storageBytes: number;
+  readyOk: boolean;
+  version: string | null;
+}
+
 export interface Issue {
   id: string;
   stackId: string;
