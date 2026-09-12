@@ -137,8 +137,11 @@ const announcementDto = z.object({
 const stackDto = z.object({
   id: z.string(),
   label: z.string(),
+  notes: z.string(),
   connected: z.boolean(),
   lastSeenAt: z.string().nullable(),
+  /** When that server last came up, which it tells us on every hello. */
+  startedAt: z.string().nullable(),
   version: z.string().nullable(),
   domain: z.string().nullable(),
   lastBackupAt: z.string().nullable(),
@@ -330,8 +333,10 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
           stacks: stacks.map((s) => ({
             id: s.id,
             label: s.label,
+            notes: s.notes,
             connected: s.connected,
             lastSeenAt: s.lastSeenAt?.toISOString() ?? null,
+            startedAt: s.startedAt?.toISOString() ?? null,
             version: s.version,
             domain: s.domain,
             lastBackupAt: s.lastBackupAt?.toISOString() ?? null,
@@ -982,8 +987,10 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
             stacks: stacks.map((s) => ({
               id: s.id,
               label: s.label,
+              notes: s.notes,
               connected: s.connected,
               lastSeenAt: s.lastSeenAt?.toISOString() ?? null,
+              startedAt: s.startedAt?.toISOString() ?? null,
               version: s.version,
               domain: s.domain,
               lastBackupAt: s.lastBackupAt?.toISOString() ?? null,
@@ -1389,12 +1396,15 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
     handler: async (request, reply) => {
       const stack = await app.db.stack.findUnique({ where: { id: request.params.stackId } });
       if (!stack) throw new NotFoundError('Stack');
-      await app.stacks.revoke(stack.id);
+      const { closed } = await app.stacks.revoke(stack.id);
       app.link.disconnect(stack.id);
       await app.audit.write(auditContext(request), {
         action: 'stack.revoke',
         entity: 'stack',
         entityId: stack.id,
+        // How many documents stopped waiting because of this, which is the part that would
+        // otherwise look like a number nobody could explain a week later.
+        after: { customerId: stack.customerId, documentsClosed: closed },
       });
       return reply.status(204).send(null);
     },

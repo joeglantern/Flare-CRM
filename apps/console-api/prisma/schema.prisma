@@ -242,6 +242,8 @@ model Stack {
   /// Hash of the secret. The secret itself is shown once, at creation, and never stored.
   secretHash     String    @map("secret_hash")
   label          String    @default("primary")
+  /// Whatever an operator needs to remember about this particular server.
+  notes          String    @default("")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   rotatedAt      DateTime? @map("rotated_at") @db.Timestamptz(3)
   revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
@@ -262,6 +264,7 @@ model Stack {
 
   @@index([customerId])
   @@index([connected])
+  @@index([revokedAt])
   @@map("stacks")
 }
 

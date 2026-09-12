@@ -66,10 +66,25 @@ export class StacksService {
     return { stackId, secret, envLines: this.envLines(stackId, secret) };
   }
 
-  async revoke(stackId: string): Promise<void> {
-    await this.db.stack.update({
-      where: { id: stackId },
-      data: { revokedAt: new Date(), connected: false },
+  /**
+   * Refuses a stack for good, and closes the documents that were waiting for it.
+   *
+   * A revoked stack will never connect again, so anything still pending or delivered to it would sit
+   * there forever: visible on the customer's history as though somebody ought to chase it, and
+   * counted in the console's own figure for documents in flight. Superseding them says the true
+   * thing, which is that nothing is waiting on this any more.
+   */
+  async revoke(stackId: string): Promise<{ closed: number }> {
+    return this.db.$transaction(async (tx) => {
+      await tx.stack.update({
+        where: { id: stackId },
+        data: { revokedAt: new Date(), connected: false },
+      });
+      const closed = await tx.entitlementIssue.updateMany({
+        where: { stackId, status: { in: ['pending', 'delivered'] } },
+        data: { status: 'superseded' },
+      });
+      return { closed: closed.count };
     });
   }
 

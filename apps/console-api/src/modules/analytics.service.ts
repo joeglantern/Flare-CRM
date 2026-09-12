@@ -377,8 +377,15 @@ export class AnalyticsService {
         )::float AS seconds
         FROM entitlement_issues
         WHERE acked_at IS NOT NULL AND issued_at > now() - interval '90 days'`),
-      this.db.entitlementIssue.count({ where: { status: { in: ['pending', 'delivered'] } } }),
-      this.db.entitlementIssue.count({ where: { status: 'rejected' } }),
+      // Only stacks that could still answer count as outstanding. A revoked stack's documents are
+      // closed when it is revoked, and counting them here would keep a number up that nobody can
+      // ever bring down.
+      this.db.entitlementIssue.count({
+        where: { status: { in: ['pending', 'delivered'] }, stack: { revokedAt: null } },
+      }),
+      this.db.entitlementIssue.count({
+        where: { status: 'rejected', stack: { revokedAt: null } },
+      }),
     ]);
     return {
       medianAckSeconds: median[0]?.seconds ?? null,
