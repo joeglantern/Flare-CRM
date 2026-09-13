@@ -8,14 +8,36 @@
  * button, can never leave it: the secret their code would have to match was deleted, so every code
  * they will ever type is wrong and the screen offers no way forward.
  *
- * The deciding fact is the session, not the URL. Better Auth issues no session until the second
- * factor is verified, so no session means the code box is right. A session means it never is.
+ * The deciding fact is what the API says, and only what the API says. This used to read the
+ * browser's own session, which is a second opinion, and two opinions is how a redirect loop is
+ * built: the authenticated layout asks the API, is told the second factor is missing, and sends the
+ * person here; this screen read a cached session that said the factor was present, decided there
+ * was nothing to do, and sent them back. Round and round until the router gave up. The API rereads
+ * the flag from the database on every request precisely because enrolment changes it mid-session,
+ * so it is the half that is never stale.
+ *
+ * The browser's session is still consulted for the one thing the API cannot express: between a
+ * password and its code there is no session at all, so an unauthenticated answer alone cannot tell
+ * somebody mid-sign-in from somebody signed out.
  */
 
-/** The state of whoever is asking, as the browser can see it. */
+/** What the API answered for this person, from the same endpoint that guards every other route. */
+export type TwoFactorVerdict =
+  /** It answered. `twoFactorEnabled` is the fresh database value, not a cached one. */
+  | { kind: 'ok'; twoFactorEnabled: boolean }
+  /** No session: either between a password and its code, or signed out altogether. */
+  | { kind: 'unauthenticated' }
+  /** A session, but this role may do nothing else until a second factor exists. */
+  | { kind: 'two-factor-required' };
+
+/** The state of whoever is asking. */
 export interface TwoFactorViewer {
-  /** A full session, not the half-authenticated state between password and code. */
-  session: { twoFactorEnabled: boolean } | null;
+  api: TwoFactorVerdict;
+  /**
+   * Whether the browser still holds a session of its own. Only used to read an unauthenticated
+   * answer, and deliberately never used to decide that somebody may enter the application.
+   */
+  hasClientSession: boolean;
   /** Whether the screen was asked for in its enrolment shape. */
   setup: boolean;
 }
@@ -30,9 +52,17 @@ export type TwoFactorStep =
   /** Enrolling needs a session and there is none: start again. */
   | 'sign-in';
 
-export function twoFactorStep({ session, setup }: TwoFactorViewer): TwoFactorStep {
-  // With a session, the account's own state decides and the URL is ignored: asking for the
-  // enrolment screen when there is nothing to enrol is as wrong as asking for a code box.
-  if (session !== null) return session.twoFactorEnabled ? 'app' : 'enrol';
+export function twoFactorStep({ api, hasClientSession, setup }: TwoFactorViewer): TwoFactorStep {
+  // Only the API can send somebody into the application, because the API is what will let them do
+  // anything once they are there. Any other source of that decision can disagree with the guard on
+  // the other side of the redirect, and a disagreement between two guards is a loop.
+  if (api.kind === 'ok') return api.twoFactorEnabled ? 'app' : 'enrol';
+  if (api.kind === 'two-factor-required') return 'enrol';
+
+  // The API has no session for this person. Better Auth issues none until a second factor is
+  // verified, so a browser that still holds one is either mid-sign-in or holding something stale.
+  // Both are answered by the code box: it is the only screen that can carry either state forward,
+  // and it offers a way out for a session that turns out to be worthless.
+  if (hasClientSession) return 'verify';
   return setup ? 'sign-in' : 'verify';
 }

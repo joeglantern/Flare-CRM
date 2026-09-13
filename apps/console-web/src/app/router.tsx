@@ -16,7 +16,7 @@ import {
   useNavigate,
 } from '@tanstack/react-router';
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { twoFactorStep } from '@crm/shared';
+import { twoFactorStep, type TwoFactorVerdict } from '@crm/shared';
 import { ToastHost } from '@crm/ui';
 import { ConsoleShell } from '@/app/ConsoleShell';
 import { LoadingState, ErrorState } from '@/components/Page';
@@ -226,10 +226,14 @@ const twoFactorRoute = createRoute({
   // An owner whose second factor was just reset arrives with a working session and no second
   // factor; if a bookmark or a back button drops them on the code box they can never leave it,
   // because the secret their code would have to match was deleted.
-  beforeLoad: async ({ search }) => {
-    const { data } = await authClient.getSession();
+  beforeLoad: async ({ context, search }) => {
+    const api = await twoFactorVerdict(context.queryClient);
     const step = twoFactorStep({
-      session: data ? { twoFactorEnabled: data.user.twoFactorEnabled === true } : null,
+      api,
+      // Only read when the API has no session for this owner, the one state it cannot tell apart
+      // on its own: between a password and its code there is no session to report.
+      hasClientSession:
+        api.kind === 'unauthenticated' ? (await authClient.getSession()).data !== null : true,
       setup: search.setup === true,
     });
     if (step === 'app') throw redirect({ to: '/' });
@@ -245,6 +249,22 @@ const twoFactorRoute = createRoute({
     </>
   ),
 });
+
+/**
+ * What the console API says about this owner. The same answer the authenticated gate acts on, so the
+ * two can never send each other in circles, and it is reread rather than taken from a session
+ * snapshot that enrolment has just made obsolete.
+ */
+async function twoFactorVerdict(queryClient: QueryClient): Promise<TwoFactorVerdict> {
+  try {
+    const me = await queryClient.query(meQuery);
+    return { kind: 'ok', twoFactorEnabled: me.twoFactorEnabled };
+  } catch (error) {
+    if (isApiError(error) && error.isUnauthenticated) return { kind: 'unauthenticated' };
+    if (isApiError(error) && error.isTwoFactorRequired) return { kind: 'two-factor-required' };
+    throw error;
+  }
+}
 
 interface ResetSearch {
   token?: string;

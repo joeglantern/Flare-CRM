@@ -1,8 +1,11 @@
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { TwoFactorEnrolScreen, TwoFactorVerifyScreen } from '@/features/auth/TwoFactorScreen';
-import { twoFactorStep } from '@crm/shared';
+import { twoFactorStep, type TwoFactorVerdict } from '@crm/shared';
+import { isApiError } from '@/lib/api/errors';
 import { authClient } from '@/lib/auth/client';
+import { ME_QUERY_KEY, meQuery } from '@/lib/auth/me';
 import { safeRedirect } from './sign-in';
 
 const searchSchema = z.object({
@@ -20,10 +23,14 @@ export const Route = createFileRoute('/two-factor')({
   // That is what a person whose second factor was just reset runs into: a stale tab, a bookmark or
   // a back button lands them on the code screen, and no code they can produce will ever work,
   // because the secret it would have to match was deleted.
-  beforeLoad: async ({ search, location }) => {
-    const { data } = await authClient.getSession();
+  beforeLoad: async ({ context, search, location }) => {
+    const api = await verdict(context.queryClient);
     const step = twoFactorStep({
-      session: data ? { twoFactorEnabled: data.user.twoFactorEnabled === true } : null,
+      api,
+      // Only read when the API has no session for this person, which is the one state it cannot
+      // tell apart on its own: mid-sign-in and signed out look identical from there.
+      hasClientSession:
+        api.kind === 'unauthenticated' ? (await authClient.getSession()).data !== null : true,
       setup: search.setup === true,
     });
     if (step === 'verify') return;
@@ -42,9 +49,37 @@ export const Route = createFileRoute('/two-factor')({
   component: TwoFactorRoute,
 });
 
+/**
+ * What the API says about this person. It is the same answer the authenticated layout acts on, so
+ * the two cannot send each other in circles, and it rereads the second-factor flag from the
+ * database rather than trusting a session snapshot that enrolment has just made obsolete.
+ */
+async function verdict(queryClient: QueryClient): Promise<TwoFactorVerdict> {
+  try {
+    const me = await queryClient.query({ ...meQuery, staleTime: 'static' });
+    return { kind: 'ok', twoFactorEnabled: me.twoFactorEnabled };
+  } catch (error) {
+    if (isApiError(error) && error.isUnauthenticated) return { kind: 'unauthenticated' };
+    if (isApiError(error) && error.isTwoFactorRequired) return { kind: 'two-factor-required' };
+    throw error;
+  }
+}
+
 function TwoFactorRoute() {
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  /**
+   * Enrolling or verifying changes the very flag every route guard is about to read, and the guards
+   * read it from the query cache. Dropping the cached answer rather than marking it stale, because
+   * this one is loaded with `staleTime: 'static'` and a stale entry would be served anyway: the
+   * person would arrive at the application, be judged by the old answer, and be sent back here.
+   */
+  const forgetMe = async () => {
+    queryClient.removeQueries({ queryKey: ME_QUERY_KEY });
+    await Promise.resolve();
+  };
 
   const signOut = () => {
     void authClient.signOut().then(() => navigate({ to: '/sign-in' }));
@@ -70,6 +105,7 @@ function TwoFactorRoute() {
           const res = await authClient.twoFactor.verifyTotp({ code });
           if (res.error)
             return { ok: false, message: res.error.message ?? 'That code did not match.' };
+          await forgetMe();
           await navigate({ to: safeRedirect(search.redirect) });
           return { ok: true };
         }}
@@ -88,6 +124,7 @@ function TwoFactorRoute() {
             : await authClient.twoFactor.verifyTotp({ code, trustDevice });
         if (res.error)
           return { ok: false, message: res.error.message ?? 'That code was not accepted.' };
+        await forgetMe();
         await navigate({ to: safeRedirect(search.redirect) });
         return { ok: true };
       }}
