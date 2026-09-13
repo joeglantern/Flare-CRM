@@ -1,0 +1,41 @@
+# A stack on a host whose 80 and 443 belong to something else: another stack's Caddy, or a host
+# nginx serving a dozen unrelated sites (docs/12 §10).
+#
+# It adds an `edge` service rather than reconfiguring `caddy`, because a compose override merges
+# lists by appending: changing the published ports of the existing service would leave it trying to
+# bind 80 and 443 as well, which is the collision this file exists to avoid. Bring the stack up by
+# naming the services, and the unused `caddy` never starts:
+#
+#   cd ~/flare-crm/infra/docker
+#   docker compose -f compose.yml -f behind-proxy.yml up -d postgres valkey seaweedfs
+#   docker compose -f compose.yml -f behind-proxy.yml run --rm migrate
+#   docker compose -f compose.yml -f behind-proxy.yml up -d api worker edge backup
+#
+# Then point the host's proxy at 127.0.0.1:${CRM_PROXY_PORT}. See nginx/crm-behind-nginx.conf.example.
+services:
+  edge:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    # Loopback only. A bare '8090:80' would be open to the internet whatever the host firewall says,
+    # because Docker writes its own iptables rules ahead of it.
+    ports: ['127.0.0.1:${CRM_PROXY_PORT:-8090}:80']
+    command:
+      ['caddy', 'run', '--config', '/etc/caddy/Caddyfile.behind-proxy', '--adapter', 'caddyfile']
+    environment:
+      CRM_DOMAIN: ${CRM_DOMAIN:?set CRM_DOMAIN in .env, the public name a browser uses}
+      CRM_EXTRA_CSP: ${CRM_EXTRA_CSP:-}
+    volumes:
+      - ./caddy/Caddyfile.behind-proxy:/etc/caddy/Caddyfile.behind-proxy:ro
+      - web_dist:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    logging:
+      driver: json-file
+      options: { max-size: '50m', max-file: '10' }
+    depends_on:
+      api: { condition: service_healthy }
+      web: { condition: service_completed_successfully }

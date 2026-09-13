@@ -174,3 +174,56 @@ FIRST_ADMIN_EMAIL=   FIRST_ADMIN_NAME=          # seed creates the first admin a
 | Restore needed         | follow [13](13-backup-recovery.md) restore drill                                                                                                                          |
 | Secret leak            | rotate as per [08 M5](08-security-rules.md), revoke all sessions (`POST /api/auth/admin/revoke-all` or SQL truncate sessions), rotate Yeastar client secret in PBX portal |
 | Upgrade Postgres major | `pg_dumpall` → new container → restore (documented, tested on staging first)                                                                                              |
+
+## 10. A stack behind a host reverse proxy
+
+Ports 80 and 443 belong to one process. On a machine that already has a web server, a CRM stack
+cannot bring its own: either another stack's Caddy is there, or the host runs nginx for a set of
+unrelated sites. The stack still wants its own Caddy, because the routing, the CSP and the cache
+rules in §3 are the application's and should not be transcribed into a second config language where
+they will quietly drift.
+
+So the stack keeps Caddy and gives up TLS:
+
+| Piece                                 | What changes                                                   |
+| ------------------------------------- | -------------------------------------------------------------- |
+| `caddy/Caddyfile.behind-proxy`        | `auto_https off`, and the site is `:80` rather than a hostname |
+| `behind-proxy.yml`                    | adds an `edge` service on `127.0.0.1:${CRM_PROXY_PORT}` only   |
+| `nginx/crm-behind-nginx.conf.example` | the host vhost: TLS, forwarded headers, websocket upgrade      |
+
+It adds a service rather than reconfiguring `caddy`, because a compose override appends to lists
+rather than replacing them: changing the published ports of the existing service would leave it
+still trying to bind 80 and 443. Naming services on the command line is what keeps the unused one
+down.
+
+```
+cd ~/flare-crm/infra/docker
+docker compose -f compose.yml -f behind-proxy.yml up -d postgres valkey seaweedfs
+docker compose -f compose.yml -f behind-proxy.yml run --rm migrate
+docker compose -f compose.yml -f behind-proxy.yml build web
+docker compose -f compose.yml -f behind-proxy.yml up -d api worker edge backup
+docker compose -f compose.yml -f behind-proxy.yml run --rm provision-user <email> "<Name>" admin
+```
+
+`CRM_DOMAIN` stays the public name even though this Caddy never sees it in a request: the SPA is
+built with it, and the CSP names it for the websocket origin.
+
+Two things the host proxy must do, and one it must not. It must send `X-Forwarded-Proto` and
+`X-Forwarded-For`, or the application will build http links and log the proxy's address as every
+client's. It must pass the websocket upgrade with a long read timeout, or the live screens
+disconnect on a timer. And it must not add `Strict-Transport-Security`: the stack's Caddy sets it,
+and a browser receiving two of them sees a malformed header.
+
+### More than one stack on a machine
+
+Each stack is a compose project, and the project name scopes the container and volume names, so two
+stacks never share a database by accident. Give each one its own directory with its own `.env`, its
+own `CRM_PROXY_PORT`, and a distinct project name:
+
+```
+COMPOSE_PROJECT_NAME=crm-acme      # in that stack's .env
+CRM_PROXY_PORT=8091
+```
+
+Sizing is the real limit rather than the arrangement: a stack idles at roughly 500 MB across its six
+containers, and each one brings a Postgres. Count them before adding the next.

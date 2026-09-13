@@ -1,0 +1,64 @@
+# The same site as ./Caddyfile, for a host where something else already owns 80 and 443.
+#
+# Kept as a second file rather than conditionals in the first: the routing, the CSP and the cache
+# rules below are security-relevant and there should be exactly one place each of them is written
+# for a given deployment, not one place with two moods.
+#
+# What differs, and only this:
+#   - no ACME. The host's proxy holds the certificate, so Caddy must not go looking for one.
+#   - the site is a port rather than a name, because the name never reaches this far.
+#
+# The proxy in front must send X-Forwarded-Proto and X-Forwarded-For, and must not add a second
+# Strict-Transport-Security: this file sets it, and two of them is a malformed header.
+{
+	# Nothing here is reachable from the internet except through the host's proxy, which is where
+	# the certificate lives.
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+# Published on the host's loopback by behind-proxy.yml, never on a public interface.
+:80 {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		Permissions-Policy "microphone=(self), camera=(), geolocation=()"
+		-Server
+	}
+
+	@api path /api/* /socket.io/* /webhooks/* /public/* /health /ready
+	handle @api {
+		reverse_proxy api:4000 {
+			header_up X-Request-Start {time.now.unix_ms}
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv/web
+		# CRM_DOMAIN is still the public name here, because that is what a browser connects back to
+		# even though this server never sees it in a request.
+		header Content-Security-Policy "default-src 'self'; connect-src 'self' wss://{$CRM_DOMAIN} https://{$CRM_DOMAIN} {$CRM_EXTRA_CSP}; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@brand path /brand/* /help/* /icon-*.png /apple-touch-icon.png /maskable-512.png /favicon.svg
+		header @brand Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
+		header /index.html Cache-Control "no-store"
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 50mb
+			roll_keep 10
+		}
+		format json
+	}
+}
