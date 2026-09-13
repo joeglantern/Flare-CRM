@@ -395,6 +395,11 @@ describe('the console link, from the stack side', () => {
       expect(JSON.stringify(row.after)).toContain('Lost her phone');
 
       // The person it happened to is told by us, not by an authenticator that stopped working.
+      // Polled rather than read once: the notice is sent after the answer goes back, so that a slow
+      // mail server cannot make a reset that worked look like one that failed.
+      await expect
+        .poll(() => ctx.app.mailer.outbox.some((m) => m.to === user.email), { timeout: 8000 })
+        .toBe(true);
       const notice = ctx.app.mailer.outbox.find((m) => m.to === user.email);
       expect(notice, 'nobody told the person whose second factor was cleared').toBeDefined();
       expect(notice?.text).toContain('provider');

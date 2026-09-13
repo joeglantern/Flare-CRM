@@ -129,8 +129,12 @@ export async function runSupportCommand(
       });
     });
     await endSessions(deps, user.id);
-    await tellThem(deps, user, provider, command.reason ?? null);
-    await tellAdministrators(
+    // Not awaited, deliberately. The console gives up on a command after a few seconds, and a mail
+    // server two networks away is slower than that: awaiting these turned a reset that had already
+    // happened into a reported failure, so an owner would try it again on somebody else. Both
+    // functions swallow and log their own errors, and the audit row above is the record.
+    void tellThem(deps, user, provider, command.reason ?? null);
+    void tellAdministrators(
       deps,
       'Reset two-factor for a user',
       user.email,
@@ -153,7 +157,8 @@ export async function runSupportCommand(
     entityId: user.id,
     after: { provider, reason: command.reason ?? null },
   });
-  await tellAdministrators(
+  // Same reasoning as above: telling people is a courtesy that must not delay the answer.
+  void tellAdministrators(
     deps,
     'Signed a user out everywhere',
     user.email,
