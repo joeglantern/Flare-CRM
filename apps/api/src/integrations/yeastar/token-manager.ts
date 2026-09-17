@@ -46,10 +46,23 @@ export class TokenManager {
     return (await this.renew(current)).accessToken;
   }
 
-  /** Force a new token (after the PBX rejected the current one). */
+  /**
+   * A fresh token, after the PBX has just refused the one we were using.
+   *
+   * This used to throw the stored token away before renewing, which meant `renew` always fell
+   * through to a brand new `/get_token` authentication rather than a `/refresh_token` exchange.
+   * The PBX caps an application at eight live tokens (see the file comment), and a fresh
+   * authentication is what counts against that cap; a refresh reuses the slot it already holds.
+   * Called from three independent places (a reconnect, a ten-minute cron, and a keep-alive ping),
+   * each rejection was quietly minting a brand new token, and the cap was exhausted within
+   * minutes of a genuinely broken call (one that fails for a reason no new token would fix)
+   * repeating on any of those schedules. Passing the current token through gives `renew` the
+   * chance to refresh first, exactly as it already does on the ordinary expiry path, and it still
+   * falls back to a full authentication when there is nothing to refresh or the refresh itself is
+   * refused.
+   */
   async invalidateAndRenew(): Promise<string> {
-    await this.valkey.del(KEY);
-    return (await this.renew(null)).accessToken;
+    return (await this.renew(await this.read())).accessToken;
   }
 
   async renew(current: StoredToken | null): Promise<StoredToken> {
