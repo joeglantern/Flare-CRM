@@ -43,6 +43,12 @@ export function errorHandler(
         message: v.message ?? 'Invalid value',
       };
     });
+    // Logged for the same reason as below: the status code alone tells a reader nothing about which
+    // field was refused, and that is all the person who hit it can see.
+    request.log.info(
+      { code: 'VALIDATION_FAILED', requestId: request.id, details },
+      'Request validation failed',
+    );
     void reply
       .status(422)
       .send(body(reply, 'VALIDATION_FAILED', 'Request validation failed', details));
@@ -58,7 +64,18 @@ export function errorHandler(
   if (isAppError(error)) {
     if (error.status >= 500)
       request.log.error({ err: error, requestId: request.id }, error.message);
-    else request.log.info({ code: error.code, requestId: request.id }, error.message);
+    else
+      // The details are the refusal. "Request validation failed" on its own cannot be acted on by
+      // anybody reading the log, which is where a refusal is diagnosed when the person who hit it
+      // has only the status code in front of them.
+      request.log.info(
+        {
+          code: error.code,
+          requestId: request.id,
+          ...(error.details === undefined ? {} : { details: error.details }),
+        },
+        error.message,
+      );
     void reply.status(error.status).send(body(reply, error.code, error.message, error.details));
     return;
   }

@@ -59,7 +59,7 @@ import { usePageMeta } from '@/app/shell/page-meta';
 import { errorMessage } from '@/lib/api/errors';
 import { useListState, useSearchParam } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
-import { logoColors, previewPalette } from '@/lib/branding-picker';
+import { logoColors, prepareLogo, previewPalette } from '@/lib/branding-picker';
 import { useTheme } from '@/lib/theme';
 import {
   brandingDefaults,
@@ -527,25 +527,30 @@ function BrandingSection() {
               const file = e.target.files?.[0];
               e.target.value = '';
               if (!file) return;
-              // Read the colours out of the file in hand rather than fetching it back afterwards.
+              // Read the colours out of the file in hand, at full resolution, rather than from the
+              // shrunk copy or by fetching it back afterwards.
               void logoColors(file).then(setSuggested, () => {
                 setSuggested([]);
               });
-              logo.upload.mutate(file, {
-                onSuccess: () => {
-                  toast({
-                    tone: 'success',
-                    title: 'Logo saved',
-                    description: 'It replaces the Flare mark in the sidebar.',
-                  });
-                },
-                onError: (err) => {
-                  toast({
-                    tone: 'danger',
-                    title: 'Could not upload',
-                    description: errorMessage(err),
-                  });
-                },
+              // Cut down to the size the sidebar shows before it goes anywhere: a logo is usually
+              // whatever picture somebody had, and that is often a photo off a phone.
+              void prepareLogo(file).then((prepared) => {
+                logo.upload.mutate(prepared, {
+                  onSuccess: () => {
+                    toast({
+                      tone: 'success',
+                      title: 'Logo saved',
+                      description: 'It replaces the Flare mark in the sidebar.',
+                    });
+                  },
+                  onError: (err) => {
+                    toast({
+                      tone: 'danger',
+                      title: 'Could not upload',
+                      description: errorMessage(err),
+                    });
+                  },
+                });
               });
             }}
           />

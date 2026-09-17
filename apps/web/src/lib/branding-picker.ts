@@ -92,6 +92,69 @@ export async function logoColors(file: Blob, limit = 14): Promise<AccentCandidat
   return accentCandidates(byArea).slice(0, limit);
 }
 
+/**
+ * The tallest a stored logo needs to be.
+ *
+ * The sidebar shows it at 28 physical pixels, so this is already four times what the densest screen
+ * asks for. Anything beyond it is bytes counted against the customer's storage for no visible gain.
+ */
+const MAX_LOGO_EDGE = 512;
+
+/** Below this a file is already small enough that re-encoding would only cost it sharpness. */
+const LEAVE_ALONE_BYTES = 300 * 1024;
+
+/**
+ * A logo cut down to the size it is actually displayed at, before it is uploaded.
+ *
+ * Somebody choosing a logo reaches for the picture they have, and the picture they have is often a
+ * photo off a phone at eight megabytes. Refusing it is technically correct and useless: the file is
+ * fine, it is merely enormous, and the browser can fix that without asking. So it is drawn at the
+ * size the sidebar needs and re-encoded, which turns megabytes into tens of kilobytes and takes the
+ * size limit out of the conversation entirely.
+ *
+ * WebP because it keeps transparency, which a logo usually depends on, at a fraction of PNG's size.
+ * A file that is already small is returned untouched rather than re-encoded, since a crisp small PNG
+ * has nothing to gain from a second pass through a lossy encoder.
+ *
+ * Anything the browser cannot decode comes back unchanged for the server to refuse by type, with the
+ * reason named. HEIC from an iPhone is the case that matters: no browser decodes it, so it has to be
+ * exported first, and saying so is more use than shrinking it silently would have been.
+ */
+export async function prepareLogo(file: File): Promise<File> {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return file;
+  }
+  const longest = Math.max(bitmap.width, bitmap.height);
+  if (longest <= MAX_LOGO_EDGE && file.size <= LEAVE_ALONE_BYTES) {
+    bitmap.close();
+    return file;
+  }
+
+  const scale = Math.min(1, MAX_LOGO_EDGE / longest);
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    bitmap.close();
+    return file;
+  }
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, 'image/webp', 0.92);
+  });
+  // A browser that will not give us WebP keeps its original file; the server's limit still applies.
+  if (!blob || blob.size === 0 || blob.type !== 'image/webp') return file;
+  return new File([blob], 'logo.webp', { type: 'image/webp' });
+}
+
 /** The palette a chosen accent produces, for previewing before it is saved. */
 export function previewPalette(accent: string): BrandPalette {
   return generateBrandPalette(accent);
