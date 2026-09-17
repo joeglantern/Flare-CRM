@@ -36,8 +36,21 @@ export class YeastarApiError extends Error {
   }
 }
 
-/** Error codes that mean "token invalid/expired" per the developer guide (10004/10005 family). */
-const TOKEN_ERRORS = new Set([10004, 10005, 10006, 40002, 40003, 40004]);
+/**
+ * Error codes that mean the token is no longer good for anything.
+ *
+ * Only the 100xx family. 40002 used to be in here as part of a supposed "token family", and it is
+ * not: it is PARAMETER ERROR, which the PBX returns with an `invalid_param_list` naming the
+ * parameters it did not like. Treating it as a dead token meant every malformed request threw away a
+ * working token and authenticated again, and the PBX caps an application at eight live tokens. The
+ * CDR reconciler sent a wall clock where unix seconds were required, every ten minutes, so it earned
+ * a 40002 and burned a grant each time until the cap was exhausted and telephony stopped. A bad
+ * parameter must fail as a bad parameter; nothing about a new token would fix it.
+ *
+ * 40003 and 40004 went with it: they are the same 400xx request-level family, and a genuine token
+ * problem always arrives as one of the 100xx codes below.
+ */
+const TOKEN_ERRORS = new Set([10004, 10005, 10006]);
 
 export const tokenResponse = z.object({
   errcode: z.number().int(),

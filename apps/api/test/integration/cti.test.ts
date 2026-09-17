@@ -522,6 +522,32 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     pbx.cdrs = [];
   });
 
+  /**
+   * A bad parameter must fail as a bad parameter.
+   *
+   * 40002 is PARAMETER ERROR and it used to be listed as a token rejection, so every malformed
+   * request threw a working token away and authenticated again. The PBX allows eight live tokens, the
+   * reconciler sent a wall clock where unix seconds belong every ten minutes, and the cap was
+   * exhausted inside an hour and a half. This is the assertion that stops that combination returning.
+   */
+  it('does not spend a token on a request the PBX refused for its parameters', async () => {
+    const minted = () =>
+      pbx.requests.filter(
+        (r) => r.path === '/openapi/v1.0/get_token' || r.path === '/openapi/v1.0/refresh_token',
+      ).length;
+    const client = ctx.app.cti.client!;
+    // Warm the token so this measures renewals rather than the first authentication.
+    await client.cdrSearch({ start_time: 0, end_time: 1 });
+    const before = minted();
+
+    // A wall clock where the endpoint wants unix seconds: the fake answers 40002, as the PBX does.
+    await expect(
+      client.cdrSearch({ start_time: '2026-09-17 23:00:00' } as unknown as { start_time: number }),
+    ).rejects.toThrow(/40002/);
+
+    expect(minted(), 'a parameter error must not cost a token').toBe(before);
+  });
+
   it('reports CTI status and survives a dropped PBX socket', async () => {
     pbx.dropSockets();
     await until(async () => pbx.sockets.size === 1, 15_000);
