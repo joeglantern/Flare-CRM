@@ -74,6 +74,11 @@ export function TopBar({
         onClick={onOpenNav}
       />
 
+      {/* Ours, kept in the header now that the sidebar leads with the customer's own mark. */}
+      <span className="hidden shrink-0 items-center md:flex" title="Flare CRM">
+        <img src="/brand/mark.svg" alt="Flare CRM" width={16} height={16} className="opacity-80" />
+      </span>
+
       <nav
         aria-label="Breadcrumb"
         className="hidden min-w-0 items-center gap-1.5 text-base md:flex"

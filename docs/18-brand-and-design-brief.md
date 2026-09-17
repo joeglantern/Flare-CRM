@@ -61,6 +61,37 @@ Light theme
 | text-muted    | #5F5E5A | secondary                              |
 | text-faint    | #9A9893 | placeholders                           |
 
+### A customer's own accent (white labelling)
+
+The table above is Flare's accent and the default. A customer may replace it with theirs, and the
+neutrals and status colours stay as they are: a workspace changes its accent, not its personality.
+
+A brand colour is not a palette. The app needs a hover, a pressed, a link colour that survives a
+black background, a subtle surface and a readable foreground on top of it, in both themes, and a
+logo yields exactly one colour. So one seed goes in and the whole ramp comes out of
+`generateBrandPalette` in `packages/shared/src/branding.ts`, and the rules are:
+
+- **The seed is step 500 exactly.** A brand colour that comes back subtly different from the one the
+  customer gave is a bug, however well judged the adjustment.
+- **The ramp is built in OKLCH, not by lightening in HSL.** HSL shifts hue near the ends of its
+  range, so the same recipe applied to a blue and to a yellow gives two ramps of different perceived
+  contrast. Stepping in perceptual lightness means one recipe holds for any hue a customer brings.
+- **Contrast is enforced, not hoped for.** Where a role sits on a known background (links on the page,
+  text on the subtle surface, the label on a primary button) its lightness is moved until it passes:
+  4.5:1 for text, 3:1 for the button label. Hue and chroma are never touched to get there. This is why
+  it is a function and not a table, and `branding.test.ts` asserts it across seven seed hues.
+- **Both halves are stored, and the theme picks one.** `applyBrandPalette` writes the resolved
+  variables inline on `<html>`, which wins over the stylesheet without out-specifying it, and clearing
+  them falls back to Flare's own values with nothing left behind.
+- **Colours are offered from the logo, never imposed.** The logo's pixels are counted into coarse
+  buckets and the frequent ones are filtered by `usableAccents`: a logo is mostly background, so the
+  commonest colours are white, black or a near-grey, and offering those produces an invisible button.
+  A logo with no colour in it offers nothing rather than guessing.
+
+Settings · Branding holds the logo, the swatches read out of it, a hex field with the native picker,
+a live preview scoped to its own box, and a reset to Flare. The customer's logo takes the top of the
+sidebar; ours moves to the header and to a small "by Flare CRM" mark at the sidebar's foot.
+
 ### Status colours (same in both themes, adjust lightness by ±1 step if contrast fails)
 
 | Role    | Dark      | Light     | Meaning                                                        |

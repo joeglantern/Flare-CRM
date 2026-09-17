@@ -5108,6 +5108,7 @@ export interface paths {
                                     backups: boolean;
                                     custom_fields: boolean;
                                     deals: boolean;
+                                    dialpad: boolean;
                                     exports: boolean;
                                     imports: boolean;
                                     leads: boolean;
@@ -5227,6 +5228,7 @@ export interface paths {
                                         backups: boolean;
                                         custom_fields: boolean;
                                         deals: boolean;
+                                        dialpad: boolean;
                                         exports: boolean;
                                         imports: boolean;
                                         leads: boolean;
@@ -7338,6 +7340,19 @@ export interface paths {
                             data: {
                                 /** @enum {string} */
                                 agentVisibility: "owned" | "team" | "all";
+                                branding: {
+                                    accent: string | null;
+                                    logoKey: string | null;
+                                    palette: {
+                                        accent: string;
+                                        dark: {
+                                            [key: string]: string;
+                                        };
+                                        light: {
+                                            [key: string]: string;
+                                        };
+                                    } | null;
+                                };
                                 currency: string;
                                 defaultCountry: string;
                                 dialRules: {
@@ -7395,6 +7410,19 @@ export interface paths {
                     "application/json": {
                         /** @enum {string} */
                         agentVisibility?: "owned" | "team" | "all";
+                        branding?: {
+                            accent: string | null;
+                            logoKey: string | null;
+                            palette: {
+                                accent: string;
+                                dark: {
+                                    [key: string]: string;
+                                };
+                                light: {
+                                    [key: string]: string;
+                                };
+                            } | null;
+                        };
                         currency?: string;
                         defaultCountry?: string;
                         dialRules?: {
@@ -7443,6 +7471,19 @@ export interface paths {
                             data: {
                                 /** @enum {string} */
                                 agentVisibility: "owned" | "team" | "all";
+                                branding: {
+                                    accent: string | null;
+                                    logoKey: string | null;
+                                    palette: {
+                                        accent: string;
+                                        dark: {
+                                            [key: string]: string;
+                                        };
+                                        light: {
+                                            [key: string]: string;
+                                        };
+                                    } | null;
+                                };
                                 currency: string;
                                 defaultCountry: string;
                                 dialRules: {
@@ -7485,6 +7526,88 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/settings/branding/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                accent: string | null;
+                                logoKey: string | null;
+                                palette: {
+                                    accent: string;
+                                    dark: {
+                                        [key: string]: string;
+                                    };
+                                    light: {
+                                        [key: string]: string;
+                                    };
+                                } | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                accent: string | null;
+                                logoKey: string | null;
+                                palette: {
+                                    accent: string;
+                                    dark: {
+                                        [key: string]: string;
+                                    };
+                                    light: {
+                                        [key: string]: string;
+                                    };
+                                } | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/public": {
         parameters: {
             query?: never;
@@ -7509,6 +7632,19 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                branding: {
+                                    accent: string | null;
+                                    logoKey: string | null;
+                                    palette: {
+                                        accent: string;
+                                        dark: {
+                                            [key: string]: string;
+                                        };
+                                        light: {
+                                            [key: string]: string;
+                                        };
+                                    } | null;
+                                };
                                 currency: string;
                                 defaultCountry: string;
                                 popup: {
@@ -8646,7 +8782,26 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch: {
@@ -8767,6 +8922,49 @@ export interface paths {
                                 twoFactorEnabled: boolean;
                                 /** Format: date-time */
                                 updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/password-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                email: string;
+                                /** @enum {string} */
+                                sent: "welcome" | "reset";
                             };
                         };
                     };

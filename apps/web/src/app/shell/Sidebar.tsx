@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useMe } from '@/lib/auth/me';
+import { useSettings } from '@/providers/settings';
 import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
 import { cn } from '@/lib/utils';
@@ -26,7 +27,8 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
   const perms = usePermissions();
   const path = useRouterState({ select: (s) => s.location.pathname });
 
-  const { features } = useEntitlements();
+  const { features, customerName } = useEntitlements();
+  const { branding } = useSettings();
   const items = NAV_ITEMS.filter(
     (n) =>
       n.roles.includes(me.role) &&
@@ -50,12 +52,24 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
           to="/home"
           className="flex min-w-0 items-center gap-2 no-underline hover:no-underline"
         >
-          <img src="/brand/mark.svg" alt="" width={20} height={20} className="shrink-0" />
-          {!collapsed && (
-            <span className="flex items-baseline gap-1.5 leading-none">
-              <span className="text-lg font-extrabold tracking-[-0.03em] text-text">Flare</span>
-              <span className="text-2xs font-medium tracking-[0.22em] text-muted">CRM</span>
-            </span>
+          {branding.logoKey === null ? (
+            <>
+              <img src="/brand/mark.svg" alt="" width={20} height={20} className="shrink-0" />
+              {!collapsed && (
+                <span className="flex items-baseline gap-1.5 leading-none">
+                  <span className="text-lg font-extrabold tracking-[-0.03em] text-text">Flare</span>
+                  <span className="text-2xs font-medium tracking-[0.22em] text-muted">CRM</span>
+                </span>
+              )}
+            </>
+          ) : (
+            /* Height-bounded and auto-width: a customer's logo is any shape, and the row is not. */
+            <img
+              src={`/api/v1/files/${encodeURIComponent(branding.logoKey)}`}
+              alt={customerName}
+              className={cn('w-auto shrink-0 object-contain', collapsed ? 'max-h-6' : 'max-h-7')}
+              style={{ maxWidth: collapsed ? 32 : 168 }}
+            />
           )}
         </Link>
       </div>
@@ -126,7 +140,24 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
             </span>
           )}
         </Link>
-        <div className={cn('flex', collapsed ? 'justify-center' : 'justify-end')}>
+        <div
+          className={cn(
+            'flex items-center',
+            collapsed ? 'justify-center' : 'justify-between gap-2',
+          )}
+        >
+          {/* Ours, once the customer's own mark has taken the top of the sidebar. */}
+          {!collapsed && (
+            <span
+              className="flex items-center gap-1.5 pl-1.5 leading-none opacity-70"
+              title="Flare CRM"
+            >
+              <img src="/brand/mark.svg" alt="" width={12} height={12} className="shrink-0" />
+              <span className="text-2xs text-faint">
+                by <span className="font-semibold text-muted">Flare CRM</span>
+              </span>
+            </span>
+          )}
           <IconButton
             icon={collapsed ? ChevronsRight : ChevronsLeft}
             label={collapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}

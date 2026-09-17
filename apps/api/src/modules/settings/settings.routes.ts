@@ -1,7 +1,8 @@
-import { LIMITS, dataResponse } from '@crm/shared';
+import { LIMITS, brandingSettings, dataResponse } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { LimitReachedError } from '../../lib/errors.js';
 import { auditContext } from '../../lib/request.js';
+import { IMAGE_TYPES, storeUpload } from '../../lib/uploads.js';
 import {
   publicSettingsSchema,
   settingsPatchSchema,
@@ -30,6 +31,7 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
             consentText: s.recording.consentText,
             allowAgentPlayback: s.recording.allowAgentPlayback,
           },
+          branding: s.branding,
         },
       };
     },
@@ -64,6 +66,61 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
         after: pick(after, request.body),
       });
       return { data: after };
+    },
+  });
+
+  /**
+   * The customer's logo, which the sidebar shows in place of the Flare wordmark.
+   *
+   * Stored like any other upload and referenced by key; the colours derived from it are chosen in
+   * the browser and saved through `PATCH /settings`, because picking an accent is a judgement
+   * somebody makes by looking at it rather than something a server should decide.
+   */
+  app.post('/settings/branding/logo', {
+    config: {
+      auth: { permission: 'settings:manage' },
+      rateLimit: { max: 10, timeWindow: '1 minute' },
+    },
+    schema: { tags: ['settings'], response: { 200: dataResponse(brandingSettings) } },
+    handler: async (request) => {
+      const file = await request.file();
+      const stored = await storeUpload(app.storage, file, {
+        prefix: 'branding',
+        allowed: IMAGE_TYPES,
+        maxBytes: 2 * 1024 * 1024,
+        beforeStore: (bytes) => app.entitlements.assertStorage(bytes, auditContext(request)),
+      });
+      const before = (await app.settings.getAll()).branding;
+      const after = await app.settings.patch(
+        { branding: { ...before, logoKey: stored.key } },
+        request.user?.id ?? null,
+      );
+      await app.audit.write(auditContext(request), {
+        action: 'settings.update',
+        entity: 'settings',
+        before: { branding: { logoKey: before.logoKey } },
+        after: { branding: { logoKey: stored.key } },
+      });
+      return { data: after.branding };
+    },
+  });
+
+  app.delete('/settings/branding/logo', {
+    config: { auth: { permission: 'settings:manage' } },
+    schema: { tags: ['settings'], response: { 200: dataResponse(brandingSettings) } },
+    handler: async (request) => {
+      const before = (await app.settings.getAll()).branding;
+      const after = await app.settings.patch(
+        { branding: { ...before, logoKey: null } },
+        request.user?.id ?? null,
+      );
+      await app.audit.write(auditContext(request), {
+        action: 'settings.update',
+        entity: 'settings',
+        before: { branding: { logoKey: before.logoKey } },
+        after: { branding: { logoKey: null } },
+      });
+      return { data: after.branding };
     },
   });
 };

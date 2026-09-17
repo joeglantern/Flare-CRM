@@ -2,7 +2,7 @@
  * Business settings stored in the `settings` table (docs/05 "settings" keys).
  * Each key has a Zod schema and a default; unknown keys are rejected.
  */
-import { AgentVisibility, valuesOf } from '@crm/shared';
+import { AgentVisibility, brandingDefaults, brandingSettings, valuesOf } from '@crm/shared';
 import { z } from 'zod';
 
 export const settingSchemas = {
@@ -35,6 +35,8 @@ export const settingSchemas = {
     allowSuffixMatch: z.boolean(),
     suffixLength: z.number().int().min(6).max(10),
   }),
+  /** The customer's own logo and colours (docs/18 §3). Read by every user, written by an admin. */
+  branding: brandingSettings,
   security: z.object({
     require2FAForPrivileged: z.boolean(),
     require2FAForAll: z.boolean(),
@@ -69,6 +71,7 @@ export const settingDefaults: Settings = {
   },
   retention: { softDeletePurgeDays: 90, pbxEventsDays: 30, rawMessagePayloadDays: 90 },
   matching: { allowSuffixMatch: false, suffixLength: 9 },
+  branding: brandingDefaults,
   security: { require2FAForPrivileged: true, require2FAForAll: false, sessionIdleMinutes: 60 },
 };
 
@@ -91,4 +94,5 @@ export const publicSettingsSchema = z.object({
   popup: settingSchemas.popup,
   security: z.object({ sessionIdleMinutes: z.number().int() }),
   recording: z.object({ consentText: z.string(), allowAgentPlayback: z.boolean() }),
+  branding: settingSchemas.branding,
 });

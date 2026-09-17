@@ -4,6 +4,7 @@ export * from './phone.js';
 export * from './visibility.js';
 export * from './socket-events.js';
 export * from './entitlements.js';
+export * from './branding.js';
 export * from './console-link.js';
 export * from './console-analytics.js';
 export * from './console-roles.js';

@@ -26,10 +26,12 @@
   },
   "dependencies": {
     "better-auth": "1.7.2",
+    "culori": "4.0.2",
     "libphonenumber-js": "1.13.12",
     "zod": "4.5.4"
   },
   "devDependencies": {
+    "@types/culori": "4.0.1",
     "vitest": "4.1.11"
   }
 }

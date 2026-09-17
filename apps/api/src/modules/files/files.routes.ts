@@ -33,6 +33,8 @@ const filesRoutes: FastifyPluginAsyncZod = async (app) => {
       const prefix = key.split('/')[0];
       if (prefix === 'avatars') {
         // any authenticated user may see avatars
+      } else if (prefix === 'branding') {
+        // the workspace logo sits in the shell, so everyone who can see the app can see it
       } else if (prefix === 'attachments') {
         if (
           !roleHasPermission(user.role ?? 'agent', 'chat:read') &&

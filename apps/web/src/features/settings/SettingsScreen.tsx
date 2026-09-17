@@ -33,10 +33,11 @@ import {
   Users,
   Workflow,
   HardDriveDownload,
+  Palette,
   Pencil,
   Upload,
 } from 'lucide-react';
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -58,6 +59,9 @@ import { usePageMeta } from '@/app/shell/page-meta';
 import { errorMessage } from '@/lib/api/errors';
 import { useListState, useSearchParam } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
+import { accentsFromImage, previewPalette } from '@/lib/branding';
+import { useTheme } from '@/lib/theme';
+import { brandingDefaults, DEFAULT_ACCENT } from '@crm/shared';
 import { useDispositions } from '@/features/telephony/api';
 import { useCtiStatus } from '@/features/telephony/api';
 import { MAX_PAGE_SIZE } from '@crm/shared';
@@ -84,6 +88,7 @@ import {
   useAuditLog,
   useBackupMutations,
   useBackups,
+  useBrandingLogo,
   useCustomFieldMutations,
   useCustomFields,
   useDispositionMutations,
@@ -116,6 +121,7 @@ interface Section {
 
 const SECTIONS: Section[] = [
   { id: 'general', label: 'General', icon: Cog, requires: 'settings:read' },
+  { id: 'branding', label: 'Branding', icon: Palette, requires: 'settings:read' },
   { id: 'plan', label: 'Your plan', icon: BadgeCheck, requires: 'settings:read' },
   {
     id: 'telephony',
@@ -233,6 +239,7 @@ export function SettingsScreen() {
 
         <div className="flex min-w-0 flex-col gap-4">
           {active === 'general' && <GeneralSection />}
+          {active === 'branding' && <BrandingSection />}
           {active === 'plan' && <PlanSection />}
           {active === 'telephony' && <TelephonySection />}
           {active === 'recording' && <RecordingSection />}
@@ -405,6 +412,292 @@ function GeneralSection() {
           { value: 'team', label: 'Their team’s records' },
           { value: 'all', label: 'Everything' },
         ]}
+      />
+    </SectionShell>
+  );
+}
+
+/* ── branding ───────────────────────────────────────────────────────────────────────────── */
+
+/** What the preview shows, and what a saved accent is checked against before it is offered. */
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+function BrandingSection() {
+  const branding = useSettingsSection('branding');
+  const logo = useBrandingLogo();
+  const resolved = useTheme((s) => s.resolved);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [suggested, setSuggested] = useState<string[]>([]);
+  const [draft, setDraft] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  const value = branding.value ?? brandingDefaults;
+  const logoKey = value.logoKey;
+  const saved = value.accent;
+  const accent = draft ?? saved ?? DEFAULT_ACCENT;
+  const usable = HEX.test(accent);
+  const palette = useMemo(() => (usable ? previewPalette(accent) : null), [accent, usable]);
+  const changed = usable && accent.toLowerCase() !== (saved ?? DEFAULT_ACCENT).toLowerCase();
+
+  /**
+   * The colours already in the saved logo, so the chips are there on a return visit rather than
+   * only in the moment after an upload. The image is already in the browser's cache by now: the
+   * shell renders it.
+   */
+  useEffect(() => {
+    const cancel = new AbortController();
+    void (async () => {
+      if (logoKey === null) {
+        setSuggested([]);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/v1/files/${encodeURIComponent(logoKey)}`, {
+          credentials: 'include',
+          signal: cancel.signal,
+        });
+        if (!res.ok) return;
+        const colors = await accentsFromImage(await res.blob());
+        if (!cancel.signal.aborted) setSuggested(colors);
+      } catch {
+        // A logo we cannot read is a logo with no suggestions, not an error worth a toast.
+      }
+    })();
+    return () => {
+      cancel.abort();
+    };
+  }, [logoKey]);
+
+  const apply = (hex: string) => {
+    branding.save(
+      { logoKey, accent: hex, palette: previewPalette(hex) },
+      'Everyone sees the new colour on their next screen',
+    );
+    setDraft(null);
+  };
+
+  return (
+    <SectionShell
+      title="Branding"
+      description="Your logo and your colour, used everywhere the CRM shows one."
+      loading={branding.query.isPending}
+      error={branding.query.error}
+      onRetry={() => {
+        void branding.query.refetch();
+      }}
+    >
+      <div>
+        <p className="text-sm font-medium text-text">Logo</p>
+        <p className="mt-0.5 text-sm text-muted">
+          Shown at the top of the sidebar. A wide image on a transparent background works best; up
+          to 2 MB.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="flex h-14 min-w-[140px] items-center justify-center rounded-sm border border-border bg-surface px-4">
+            {logoKey === null ? (
+              <span className="flex items-baseline gap-1.5 leading-none">
+                <span className="text-lg font-extrabold tracking-[-0.03em] text-text">Flare</span>
+                <span className="text-2xs font-medium tracking-[0.22em] text-muted">CRM</span>
+              </span>
+            ) : (
+              <img
+                src={`/api/v1/files/${encodeURIComponent(logoKey)}`}
+                alt="Your logo"
+                className="max-h-9 w-auto object-contain"
+                style={{ maxWidth: 200 }}
+              />
+            )}
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (!file) return;
+              // Read the colours out of the file in hand rather than fetching it back afterwards.
+              void accentsFromImage(file).then(setSuggested, () => {
+                setSuggested([]);
+              });
+              logo.upload.mutate(file, {
+                onSuccess: () => {
+                  toast({
+                    tone: 'success',
+                    title: 'Logo saved',
+                    description: 'It replaces the Flare mark in the sidebar.',
+                  });
+                },
+                onError: (err) => {
+                  toast({
+                    tone: 'danger',
+                    title: 'Could not upload',
+                    description: errorMessage(err),
+                  });
+                },
+              });
+            }}
+          />
+          <Button
+            variant="secondary"
+            icon={Upload}
+            disabled={!branding.canManage}
+            loading={logo.upload.isPending}
+            onClick={() => fileInput.current?.click()}
+          >
+            {logoKey === null ? 'Upload a logo' : 'Replace'}
+          </Button>
+          {logoKey !== null && branding.canManage && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setRemoving(true);
+              }}
+            >
+              Remove
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="text-sm font-medium text-text">Accent colour</p>
+        <p className="mt-0.5 text-sm text-muted">
+          One colour. Buttons, links, highlights and the rest of the shades are worked out from it,
+          and checked so text stays readable in both themes.
+        </p>
+
+        {suggested.length > 0 && (
+          <div className="mt-3">
+            <p className="text-sm text-muted">From your logo</p>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {suggested.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  disabled={!branding.canManage}
+                  aria-label={`Use ${hex}`}
+                  aria-pressed={hex.toLowerCase() === accent.toLowerCase()}
+                  onClick={() => {
+                    setDraft(hex);
+                  }}
+                  className={cn(
+                    'h-8 w-8 rounded-sm border-2 transition-transform',
+                    hex.toLowerCase() === accent.toLowerCase()
+                      ? 'border-text scale-105'
+                      : 'border-border hover:scale-105',
+                  )}
+                  style={{ backgroundColor: hex }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <div className="flex items-end gap-2">
+            <Input
+              label="Colour"
+              mono
+              maxLength={7}
+              disabled={!branding.canManage}
+              value={accent}
+              onChange={(e) => {
+                const next = e.target.value.trim();
+                setDraft(next.startsWith('#') || next === '' ? next : `#${next}`);
+              }}
+            />
+            {/* The native picker, for a colour nobody has the hex of. */}
+            <input
+              type="color"
+              aria-label="Pick a colour"
+              disabled={!branding.canManage}
+              value={usable ? accent : DEFAULT_ACCENT}
+              onChange={(e) => {
+                setDraft(e.target.value);
+              }}
+              className="mb-0.5 h-9 w-10 cursor-pointer rounded-sm border border-border bg-surface p-1"
+            />
+          </div>
+          <Button
+            disabled={!branding.canManage || !changed}
+            loading={branding.saving}
+            onClick={() => {
+              apply(accent);
+            }}
+          >
+            Apply to everyone
+          </Button>
+          {(saved !== null || draft !== null) && branding.canManage && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDraft(null);
+                if (saved !== null)
+                  branding.save(
+                    { logoKey, accent: null, palette: null },
+                    'Back to the Flare colours',
+                  );
+              }}
+            >
+              Reset to Flare
+            </Button>
+          )}
+        </div>
+        {!usable && (
+          <p className="mt-2 text-sm text-danger">
+            A colour looks like #RRGGBB, for example #2F6FD6.
+          </p>
+        )}
+
+        {palette !== null && (
+          <div
+            className="mt-4 rounded-sm border border-border bg-surface p-4"
+            // The preview scopes the tokens to itself, so nothing outside changes until it is saved.
+            style={resolved === 'light' ? palette.light : palette.dark}
+          >
+            <p className="text-sm text-muted">Preview {changed ? '(not saved yet)' : ''}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <span className="inline-flex h-8 items-center rounded-sm bg-[var(--flare)] px-3 text-base font-medium text-[var(--on-flare)]">
+                Primary button
+              </span>
+              <span className="text-base text-[var(--flare-link)] underline underline-offset-2">
+                A link
+              </span>
+              <span className="inline-flex h-7 items-center rounded-sm bg-[var(--flare-subtle)] px-2.5 text-sm text-[var(--flare-on-subtle)]">
+                Highlighted
+              </span>
+              <span className="flex items-center gap-1">
+                {['100', '300', '500', '700', '950'].map((step) => (
+                  <span
+                    key={step}
+                    title={step}
+                    className="h-6 w-6 rounded-xs border border-border"
+                    style={{ backgroundColor: `var(--flare-${step})` }}
+                  />
+                ))}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={removing}
+        onOpenChange={setRemoving}
+        title="Remove your logo?"
+        description="The sidebar goes back to the Flare mark. Your colour is not affected."
+        confirmLabel="Remove logo"
+        tone="danger"
+        onConfirm={() => {
+          setRemoving(false);
+          logo.remove.mutate(undefined, {
+            onError: (e) => {
+              toast({ tone: 'danger', title: 'Could not remove', description: errorMessage(e) });
+            },
+          });
+        }}
       />
     </SectionShell>
   );

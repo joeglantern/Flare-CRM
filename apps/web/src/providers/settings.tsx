@@ -5,8 +5,10 @@
  * recording consent text and the idle timeout that useIdleLogout reads.
  */
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
+import { brandingDefaults, type BrandingSettings } from '@crm/shared';
 import { api, unwrap } from '@/lib/api/client';
+import { applyBrandPalette, watchThemeForPalette } from '@/lib/branding';
 import { qk } from '@/lib/query';
 import { DEFAULT_TZ } from '@/lib/format';
 import { useMeOptional } from '@/lib/auth/me';
@@ -21,6 +23,7 @@ export interface PublicSettings {
   };
   security: { sessionIdleMinutes: number };
   recording: { consentText: string; allowAgentPlayback: boolean };
+  branding: BrandingSettings;
 }
 
 export interface AppSettings extends PublicSettings {
@@ -39,6 +42,7 @@ const FALLBACK: AppSettings = {
   },
   security: { sessionIdleMinutes: 60 },
   recording: { consentText: '', allowAgentPlayback: true },
+  branding: brandingDefaults,
   timezone: DEFAULT_TZ,
   timezoneLabel: 'EAT',
 };
@@ -72,6 +76,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const tz = me?.timezone ?? FALLBACK.timezone;
     return { ...FALLBACK, ...(data ?? {}), timezone: tz, timezoneLabel: zoneLabel(tz) };
   }, [data, me?.timezone]);
+
+  /**
+   * The customer's colours, applied to the document rather than passed down: every token already
+   * reaches the components through CSS, so nothing below here needs to know this happened. Both
+   * halves of the palette are stored and the theme decides which applies, so a change of theme has
+   * to rewrite them.
+   */
+  const palette = value.branding.palette;
+  useEffect(() => {
+    applyBrandPalette(palette);
+    return watchThemeForPalette(() => palette);
+  }, [palette]);
+
   return <SettingsContext value={value}>{children}</SettingsContext>;
 }
 
