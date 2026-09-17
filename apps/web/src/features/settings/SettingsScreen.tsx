@@ -59,7 +59,7 @@ import { usePageMeta } from '@/app/shell/page-meta';
 import { errorMessage } from '@/lib/api/errors';
 import { useListState, useSearchParam } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
-import { accentsFromImage, previewPalette } from '@/lib/branding';
+import { accentsFromImage, previewPalette } from '@/lib/branding-picker';
 import { useTheme } from '@/lib/theme';
 import { brandingDefaults, DEFAULT_ACCENT } from '@crm/shared';
 import { useDispositions } from '@/features/telephony/api';

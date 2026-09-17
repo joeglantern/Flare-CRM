@@ -49,7 +49,16 @@ export type BrandingSettings = z.infer<typeof brandingSettings>;
 
 export const brandingDefaults: BrandingSettings = { logoKey: null, accent: null, palette: null };
 
-const oklch = converter('oklch');
+/**
+ * Built on first use, not at module load. A top-level call to an imported function counts as a side
+ * effect to a bundler, which keeps the colour library in whatever chunk this module lands in; almost
+ * every page needs `brandingDefaults` from here and none of them need the generator.
+ */
+let converterCache: ReturnType<typeof converter<'oklch'>> | null = null;
+function oklch(value: ReturnType<typeof parse>) {
+  converterCache ??= converter('oklch');
+  return converterCache(value);
+}
 
 /**
  * Where each step sits relative to the seed, and how much colour it can hold there.
