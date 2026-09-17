@@ -61,7 +61,13 @@ import { useListState, useSearchParam } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
 import { accentsFromImage, previewPalette } from '@/lib/branding-picker';
 import { useTheme } from '@/lib/theme';
-import { brandingDefaults, DEFAULT_ACCENT } from '@crm/shared';
+import {
+  brandingDefaults,
+  customFieldKeyFrom,
+  CUSTOM_FIELD_KEY,
+  CUSTOM_FIELD_KEY_HINT,
+  DEFAULT_ACCENT,
+} from '@crm/shared';
 import { useDispositions } from '@/features/telephony/api';
 import { useCtiStatus } from '@/features/telephony/api';
 import { MAX_PAGE_SIZE } from '@crm/shared';
@@ -1394,10 +1400,27 @@ function CustomFieldDialog({
 }) {
   const [label, setLabel] = useState('');
   const [key, setKey] = useState('');
+  const [keyEdited, setKeyEdited] = useState(false);
   const [type, setType] = useState('text');
   const [required, setRequired] = useState(false);
   const [options, setOptions] = useState('');
   const needsOptions = type === 'select' || type === 'multiselect';
+
+  const choices = options
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l !== '');
+
+  // The same rules the server applies, so the dialog never offers something it will refuse.
+  const keyProblem =
+    key.trim() === ''
+      ? 'A key is needed'
+      : CUSTOM_FIELD_KEY.test(key.trim())
+        ? null
+        : CUSTOM_FIELD_KEY_HINT;
+  const optionsProblem =
+    needsOptions && choices.length === 0 ? 'A choice field needs at least one option' : null;
+  const ready = label.trim() !== '' && keyProblem === null && optionsProblem === null;
 
   return (
     <Dialog
@@ -1419,7 +1442,7 @@ function CustomFieldDialog({
           <Button
             variant="primary"
             loading={pending}
-            disabled={label.trim() === '' || key.trim() === ''}
+            disabled={!ready}
             onClick={() => {
               onCreate({
                 entity,
@@ -1429,11 +1452,10 @@ function CustomFieldDialog({
                 required,
                 ...(needsOptions
                   ? {
-                      options: options
-                        .split('\n')
-                        .map((l) => l.trim())
-                        .filter((l) => l !== '')
-                        .map((l) => ({ value: l.toLowerCase().replace(/\s+/g, '_'), label: l })),
+                      options: choices.map((l) => ({
+                        value: l.toLowerCase().replace(/\s+/g, '_'),
+                        label: l,
+                      })),
                     }
                   : {}),
               });
@@ -1451,14 +1473,9 @@ function CustomFieldDialog({
           value={label}
           onChange={(e) => {
             setLabel(e.target.value);
-            if (key === '') {
-              setKey(
-                e.target.value
-                  .toLowerCase()
-                  .replace(/[^a-z0-9]+/g, '_')
-                  .replace(/^_+|_+$/g, ''),
-              );
-            }
+            // Follows the label until somebody types their own, rather than only while it is empty:
+            // a key derived from half a word is not one anybody chose.
+            if (!keyEdited) setKey(customFieldKeyFrom(e.target.value));
           }}
         />
         <Input
@@ -1466,9 +1483,11 @@ function CustomFieldDialog({
           mono
           value={key}
           onChange={(e) => {
+            setKeyEdited(true);
             setKey(e.target.value);
           }}
-          description="snake_case, 2 to 40 characters. This cannot be changed later."
+          {...(keyProblem !== null && key.trim() !== '' ? { error: keyProblem } : {})}
+          description={`${CUSTOM_FIELD_KEY_HINT}. This cannot be changed later.`}
         />
         <Select
           label="Type"
@@ -1496,6 +1515,7 @@ function CustomFieldDialog({
             onChange={(e) => {
               setOptions(e.target.value);
             }}
+            {...(optionsProblem !== null && options !== '' ? { error: optionsProblem } : {})}
             description="One per line."
           />
         )}

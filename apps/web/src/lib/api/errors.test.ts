@@ -53,3 +53,34 @@ describe('ApiError', () => {
     expect(errorMessage('weird')).toBe('Something went wrong.');
   });
 });
+
+/**
+ * "Request validation failed" is all a 422 says for itself, and it is what a toast used to show.
+ * Which field, and why, is in the details.
+ */
+describe('what a failure is reported as', () => {
+  const at = (details: unknown) =>
+    new ApiError(422, 'VALIDATION_FAILED', 'Request validation failed', null, details);
+
+  it('says which field and why, rather than that something was wrong', () => {
+    expect(errorMessage(at([{ path: 'key', message: 'snake_case, 2 to 40 characters' }]))).toBe(
+      'key: snake_case, 2 to 40 characters',
+    );
+  });
+
+  it('joins a few and counts the rest', () => {
+    const many = Array.from({ length: 5 }, (_, i) => ({ path: `f${String(i)}`, message: 'bad' }));
+    expect(errorMessage(at(many))).toBe('f0: bad; f1: bad; f2: bad; and 2 more');
+  });
+
+  it('drops the path when the issue is about the body as a whole', () => {
+    expect(errorMessage(at([{ path: '', message: 'options are required' }]))).toBe(
+      'options are required',
+    );
+  });
+
+  it('falls back to the message when there is nothing more specific', () => {
+    expect(errorMessage(at([]))).toBe('Request validation failed');
+    expect(errorMessage(at(undefined))).toBe('Request validation failed');
+  });
+});

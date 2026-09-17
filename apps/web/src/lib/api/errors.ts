@@ -113,9 +113,23 @@ export function isApiError(value: unknown): value is ApiError {
   return value instanceof ApiError;
 }
 
-/** User-facing message for any thrown value. */
+/**
+ * User-facing message for any thrown value.
+ *
+ * A 422's own message is only "Request validation failed"; what went wrong is in `details`, one
+ * entry per field. Reporting the message alone leaves somebody staring at a form that will not
+ * submit with nothing to tell them which box is at fault, so the issues are what gets said.
+ */
 export function errorMessage(value: unknown): string {
-  if (isApiError(value)) return value.message;
+  if (isApiError(value)) {
+    const issues = value.fieldIssues;
+    if (issues.length === 0) return value.message;
+    const said = issues
+      .slice(0, 3)
+      .map((i) => (i.path === '' ? i.message : `${i.path}: ${i.message}`))
+      .join('; ');
+    return issues.length > 3 ? `${said}; and ${String(issues.length - 3)} more` : said;
+  }
   if (value instanceof Error) return value.message;
   return 'Something went wrong.';
 }
