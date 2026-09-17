@@ -16,6 +16,7 @@ import {
   LIMITS,
   daysUntilExpiry,
   entitlementsDocument,
+  fillInheritedFeatures,
   isExpired,
   normaliseFeatures,
   signedEnvelope,
@@ -139,7 +140,7 @@ export class EntitlementsService {
   private async load(): Promise<EntitlementsState> {
     const row = await this.deps.db.entitlement.findUnique({ where: { id: CURRENT_ID } });
     if (!row) return DEFAULT_STATE;
-    const parsed = entitlementsDocument.safeParse(row.payload);
+    const parsed = entitlementsDocument.safeParse(fillInheritedFeatures(row.payload));
     if (!parsed.success) {
       // A row this process cannot read is a bug, not a reason to unlock everything or to lock
       // the customer out; log loudly and behave as if unmanaged.

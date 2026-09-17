@@ -6,7 +6,12 @@
  * `keyId` identifies the console key so a stack can hold more than one during rotation.
  */
 import { createHash, createPublicKey, sign, verify, type KeyObject } from 'node:crypto';
-import { entitlementsDocument, type EntitlementsDocument, type SignedEnvelope } from '@crm/shared';
+import {
+  entitlementsDocument,
+  fillInheritedFeatures,
+  type EntitlementsDocument,
+  type SignedEnvelope,
+} from '@crm/shared';
 
 export interface TrustedKey {
   keyId: string;
@@ -48,7 +53,9 @@ export function verifyEnvelope(
   } catch {
     return { ok: false, reason: 'payload is not JSON' };
   }
-  const document = entitlementsDocument.safeParse(parsedJson);
+  // After the signature, never before it: a document signed before a feature was split out is
+  // still a valid document, and refusing it would fall back to unmanaged, which grants everything.
+  const document = entitlementsDocument.safeParse(fillInheritedFeatures(parsedJson));
   if (!document.success) {
     return {
       ok: false,

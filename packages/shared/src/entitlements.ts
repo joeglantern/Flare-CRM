@@ -15,6 +15,7 @@ import { isoDateTime } from './schemas/common.js';
 export type FeatureKey =
   | 'telephony'
   | 'recordings'
+  | 'dialpad'
   | 'softphone'
   | 'messaging'
   | 'leads'
@@ -40,12 +41,17 @@ export const FEATURES: Record<FeatureKey, FeatureDefinition> = {
   telephony: {
     label: 'Telephony',
     description:
-      'Call popup, dialpad, click to call, live calls, call history, call outcomes and telephony settings.',
+      'Call popup, click to call, live calls, call history, call outcomes and telephony settings.',
     requires: [],
   },
   recordings: {
     label: 'Call recordings',
     description: 'Store, play back and manage recordings from the PBX.',
+    requires: ['telephony'],
+  },
+  dialpad: {
+    label: 'Dialpad',
+    description: 'A keypad for dialling any number, including one that is not a contact yet.',
     requires: ['telephony'],
   },
   softphone: {
@@ -116,6 +122,40 @@ export const FEATURES: Record<FeatureKey, FeatureDefinition> = {
 };
 
 export const featureKeys = Object.keys(FEATURES) as FeatureKey[];
+
+/**
+ * Features carved out of a broader one after documents were already in the field, and what each
+ * was carved out of.
+ *
+ * A document signed before a key existed cannot carry it, and a document that will not parse is
+ * treated as no document at all, which unlocks everything. So a missing key takes the value of the
+ * feature it came out of: exactly what that customer already had, until the console reissues.
+ * Every future split gets a line here.
+ */
+export const INHERITED_FEATURES = {
+  dialpad: 'telephony',
+} as const satisfies Partial<Record<FeatureKey, FeatureKey>>;
+
+/**
+ * Fills in the feature keys a document predates, before it is handed to the schema.
+ *
+ * Applied after the signature is verified and never before it: the signed bytes are what arrived,
+ * and nothing here changes them.
+ */
+export function fillInheritedFeatures(payload: unknown): unknown {
+  if (typeof payload !== 'object' || payload === null) return payload;
+  const doc = payload as { features?: unknown };
+  if (typeof doc.features !== 'object' || doc.features === null) return payload;
+  const features = { ...(doc.features as Record<string, unknown>) };
+  let filled = false;
+  for (const [key, from] of Object.entries(INHERITED_FEATURES)) {
+    if (features[key] === undefined && typeof features[from] === 'boolean') {
+      features[key] = features[from];
+      filled = true;
+    }
+  }
+  return filled ? { ...payload, features } : payload;
+}
 
 export type LimitKey =
   'seats' | 'storage_gb' | 'recording_retention_days' | 'channels' | 'pipelines';

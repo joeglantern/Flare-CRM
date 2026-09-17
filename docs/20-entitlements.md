@@ -21,26 +21,39 @@ not selling a CRM.
 **Features.** Each is a boolean. A feature with a prerequisite is off whenever its prerequisite is
 off, whatever the stored value says.
 
-| Key             | What goes away when it is off                                                              | Needs       |
-| --------------- | ------------------------------------------------------------------------------------------ | ----------- |
-| `telephony`     | Call popup, dialpad, click to call, live calls, call history, outcomes, Telephony settings |             |
-| `recordings`    | Recording playback, retention setting, deletion                                            | `telephony` |
-| `softphone`     | Answering in the browser                                                                   | `telephony` |
-| `messaging`     | Inbox, channels, WhatsApp webhooks, templates                                              |             |
-| `leads`         | Leads and conversion                                                                       |             |
-| `webforms`      | Public lead-capture forms                                                                  | `leads`     |
-| `deals`         | Deals board and list, pipelines, stages, forecast                                          |             |
-| `reports`       | The reports screen, own scope only                                                         |             |
-| `reports_team`  | Team and company-wide scopes, and the manager's home board                                 | `reports`   |
-| `exports`       | CSV export everywhere                                                                      |             |
-| `imports`       | The CSV import wizard                                                                      |             |
-| `custom_fields` | Custom fields on every entity                                                              |             |
-| `audit_diff`    | Before and after values on audit rows                                                      |             |
-| `backups`       | Self-service snapshot list, download and upload                                            |             |
-| `api_docs`      | The OpenAPI reference                                                                      |             |
+| Key             | What goes away when it is off                                                     | Needs       |
+| --------------- | --------------------------------------------------------------------------------- | ----------- |
+| `telephony`     | Call popup, click to call, live calls, call history, outcomes, Telephony settings |             |
+| `recordings`    | Recording playback, retention setting, deletion                                   | `telephony` |
+| `dialpad`       | The keypad, and dialling a number no contact holds                                | `telephony` |
+| `softphone`     | Answering in the browser                                                          | `telephony` |
+| `messaging`     | Inbox, channels, WhatsApp webhooks, templates                                     |             |
+| `leads`         | Leads and conversion                                                              |             |
+| `webforms`      | Public lead-capture forms                                                         | `leads`     |
+| `deals`         | Deals board and list, pipelines, stages, forecast                                 |             |
+| `reports`       | The reports screen, own scope only                                                |             |
+| `reports_team`  | Team and company-wide scopes, and the manager's home board                        | `reports`   |
+| `exports`       | CSV export everywhere                                                             |             |
+| `imports`       | The CSV import wizard                                                             |             |
+| `custom_fields` | Custom fields on every entity                                                     |             |
+| `audit_diff`    | Before and after values on audit rows                                             |             |
+| `backups`       | Self-service snapshot list, download and upload                                   |             |
+| `api_docs`      | The OpenAPI reference                                                             |             |
 
 Switching a feature off hides it and refuses its routes. It never deletes anything: switching it
 back on restores what was there.
+
+Two of these are shown rather than hidden. The dialpad is drawn behind a blur with a padlock over
+it, because somebody who opened that page wants the pad and the quickest way to say what buying it
+gets them is to let them see it; the keys are inert and `POST /calls/dial` refuses a number with no
+contact or phone behind it, so the screen is a picture and not the lock.
+
+**A feature added after documents were signed.** A document carries every key by name, so one signed
+before a feature existed cannot mention it, and a document that fails to parse is treated as no
+document at all, which grants everything. `INHERITED_FEATURES` in `packages/shared/src/entitlements.ts`
+names each such key and the feature it was carved out of; a missing key takes that value, which is
+exactly what the customer already had, until the console reissues. It is applied after the signature
+is checked and never before it. Every future split adds a line there.
 
 **Limits.** `seats` (active users, a hard cap on creating or reactivating), `storage_gb`
 (attachments, recordings and backups together), `recording_retention_days` (a ceiling on the

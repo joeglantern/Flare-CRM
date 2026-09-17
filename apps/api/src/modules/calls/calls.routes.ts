@@ -9,6 +9,7 @@ import {
   dialBody,
   dialResult,
   dispositionBody,
+  FEATURES,
   idParams,
   linkContactBody,
   linkusSignDto,
@@ -24,7 +25,12 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { lastReconcileAt, reconcileCdrs } from '../../integrations/yeastar/reconcile.js';
 import { readCtiStatus } from '../../integrations/yeastar/subscriber.js';
-import { ConflictError, NotFoundError, PbxUnavailableError } from '../../lib/errors.js';
+import {
+  ConflictError,
+  FeatureNotInPlanError,
+  NotFoundError,
+  PbxUnavailableError,
+} from '../../lib/errors.js';
 import { newId } from '../../lib/ids.js';
 import { auditContext, requireUser } from '../../lib/request.js';
 import { scopeOf } from '../../lib/scope.js';
@@ -57,6 +63,13 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     schema: { tags: ['calls'], body: dialBody, response: { 202: dataResponse(dialResult) } },
     handler: async (request, reply) => {
+      // A number with nothing behind it is the dialpad: click to call always names the contact or
+      // the phone it came from. Gating the screen alone would leave the capability reachable.
+      if (request.body.contactId === undefined && request.body.phoneId === undefined) {
+        if (!(await app.entitlements.has('dialpad'))) {
+          throw new FeatureNotInPlanError('dialpad', FEATURES.dialpad.label);
+        }
+      }
       const { scope } = await scopeOf(app, request);
       const result = await service.dial(
         scope,

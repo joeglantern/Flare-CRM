@@ -123,7 +123,7 @@ describe('the entitlements editor rules', () => {
     expect(features.telephony).toBe(false);
     expect(features.recordings).toBe(false);
     expect(blockedBy('recordings', features)).toEqual(['telephony']);
-    expect(dependents('telephony')).toEqual(['recordings', 'softphone']);
+    expect(dependents('telephony')).toEqual(['recordings', 'dialpad', 'softphone']);
   });
 
   it('cannot switch a feature on while its prerequisite is off', () => {

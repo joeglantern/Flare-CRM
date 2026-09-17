@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ENTITLEMENTS,
   FEATURES,
+  INHERITED_FEATURES,
   daysUntilExpiry,
   entitlementsDocument,
   featureKeys,
+  fillInheritedFeatures,
   isExpired,
   limitKeys,
   normaliseFeatures,
@@ -51,6 +53,49 @@ describe('entitlementsDocument', () => {
   it('rejects negative limits', () => {
     const doc = { ...DEFAULT_ENTITLEMENTS, limits: { ...DEFAULT_ENTITLEMENTS.limits, seats: -1 } };
     expect(entitlementsDocument.safeParse(doc).success).toBe(false);
+  });
+});
+
+/**
+ * The case that matters here is the one already in the field: a document signed by a console that
+ * had never heard of a feature, arriving at a stack that has.
+ */
+describe('fillInheritedFeatures', () => {
+  const older = () => {
+    const features: Record<string, boolean> = { ...DEFAULT_ENTITLEMENTS.features };
+    delete features.dialpad;
+    return { ...DEFAULT_ENTITLEMENTS, features };
+  };
+
+  it('is what makes an older document readable at all', () => {
+    expect(entitlementsDocument.safeParse(older()).success).toBe(false);
+    expect(entitlementsDocument.safeParse(fillInheritedFeatures(older())).success).toBe(true);
+  });
+
+  it('gives a split-out feature whatever it was part of', () => {
+    const on = entitlementsDocument.parse(fillInheritedFeatures(older()));
+    expect(on.features.dialpad).toBe(true);
+
+    const doc = older();
+    doc.features.telephony = false;
+    const off = entitlementsDocument.parse(fillInheritedFeatures(doc));
+    expect(off.features.dialpad).toBe(false);
+  });
+
+  it('never overrides a value the document already carries', () => {
+    const doc = { ...DEFAULT_ENTITLEMENTS, features: { ...DEFAULT_ENTITLEMENTS.features } };
+    doc.features.dialpad = false;
+    expect(entitlementsDocument.parse(fillInheritedFeatures(doc)).features.dialpad).toBe(false);
+  });
+
+  it('hands back anything that is not a document untouched, for the schema to refuse', () => {
+    expect(fillInheritedFeatures(null)).toBeNull();
+    expect(fillInheritedFeatures('nope')).toBe('nope');
+    expect(fillInheritedFeatures({ features: 7 })).toEqual({ features: 7 });
+  });
+
+  it('only inherits from features that exist', () => {
+    for (const from of Object.values(INHERITED_FEATURES)) expect(featureKeys).toContain(from);
   });
 });
 
