@@ -7,6 +7,7 @@ import { startProcessors, type RunningWorkers } from '../../src/jobs/processors.
 import {
   FakePbx,
   cdr,
+  cdrRow,
   inboundAnswered,
   inboundBye,
   inboundRinging,
@@ -470,8 +471,8 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     const a = nextCallId();
     const b = nextCallId();
     pbx.cdrs = [
-      cdr(a, { from: '0712000004', to: '1001', type: 'Inbound', status: 'ANSWERED', talk: 5 }).msg,
-      cdr(b, { from: '1001', to: '0712000005', type: 'Outbound', status: 'NO ANSWER' }).msg,
+      cdrRow(a, { from: '0712000004', to: '1001', type: 'Inbound', status: 'ANSWERED', talk: 5 }),
+      cdrRow(b, { from: '1001', to: '0712000005', type: 'Outbound', status: 'NO ANSWER' }),
     ];
     const deps = {
       client: ctx.app.cti.client!,
@@ -481,7 +482,7 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       log: ctx.app.log,
     };
     const first = await reconcileCdrs(deps);
-    expect(first).toMatchObject({ scanned: 2, inserted: 2, updated: 0 });
+    expect(first).toMatchObject({ scanned: 2, inserted: 2, updated: 0, unreadable: 0 });
     const second = await reconcileCdrs(deps);
     expect(second).toMatchObject({ scanned: 2, inserted: 0 });
     const via = await ctx.as(admin, { method: 'POST', url: '/api/v1/cti/reconcile', payload: {} });
@@ -493,6 +494,31 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       userId: agent.id,
       extension: '1001',
     });
+    pbx.cdrs = [];
+  });
+
+  /**
+   * The failure this replaces reported success every ten minutes while importing nothing, because a
+   * row it could not read was skipped without a word. A row it cannot read must show up in the count.
+   */
+  it('counts a row it cannot read instead of passing over it', async () => {
+    const id = nextCallId();
+    pbx.cdrs = [
+      // The event shape, from the endpoint that does not speak it.
+      cdr(id, { from: '0712000006', to: '1001', type: 'Inbound', status: 'ANSWERED' }).msg,
+    ];
+    const result = await reconcileCdrs(
+      {
+        client: ctx.app.cti.client!,
+        machine: ctx.app.cti.machine,
+        valkey: ctx.app.valkey,
+        pbxTimeZone: 'Africa/Nairobi',
+        log: ctx.app.log,
+      },
+      new Date(Date.now() - 60 * 60 * 1000),
+    );
+    expect(result).toMatchObject({ scanned: 0, inserted: 0, unreadable: 1 });
+    expect(await ctx.app.db.call.findFirst({ where: { pbxCallId: id } })).toBeNull();
     pbx.cdrs = [];
   });
 

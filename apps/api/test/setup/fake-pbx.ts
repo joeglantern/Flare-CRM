@@ -102,6 +102,16 @@ export class FakePbx {
     app.get('/openapi/v1.0/call/query', async () => ({ errcode: 0, errmsg: 'SUCCESS', data: [] }));
     app.get('/openapi/v1.0/cdr/search', async (request) => {
       if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
+      // The real endpoint takes unix seconds here and answers 40002 to anything else, including the
+      // wall-clock string the events use. Reproduced, because a caller that gets this wrong
+      // otherwise looks like a PBX with no calls in it.
+      const q = request.query as Record<string, string | undefined>;
+      for (const key of ['start_time', 'end_time']) {
+        const value = q[key];
+        if (value !== undefined && !/^\d+$/.test(value)) {
+          return { errcode: 40002, errmsg: `The parameter ${key} is invalid.` };
+        }
+      }
       return { errcode: 0, errmsg: 'SUCCESS', total_number: this.cdrs.length, data: this.cdrs };
     });
     app.get('/openapi/v1.0/recording/download', async (request) => {
@@ -313,6 +323,52 @@ export function cdr(
       enb_call_note: 0,
       is_display: 1,
     },
+  };
+}
+
+/**
+ * The same call as `GET /cdr/search` returns it, which is not the shape the 30012 event uses.
+ *
+ * Worth the duplication: serving the event shape from this endpoint is what made a reconciler that
+ * imported nothing look like a reconciler with nothing to import.
+ */
+export function cdrRow(
+  callId: string,
+  input: {
+    from: string;
+    to: string;
+    type: 'Inbound' | 'Outbound' | 'Internal';
+    status: 'ANSWERED' | 'NO ANSWER' | 'BUSY' | 'VOICEMAIL' | 'ABANDONED';
+    talk?: number;
+    total?: number;
+    recording?: string;
+    at?: Date;
+    uid?: string;
+  },
+) {
+  const at = input.at ?? new Date();
+  const talk = input.talk ?? 0;
+  return {
+    // MM/DD/YYYY, as the PBX writes it, and deliberately not what the parser reads.
+    time: `${String(at.getUTCMonth() + 1).padStart(2, '0')}/${String(at.getUTCDate()).padStart(2, '0')}/${at.getUTCFullYear()}`,
+    timestamp: Math.floor(at.getTime() / 1000),
+    call_from: input.from,
+    call_to: input.to,
+    duration: input.total ?? talk + 8,
+    talk_duration: talk,
+    ring_duration: 0,
+    disposition: input.status,
+    call_type: input.type,
+    call_id: callId,
+    uid: input.uid ?? `uid-${callId}`,
+    src_trunk: input.type === 'Inbound' ? 'trunk-1' : '',
+    dst_trunk: input.type === 'Outbound' ? 'trunk-1' : '',
+    recording: input.recording ?? '',
+    did: input.type === 'Inbound' ? input.to : '',
+    did_name: '',
+    pin_code: '',
+    call_note_id: '',
+    enb_call_note: 0,
   };
 }
 
