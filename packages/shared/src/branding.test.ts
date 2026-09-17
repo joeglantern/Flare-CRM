@@ -4,7 +4,13 @@
  */
 import { wcagContrast } from 'culori';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ACCENT, generateBrandPalette, usableAccents, brandPalette } from './branding.js';
+import {
+  accentCandidates,
+  brandPalette,
+  DEFAULT_ACCENT,
+  generateBrandPalette,
+  usableAccents,
+} from './branding.js';
 
 /** A spread wide enough that a recipe tuned to orange cannot quietly be the only one that works. */
 const SEEDS = [
@@ -110,6 +116,60 @@ describe('a palette generated from one colour', () => {
         lightness[i - 1]!,
       );
     }
+  });
+});
+
+/**
+ * The extractor used to group colours into a coarse RGB grid, which merged colours a person can
+ * plainly tell apart and averaged them into shades present nowhere in the image. These check the
+ * half that decides what survives.
+ */
+describe('every colour a logo offered', () => {
+  it('keeps colours that are genuinely different, however close the grid would have put them', () => {
+    // A red mark and an orange one: 40 apart in the red channel, obviously two colours.
+    const found = accentCandidates(['#D22B1F', '#E8681A']).map((c) => c.hex);
+    expect(found).toHaveLength(2);
+  });
+
+  it('merges what is only anti-aliasing around the same colour', () => {
+    const fringe = ['#2f6fd6', '#2f70d6', '#3070d7', '#2e6ed5', '#306fd6'];
+    expect(accentCandidates(fringe)).toHaveLength(1);
+  });
+
+  it('keeps the most prominent of a cluster, which is the one handed in first', () => {
+    const [first] = accentCandidates(['#2f6fd6', '#3070d7']);
+    expect(first?.hex).toBe('#2f6fd6');
+  });
+
+  it('offers a near grey rather than hiding it, but does not call it strong', () => {
+    const found = accentCandidates(['#8A8985', '#2F6FD6']);
+    expect(found.map((c) => c.hex)).toHaveLength(2);
+    expect(found.find((c) => c.hex === '#8a8985')?.usable).toBe(false);
+    expect(found.find((c) => c.hex === '#2f6fd6')?.usable).toBe(true);
+  });
+
+  it('offers a very dark and a very pale brand colour, which used to be thrown away', () => {
+    const navy = accentCandidates(['#0B1F3A']);
+    const gold = accentCandidates(['#F7E9A0']);
+    expect(navy).toHaveLength(1);
+    expect(gold).toHaveLength(1);
+    // Both still produce a readable app, which is why offering them is safe.
+    expect(
+      wcagContrast(generateBrandPalette('#0B1F3A').light['--flare-link'] ?? '', '#FAFAF8'),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      wcagContrast(generateBrandPalette('#F7E9A0').dark['--flare-link'] ?? '', '#000000'),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('leads with the most workable accent, not the loudest pixel count', () => {
+    const found = accentCandidates(['#FFFFFF', '#111111', '#2F6FD6']);
+    expect(found[0]?.hex).toBe('#2f6fd6');
+    expect(found).toHaveLength(3);
+  });
+
+  it('ignores anything that is not a colour instead of guessing', () => {
+    expect(accentCandidates(['not a colour', '#2F6FD6'])).toHaveLength(1);
   });
 });
 

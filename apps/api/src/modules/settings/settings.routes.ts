@@ -87,7 +87,7 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
       const stored = await storeUpload(app.storage, file, {
         prefix: 'branding',
         allowed: IMAGE_TYPES,
-        maxBytes: 2 * 1024 * 1024,
+        maxBytes: 4 * 1024 * 1024,
         beforeStore: (bytes) => app.entitlements.assertStorage(bytes, auditContext(request)),
       });
       const before = (await app.settings.getAll()).branding;

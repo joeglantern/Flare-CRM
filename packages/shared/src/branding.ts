@@ -197,32 +197,80 @@ export function generateBrandPalette(accent: string): BrandPalette {
   };
 }
 
+export interface AccentCandidate {
+  hex: string;
+  /** Higher is a more workable accent: coloured enough to see, mid enough to build a ramp around. */
+  score: number;
+  /** False for a colour that would make a drab accent, such as a near grey. Offered anyway. */
+  usable: boolean;
+}
+
 /**
- * Candidate accents from a logo, most usable first.
+ * Every colour a logo offered, ordered with the most workable accents first.
  *
- * Callers hand in colours already extracted from the image; this only decides which are worth
- * offering. A logo is mostly background, so the colours that appear most are usually white, black
- * or something near them, and offering those as an accent produces an invisible button. Anything
- * too grey to read as a colour, or so light or dark that a ramp around it would collapse, is left
- * out.
+ * Nothing is dropped for being an unlikely choice. An earlier version filtered out anything too grey
+ * or too close to either end of the lightness range, which threw away half of what a customer could
+ * see in their own logo, including dark navies and pale golds that are perfectly good brands. The
+ * ramp enforces its own contrast, so a dark seed still produces a readable app; what a weak accent
+ * costs is character, and that is the customer's call rather than ours. `usable` marks the ones that
+ * make a strong accent so a screen can lead with them and mark the rest as muted.
+ *
+ * Colours a person would call the same are merged, since a logo's anti-aliasing invents dozens of
+ * near-duplicates of every edge and offering all of them is the same as offering none.
+ */
+export function accentCandidates(colors: string[], tolerance = 0.05): AccentCandidate[] {
+  const parsed: { hex: string; c: Oklch }[] = [];
+  for (const color of colors) {
+    try {
+      const c = toOklch(color);
+      parsed.push({ hex: toHex(c), c });
+    } catch {
+      continue; // not a colour; the caller's problem, not something to guess at
+    }
+  }
+
+  // Input order is the caller's idea of prominence, so the first of a cluster wins.
+  const kept: { hex: string; c: Oklch }[] = [];
+  for (const entry of parsed) {
+    if (!kept.some((k) => perceptualDistance(k.c, entry.c) < tolerance)) kept.push(entry);
+  }
+
+  return kept
+    .map(({ hex, c }) => ({
+      hex,
+      score: c.c * 2 - Math.abs(c.l - 0.62),
+      usable: c.c >= 0.04 && c.l >= 0.25 && c.l <= 0.9,
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
+/**
+ * How far apart two colours look, in OKLab.
+ *
+ * Euclidean distance in OKLab rather than in RGB: two colours the same distance apart in RGB can be
+ * obviously different in one part of the space and indistinguishable in another, which is exactly the
+ * mistake that makes a duplicate-merging pass either merge two real brand colours or keep forty
+ * shades of the same edge.
+ */
+function perceptualDistance(a: Oklch, b: Oklch): number {
+  const toLab = (c: Oklch) => ({
+    l: c.l,
+    a: c.c * Math.cos((c.h * Math.PI) / 180),
+    b: c.c * Math.sin((c.h * Math.PI) / 180),
+  });
+  const p = toLab(a);
+  const q = toLab(b);
+  return Math.hypot(p.l - q.l, p.a - q.a, p.b - q.b);
+}
+
+/**
+ * The colours from a logo that make a strong accent, most workable first.
+ *
+ * The strict half of `accentCandidates`, for a caller that wants a recommendation rather than a
+ * palette to browse.
  */
 export function usableAccents(colors: string[]): string[] {
-  const seen = new Set<string>();
-  const out: { hex: string; score: number }[] = [];
-  for (const color of colors) {
-    let c: Oklch;
-    try {
-      c = toOklch(color);
-    } catch {
-      continue;
-    }
-    if (c.c < 0.04) continue;
-    if (c.l < 0.25 || c.l > 0.9) continue;
-    const asHex = toHex(c);
-    if (seen.has(asHex)) continue;
-    seen.add(asHex);
-    // Mid lightness and decent saturation make the most workable accent.
-    out.push({ hex: asHex, score: c.c * 2 - Math.abs(c.l - 0.62) });
-  }
-  return out.sort((a, b) => b.score - a.score).map((x) => x.hex);
+  return accentCandidates(colors)
+    .filter((c) => c.usable)
+    .map((c) => c.hex);
 }

@@ -59,7 +59,7 @@ import { usePageMeta } from '@/app/shell/page-meta';
 import { errorMessage } from '@/lib/api/errors';
 import { useListState, useSearchParam } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
-import { accentsFromImage, previewPalette } from '@/lib/branding-picker';
+import { logoColors, previewPalette } from '@/lib/branding-picker';
 import { useTheme } from '@/lib/theme';
 import {
   brandingDefaults,
@@ -67,6 +67,7 @@ import {
   CUSTOM_FIELD_KEY,
   CUSTOM_FIELD_KEY_HINT,
   DEFAULT_ACCENT,
+  type AccentCandidate,
 } from '@crm/shared';
 import { useDispositions } from '@/features/telephony/api';
 import { useCtiStatus } from '@/features/telephony/api';
@@ -433,7 +434,7 @@ function BrandingSection() {
   const logo = useBrandingLogo();
   const resolved = useTheme((s) => s.resolved);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [suggested, setSuggested] = useState<string[]>([]);
+  const [suggested, setSuggested] = useState<AccentCandidate[]>([]);
   const [draft, setDraft] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
 
@@ -463,7 +464,7 @@ function BrandingSection() {
           signal: cancel.signal,
         });
         if (!res.ok) return;
-        const colors = await accentsFromImage(await res.blob());
+        const colors = await logoColors(await res.blob());
         if (!cancel.signal.aborted) setSuggested(colors);
       } catch {
         // A logo we cannot read is a logo with no suggestions, not an error worth a toast.
@@ -495,8 +496,9 @@ function BrandingSection() {
       <div>
         <p className="text-sm font-medium text-text">Logo</p>
         <p className="mt-0.5 text-sm text-muted">
-          Shown at the top of the sidebar. A wide image on a transparent background works best; up
-          to 2 MB.
+          Shown at the top of the sidebar. PNG, JPEG or WebP, up to 4 MB; a wide image on a
+          transparent background works best. An SVG has to be exported to PNG first, at about twice
+          the size you want it shown.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <div className="flex h-14 min-w-[140px] items-center justify-center rounded-sm border border-border bg-surface px-4">
@@ -517,14 +519,16 @@ function BrandingSection() {
           <input
             ref={fileInput}
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            // Exactly what the server's IMAGE_TYPES allows. Offering more here produced a 422 on a
+            // file the dialog had just invited somebody to choose, which is a mismatch, not a rule.
+            accept="image/png,image/jpeg,image/webp"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
               e.target.value = '';
               if (!file) return;
               // Read the colours out of the file in hand rather than fetching it back afterwards.
-              void accentsFromImage(file).then(setSuggested, () => {
+              void logoColors(file).then(setSuggested, () => {
                 setSuggested([]);
               });
               logo.upload.mutate(file, {
@@ -576,13 +580,21 @@ function BrandingSection() {
 
         {suggested.length > 0 && (
           <div className="mt-3">
-            <p className="text-sm text-muted">From your logo</p>
+            <p className="text-sm text-muted">
+              From your logo
+              <span className="ml-1.5 text-faint">
+                {suggested.length} colour{suggested.length === 1 ? '' : 's'} found, strongest first
+              </span>
+            </p>
+            {/* Every colour in the logo, not only the ones we would have chosen: a dark navy or a
+                pale gold is a real brand, and the ramp enforces its own contrast either way. */}
             <div className="mt-1.5 flex flex-wrap gap-2">
-              {suggested.map((hex) => (
+              {suggested.map(({ hex, usable: strong }) => (
                 <button
                   key={hex}
                   type="button"
                   disabled={!branding.canManage}
+                  title={strong ? hex : `${hex} (little colour in it, so a muted accent)`}
                   aria-label={`Use ${hex}`}
                   aria-pressed={hex.toLowerCase() === accent.toLowerCase()}
                   onClick={() => {
@@ -591,8 +603,9 @@ function BrandingSection() {
                   className={cn(
                     'h-8 w-8 rounded-sm border-2 transition-transform',
                     hex.toLowerCase() === accent.toLowerCase()
-                      ? 'border-text scale-105'
+                      ? 'scale-105 border-text'
                       : 'border-border hover:scale-105',
+                    strong ? '' : 'opacity-70',
                   )}
                   style={{ backgroundColor: hex }}
                 />
