@@ -5,13 +5,17 @@
 import type { Redis } from 'ioredis';
 import type { CallStateMachine } from './call-state.js';
 import type { YeastarClient } from './client.js';
-import { cdrMsg } from './events.js';
+import { cdrFromSearchRow, cdrSearchRow } from './events.js';
+
+export { formatPbxTime } from './events.js';
 
 export interface ReconcileResult {
   since: string;
   scanned: number;
   inserted: number;
   updated: number;
+  /** Rows the PBX returned that this build could not read. Never silently zero. */
+  unreadable: number;
 }
 
 const LAST_CDR_KEY = 'cti:last_cdr_at';
@@ -36,21 +40,31 @@ export async function reconcileCdrs(
   let scanned = 0;
   let inserted = 0;
   let updated = 0;
+  let unreadable = 0;
   for (;;) {
+    // Unix seconds, not the wall clock the events speak in: this endpoint validates these two and
+    // refuses a formatted string outright, which is what stopped every run before this.
     const res = await deps.client.cdrSearch({
-      start_time: formatPbxTime(since, deps.pbxTimeZone),
-      end_time: formatPbxTime(until, deps.pbxTimeZone),
+      start_time: Math.floor(since.getTime() / 1000),
+      end_time: Math.floor(until.getTime() / 1000),
       page,
       page_size: 100,
-      sort_by: 'time_start',
-      order_by: 'asc',
     });
     const rows = res.data ?? [];
     for (const row of rows) {
-      const parsed = cdrMsg.safeParse(row);
-      if (!parsed.success) continue;
+      const parsed = cdrSearchRow.safeParse(row);
+      if (!parsed.success) {
+        // Counted and reported rather than skipped in silence. A shape this code cannot read is
+        // the difference between "nothing happened" and "nothing was imported", and the two used
+        // to look identical from the outside.
+        unreadable++;
+        continue;
+      }
       scanned++;
-      const outcome = await deps.machine.applyCdr(parsed.data, 'reconcile');
+      const outcome = await deps.machine.applyCdr(
+        cdrFromSearchRow(parsed.data, deps.pbxTimeZone),
+        'reconcile',
+      );
       if (outcome === 'inserted') inserted++;
       else updated++;
     }
@@ -60,26 +74,10 @@ export async function reconcileCdrs(
   }
   await deps.valkey.set(LAST_RECONCILE_KEY, new Date().toISOString());
   deps.log.info(
-    { since: since.toISOString(), scanned, inserted, updated },
+    { since: since.toISOString(), scanned, inserted, updated, unreadable },
     'CDR reconciliation complete',
   );
-  return { since: since.toISOString(), scanned, inserted, updated };
-}
-
-/** PBX expects local wall-clock "YYYY-MM-DD HH:mm:ss". */
-export function formatPbxTime(d: Date, timeZone: string): string {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-  const p = Object.fromEntries(fmt.formatToParts(d).map((x) => [x.type, x.value]));
-  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
+  return { since: since.toISOString(), scanned, inserted, updated, unreadable };
 }
 
 export async function lastReconcileAt(valkey: Redis): Promise<string | null> {

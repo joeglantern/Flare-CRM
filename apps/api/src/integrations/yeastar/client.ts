@@ -193,14 +193,12 @@ export class YeastarClient {
 
   // ── CDR & recordings ─────────────────────────────────────────────────────────────────────
 
-  cdrSearch(query: {
-    start_time?: string;
-    end_time?: string;
-    page?: number;
-    page_size?: number;
-    sort_by?: string;
-    order_by?: 'asc' | 'desc';
-  }) {
+  /**
+   * `start_time` and `end_time` are unix seconds. The endpoint validates them and refuses a
+   * formatted wall-clock string with a parameter error, unlike most of this API which ignores what
+   * it does not recognise.
+   */
+  cdrSearch(query: { start_time?: number; end_time?: number; page?: number; page_size?: number }) {
     return this.call('GET', '/cdr/search', {
       query,
       schema: z

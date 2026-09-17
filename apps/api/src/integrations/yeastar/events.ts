@@ -143,6 +143,84 @@ export const knownEvent = z.discriminatedUnion('type', [
 export type YeastarEvent = z.infer<typeof knownEvent>;
 
 /** Yeastar timestamps are PBX-local "YYYY-MM-DD HH:mm:ss"; convert with the PBX time zone. */
+/**
+ * A row from `GET /cdr/search`, which is not the same shape as the 30012 event despite describing
+ * the same call. The REST list renames most of it: `time_start` is `time`, `call_duration` is
+ * `duration`, `status` is `disposition`, `type` is `call_type`, `did_number` is `did`. Parsing a
+ * row of this shape with `cdrMsg` fails on every required field it renamed, which is why the
+ * reconciler silently imported nothing for as long as it has existed.
+ */
+export const cdrSearchRow = z
+  .object({
+    uid: z.string(),
+    call_id: z.string(),
+    /** Unix seconds. Preferred over `time`, which is MM/DD/YYYY and carries no zone. */
+    timestamp: z.coerce.number().int(),
+    call_from: z.string().optional().default(''),
+    call_to: z.string().optional().default(''),
+    duration: z.coerce.number().int().nonnegative().optional().default(0),
+    talk_duration: z.coerce.number().int().nonnegative().optional().default(0),
+    ring_duration: z.coerce.number().int().nonnegative().optional(),
+    disposition: z.string(),
+    call_type: z.string(),
+    src_trunk: z.string().optional().default(''),
+    dst_trunk: z.string().optional().default(''),
+    recording: z.string().optional().default(''),
+    did: z.string().optional().default(''),
+    did_name: z.string().optional(),
+    pin_code: z.string().optional(),
+    call_note_id: z.string().optional(),
+    enb_call_note: z.coerce.number().optional(),
+  })
+  .loose();
+export type YeastarCdrSearchRow = z.infer<typeof cdrSearchRow>;
+
+/**
+ * A search row in the shape the rest of the pipeline already understands, so a reconciled call and
+ * an evented one travel the identical path through `applyCdr`.
+ *
+ * The timestamp is rendered back into the PBX's wall clock rather than used directly, because that
+ * is what the event carries and what `parsePbxTime` reverses; the round trip is exact.
+ */
+export function cdrFromSearchRow(row: YeastarCdrSearchRow, timeZone: string): YeastarCdr {
+  return {
+    call_id: row.call_id,
+    time_start: formatPbxTime(new Date(row.timestamp * 1000), timeZone),
+    call_from: row.call_from,
+    call_to: row.call_to,
+    call_duration: row.duration,
+    talk_duration: row.talk_duration,
+    src_trunk_name: row.src_trunk,
+    dst_trunk_name: row.dst_trunk,
+    status: row.disposition,
+    type: row.call_type,
+    recording: row.recording,
+    did_number: row.did,
+    uid: row.uid,
+    ...(row.did_name === undefined ? {} : { did_name: row.did_name }),
+    ...(row.ring_duration === undefined ? {} : { agent_ring_time: row.ring_duration }),
+    ...(row.pin_code === undefined ? {} : { pin_code: row.pin_code }),
+    ...(row.call_note_id === undefined ? {} : { call_note_id: row.call_note_id }),
+    ...(row.enb_call_note === undefined ? {} : { enb_call_note: row.enb_call_note }),
+  };
+}
+
+/** The PBX's wall clock, which is what its own timestamps read as. Inverse of `parsePbxTime`. */
+export function formatPbxTime(d: Date, timeZone: string): string {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const p = Object.fromEntries(fmt.formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
+}
+
 export function parsePbxTime(value: string, timeZone: string): Date {
   const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/.exec(value.trim());
   if (!m) {
