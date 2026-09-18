@@ -489,6 +489,7 @@ function AgentBoard() {
                       <PhoneNumber
                         e164={m.externalNumber}
                         contactId={m.contact?.id ?? null}
+                        callId={m.id}
                         {...(m.contact !== null ? { contactName: m.contact.displayName } : {})}
                         actions
                       />

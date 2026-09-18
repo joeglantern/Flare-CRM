@@ -105,6 +105,7 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
       render: (c) => (
         <PhoneNumber
           e164={c.externalNumber}
+          callId={c.id}
           display={c.externalDisplay}
           contactId={c.contactId}
           contactName={c.contact?.displayName}
@@ -183,6 +184,7 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
               <PhoneNumber
                 e164={c.externalNumber}
                 contactId={c.contactId}
+                callId={c.id}
                 contactName={c.contact?.displayName}
                 actions
                 layout="tooltip"
