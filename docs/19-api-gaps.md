@@ -102,3 +102,50 @@ the number in old commits and audit entries still resolves to something.
 - **GAP-12** — `GET /calls/:id/recording-history` lists who has played a recording, most recent
   first, gated on the same permission as listening rather than the audit log's `audit:read`. Call
   detail shows it inline instead of linking to the audit log.
+
+## Known and deliberately open, after the pre-handover review (2026-09-18)
+
+Two findings from an adversarial read of the whole API were left rather than rushed. Both are
+described here with the reasoning that produced the chosen approach, so whoever picks them up does
+not have to re-derive it.
+
+- **GAP-18 — an attachment is protected only by the secrecy of its key.** `GET /files/attachments/*`
+  admits anyone holding `chat:read` or `note:read` and never checks that the note or conversation
+  the file belongs to is in that person's scope. Keys carry 128 random bits so nothing is guessable,
+  and this is not an open hole; what is wrong is that access cannot be **revoked**. Someone who once
+  saw a key keeps it after changing team or losing the contact, and a forwarded link opens for
+  anyone. It matters in proportion to what customers send over WhatsApp.
+
+  Check at download time through the parent, and do not store a scope column. A stored one would
+  have to be rewritten on every reassignment of a contact, deal, company or call, every conversation
+  assignment, and every team move; that is the same hand-kept list that went stale in the user
+  deletion refusal, and it fails both ways, as stale access or as an owner locked out of their own
+  file. A note is also visible through any of four parents, which one column cannot express. The
+  join is one indexed lookup (`Attachment.key` is unique, `noteId` and `messageId` are indexed)
+  against the cost of streaming the object, and `GET /calls/:id/recording` already sets the
+  precedent by checking scope on every download.
+
+  Two details to carry with it. `parentVisibility` should move out of `notes.routes.ts` into a shared
+  helper, so "can see the note" and "can open its file" have one definition. And the permissions
+  should be split: today `note:read` and `chat:read` each open both kinds, so somebody with notes
+  access can read WhatsApp media.
+
+- **GAP-19 — a forged or misdirected webhook leaves no durable signal.** Rejections used to be
+  written to the audit log, which let anyone on the internet add permanent rows to a customer's own
+  audit screen, so they are logged instead. The record is still worth having, but for catching a
+  misconfiguration rather than for keeping evidence: the warn line with the address is enough
+  evidence, and an immutable table was the wrong home for it.
+
+  The two channels are not symmetric. Yeastar has a backstop, since CDR reconciliation runs every
+  few minutes, so a wrong PBX secret costs live screen pops and not call records. WhatsApp has no
+  reconciliation at all, so a rotated or mistyped app secret loses customers' messages once Meta
+  stops retrying.
+
+  The shape that fits what already exists: count rejections per channel in Valkey with an hourly
+  window, record the last accepted event per channel, and add a readiness check that goes unhealthy
+  when rejections pass a threshold **and** nothing was accepted in the same window. That combination
+  means the secret is wrong; a forger sending junk while real events still arrive does not trip it,
+  so an attack does not page anybody. Readiness already travels to the console in every heartbeat and
+  the alert sweep turns an unhealthy check into `stack_unhealthy`, so a wrong secret reaches an owner
+  within the hour with no new plumbing. The "feature is not in the plan" answers must not be counted:
+  they are a correct outcome, not an error.

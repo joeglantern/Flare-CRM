@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { QUEUES } from '../../jobs/queues.js';
-import { UnauthenticatedError } from '../../lib/errors.js';
+import { AppError, UnauthenticatedError } from '../../lib/errors.js';
 
 const verifyQuery = z.object({
   'hub.mode': z.string().optional(),
@@ -46,10 +46,33 @@ const whatsappWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
        * permanent rows into a customer's audit screen without credentials, and a channel still
        * sending after messaging left the plan did the same with no attacker involved.
        */
-      if (!app.config.WHATSAPP_ENABLED || !(await app.entitlements.has('messaging'))) {
-        request.log.info({ ip: request.ip }, 'whatsapp webhook ignored: messaging is not enabled');
-        // Answered rather than refused, so a sender stops retrying instead of queueing forever.
+      /*
+       * Not sold and not configured are different answers, because Meta acts on them differently.
+       *
+       * Messaging absent from the plan is a decision: 200, so Meta stops retrying an event this
+       * stack will never want. But the stack being unconfigured while messaging IS sold is a
+       * mistake, most likely a missing variable in a deploy, and answering 200 there would
+       * permanently acknowledge and discard every customer message sent during the gap. Meta retries
+       * a non-2xx for a while, so 503 holds the door open until somebody fixes the config. There is
+       * no reconciliation for WhatsApp the way there is for CDRs; what is dropped here is gone.
+       */
+      if (!(await app.entitlements.has('messaging'))) {
+        request.log.info(
+          { ip: request.ip },
+          'whatsapp webhook ignored: messaging is not in the plan',
+        );
         return reply.send({ ok: true as const });
+      }
+      if (!app.config.WHATSAPP_ENABLED) {
+        request.log.error(
+          { ip: request.ip },
+          'whatsapp webhook arrived while the stack is not configured for it; asking Meta to retry',
+        );
+        throw new AppError(
+          'SERVICE_UNAVAILABLE',
+          503,
+          'WhatsApp is not configured on this server yet',
+        );
       }
       if (!app.whatsappAdapter.verifyWebhook(raw, request.headers)) {
         request.log.warn({ ip: request.ip }, 'whatsapp webhook signature rejected');
