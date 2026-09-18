@@ -11,8 +11,14 @@ import { AREA_OPACITY, ink, motion, RISE_PX } from './style.js';
 
 export function AreaGradient({ id, color }: { id: string; color: string }) {
   return (
+    /*
+     * Three stops, not two. A straight ramp to nothing fades fastest where the area is thickest and
+     * reads flat; holding most of the colour under the line and dropping it away lower down gives
+     * the series weight where it sits without filling the plot with wash.
+     */
     <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stopColor={color} stopOpacity={AREA_OPACITY} />
+      <stop offset="45%" stopColor={color} stopOpacity={AREA_OPACITY * 0.45} />
       <stop offset="100%" stopColor={color} stopOpacity={0} />
     </linearGradient>
   );

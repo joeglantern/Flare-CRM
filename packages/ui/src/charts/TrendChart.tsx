@@ -85,9 +85,23 @@ export function TrendChart({
   const width = Math.max(160, measuredWidth);
   const labelDate = granularity === 'month' ? monthLabel : tickLabel;
 
-  // No axis, so the only insets are what the ink itself needs: a tick label's line underneath, and
-  // the headroom an end figure sits in.
-  const inset = { top: endValues ? 16 : 6, right: 3, bottom: 18, left: 1 };
+  /**
+   * A price axis on the right, which is how every trading chart is read: the series runs to the edge
+   * of the plot and its last figure sits outside it, so the figure never covers the data it belongs
+   * to and the eye always knows where to look for the current number. Wide enough for the widest
+   * figure and no wider, capped so one enormous number cannot eat the plot.
+   */
+  const endTexts = endValues
+    ? drawn.map((s) => format(s.points[s.points.length - 1]?.v ?? 0))
+    : [];
+  const gutter =
+    endTexts.length === 0
+      ? 0
+      : Math.min(96, Math.max(...endTexts.map((t) => textWidth(t, TYPE.value))) + 16);
+
+  // No axis lines and no cage, so the rest of the insets are only what the ink itself needs: a
+  // tick label's line underneath, and a little headroom.
+  const inset = { top: 10, right: 3 + gutter, bottom: 18, left: 1 };
   const top = inset.top;
   const bottom = height - inset.bottom;
   const left = inset.left;
@@ -152,6 +166,21 @@ export function TrendChart({
           ))}
         </defs>
 
+        {/*
+          Two levels, drawn under everything and barely there: enough to judge a height against, far
+          too faint to compete with the series. This is the whole of the grid. A cage of verticals as
+          well would tell a reader nothing the tick labels do not already say.
+        */}
+        <ValueRules
+          levels={[high, low + (high - low) / 2]}
+          x1={left}
+          x2={right}
+          gutterX={right + 6}
+          y={y}
+          format={format}
+          shown={shown}
+        />
+
         <Baseline x1={left} x2={right} y={bottom} />
 
         {/* Labelled at the left end: the right end is where the series prints its own last figure,
@@ -194,6 +223,20 @@ export function TrendChart({
                   delay={index * 60}
                 />
               )}
+              {/* The head of the series. A trading chart marks where the line has got to and
+                  nowhere else; a dot on every sample is upholstery. */}
+              {coords.length > 1 && s.dashed !== true && (
+                <circle
+                  cx={coords[coords.length - 1]?.[0] ?? 0}
+                  cy={coords[coords.length - 1]?.[1] ?? 0}
+                  r={2.5}
+                  fill={color}
+                  style={{
+                    opacity: shown ? 1 : 0,
+                    transition: `opacity ${motion.rise}ms ${motion.ease} ${motion.draw - 120}ms`,
+                  }}
+                />
+              )}
               {/* One sample is not a line. It is a point, and drawing it as one says so. */}
               {only !== undefined && (
                 <circle
@@ -212,7 +255,7 @@ export function TrendChart({
         })}
 
         {endValues && (
-          <EndValues entries={endLabelPositions(drawn, y, format)} x={right} shown={shown} />
+          <EndValues entries={endLabelPositions(drawn, y, format)} x={right + 6} shown={shown} />
         )}
 
         {ticks.map((index) => {
@@ -242,7 +285,33 @@ export function TrendChart({
               y2={bottom}
               stroke={ink.context}
               strokeWidth={1}
+              strokeDasharray="2 3"
             />
+            {/*
+              The other half of the crosshair, and the reason a crosshair is worth having: the level
+              the cursor is at, carried out to the axis and printed there. A vertical line alone says
+              which day; this says how much, without the reader measuring against anything.
+            */}
+            {readings[0]?.point !== undefined && (
+              <>
+                <line
+                  x1={left}
+                  x2={right}
+                  y1={y(readings[0].point.v)}
+                  y2={y(readings[0].point.v)}
+                  stroke={ink.context}
+                  strokeWidth={1}
+                  strokeDasharray="2 3"
+                />
+                <AxisPill
+                  x={right + 6}
+                  y={y(readings[0].point.v)}
+                  text={format(readings[0].point.v)}
+                  color={readings[0].series.color ?? seriesColor(0)}
+                  solid
+                />
+              </>
+            )}
             {readings.map((r, index) =>
               r.point === undefined ? null : (
                 <circle
@@ -361,7 +430,8 @@ function endLabelPositions(
         key: s.key,
         text: format(last.v),
         color: s.color ?? seriesColor(index),
-        y: y(last.v) - 7,
+        // The centre of the pill, which is the height the series actually finished at.
+        y: y(last.v),
       };
     })
     .filter((label): label is EndLabel => label !== null)
@@ -371,7 +441,7 @@ function endLabelPositions(
     const previous = labels[i - 1];
     const current = labels[i];
     if (previous === undefined || current === undefined) continue;
-    const overlap = previous.y + 12 - current.y;
+    const overlap = previous.y + 15 - current.y;
     if (overlap > 0) current.y += overlap;
   }
   return labels;
@@ -386,17 +456,119 @@ function EndValues({ entries, x, shown }: { entries: EndLabel[]; x: number; show
       }}
     >
       {entries.map((entry) => (
-        <text
-          key={entry.key}
-          x={x}
-          y={Math.max(TYPE.value, entry.y)}
-          textAnchor="end"
-          fontSize={TYPE.value}
-          fontWeight={500}
-          fill={entry.color}
-        >
-          {entry.text}
-        </text>
+        <AxisPill key={entry.key} x={x} y={entry.y} text={entry.text} color={entry.color} />
+      ))}
+    </g>
+  );
+}
+
+/**
+ * A figure on the price axis, in the colour of the series it belongs to.
+ *
+ * Tinted and outlined rather than filled solid, because the fill would have to carry text and a
+ * series colour is whatever the customer's brand turned out to be: there is no colour to write on
+ * it that is guaranteed to be readable. A tint of the series colour behind its own text is legible
+ * against either theme whatever the hue, which a guessed black or white is not. `solid` deepens it
+ * for the one pill that is following the cursor, so it reads as the live figure among the settled
+ * ones.
+ */
+function AxisPill({
+  x,
+  y,
+  text,
+  color,
+  solid = false,
+}: {
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  solid?: boolean;
+}) {
+  const w = textWidth(text, TYPE.value) + 10;
+  const h = 15;
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x}
+        y={y - h / 2}
+        width={w}
+        height={h}
+        rx={3}
+        fill={color}
+        fillOpacity={solid ? 0.26 : 0.14}
+        stroke={color}
+        strokeOpacity={solid ? 1 : 0.55}
+        strokeWidth={1}
+      />
+      <text
+        x={x + w / 2}
+        y={y + 3.5}
+        textAnchor="middle"
+        fontSize={TYPE.value}
+        fontWeight={600}
+        fill={color}
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        {text}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * The levels a height is judged against, and their figures on the axis.
+ *
+ * Drawn first so the series covers them, and faint enough that they are found only when looked for.
+ * A level equal to the baseline is skipped: the baseline is already there and drawing both puts two
+ * lines in the same place.
+ */
+function ValueRules({
+  levels,
+  x1,
+  x2,
+  gutterX,
+  y,
+  format,
+  shown,
+}: {
+  levels: number[];
+  x1: number;
+  x2: number;
+  gutterX: number;
+  y: (value: number) => number;
+  format: (value: number) => string;
+  shown: boolean;
+}) {
+  return (
+    <g
+      pointerEvents="none"
+      style={{
+        opacity: shown ? 1 : 0,
+        transition: `opacity ${motion.rise}ms ${motion.ease}`,
+      }}
+    >
+      {levels.map((value) => (
+        <g key={value}>
+          <line
+            x1={x1}
+            x2={x2}
+            y1={y(value)}
+            y2={y(value)}
+            stroke={ink.baseline}
+            strokeOpacity={0.45}
+            strokeWidth={1}
+          />
+          <text
+            x={gutterX}
+            y={y(value) + 3.5}
+            fontSize={TYPE.tick}
+            fill={ink.context}
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {format(value)}
+          </text>
+        </g>
       ))}
     </g>
   );

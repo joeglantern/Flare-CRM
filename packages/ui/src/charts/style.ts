@@ -77,8 +77,11 @@ export const motion = {
 /** How far an area lifts as it fades in, in pixels. */
 export const RISE_PX = 6;
 
-/** The opacity of an area at the top of its gradient; it reaches zero at the baseline. */
-export const AREA_OPACITY = 0.18;
+/**
+ * The opacity of an area directly under its line; it falls away to nothing before the baseline.
+ * Enough to give the series weight on a true black background without becoming a wash.
+ */
+export const AREA_OPACITY = 0.26;
 
 export interface Inset {
   top: number;
