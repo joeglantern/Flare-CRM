@@ -381,6 +381,42 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     });
     expect(blocked.statusCode).toBe(403);
     expect(blocked.json<{ error: { code: string } }>().error.code).toBe('DO_NOT_CALL');
+
+    /*
+     * And on the shape the interface actually sends, which is a contact and a number rather than a
+     * phone id. The check used to run only when there was no contactId, so this exact body dialled a
+     * do-not-call number without a refusal.
+     */
+    const viaNumber = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/calls/dial',
+      payload: { contactId: contact.id, number: '+254745000111' },
+    });
+    expect(viaNumber.statusCode, viaNumber.body).toBe(403);
+    expect(viaNumber.json<{ error: { code: string } }>().error.code).toBe('DO_NOT_CALL');
+
+    // A contact id is a claim that the number belongs to that contact. Unchecked, it dialled
+    // anything at all while looking like click to call, which is also how the dialpad gate was got
+    // around.
+    const mismatched = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/calls/dial',
+      payload: { contactId: contact.id, number: '+254700999888' },
+    });
+    expect(mismatched.statusCode, mismatched.body).toBe(422);
+
+    // An invented id reached the PBX and only then failed the Call.contactId foreign key, so a call
+    // was ringing with nothing in the CRM recording it. Refused before anything is dialled.
+    const before = pbx.dialCounter;
+    const invented = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/calls/dial',
+      payload: { contactId: '01999999-0000-7000-8000-000000000000', number: '+254700999888' },
+    });
+    expect(invented.statusCode, invented.body).toBe(422);
+    expect(pbx.dialCounter, 'nothing may be dialled for a contact that does not exist').toBe(
+      before,
+    );
   });
 
   it('in-call controls reach the PBX with the agent leg channel and are audited', async () => {

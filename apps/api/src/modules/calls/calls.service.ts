@@ -357,7 +357,35 @@ export class CallsService {
     } else if (body.number) {
       e164 = toE164(body.number, country);
       if (!e164) throw new ValidationError([{ path: 'number', message: 'Invalid phone number' }]);
-      if (!contactId) {
+      if (contactId !== null) {
+        /*
+         * A contactId alongside a number is a claim that the number belongs to that contact, and it
+         * was taken on trust. Three things followed from that. The do-not-call check below only ran
+         * when there was no contactId, so any body carrying one dialled a do-not-call number without
+         * a refusal. The number itself was never checked against the contact, so a real id and any
+         * number at all placed the call. And an invented id reached the PBX first and failed the
+         * Call.contactId foreign key afterwards, leaving a live call with nothing recording it.
+         *
+         * So the claim is verified: the contact must exist, be visible to this actor, and own this
+         * number. It is also what separates click to call from the dialpad, which the route gates on.
+         */
+        const contact = await this.db.contact.findFirst({
+          where: { id: contactId, deletedAt: null, ...scopeWhere(scope, SHAPES.contact) },
+          select: {
+            doNotCall: true,
+            phones: { where: { deletedAt: null }, select: { e164: true } },
+          },
+        });
+        if (!contact)
+          throw new ValidationError([{ path: 'contactId', message: 'Contact not found' }]);
+        if (!contact.phones.some((p) => p.e164 === e164)) {
+          throw new ValidationError([
+            { path: 'number', message: 'That number does not belong to this contact' },
+          ]);
+        }
+        if (contact.doNotCall && !this.can(actor, 'contact:override_dnc'))
+          throw new AppError('DO_NOT_CALL', 403, 'This contact is marked do-not-call');
+      } else {
         const match = await this.db.contactPhone.findFirst({
           where: { e164, deletedAt: null, contact: { deletedAt: null } },
           select: { contactId: true, contact: { select: { doNotCall: true } } },
