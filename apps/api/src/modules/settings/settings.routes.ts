@@ -1,4 +1,4 @@
-import { LIMITS, brandingSettings, dataResponse } from '@crm/shared';
+import { LIMITS, brandingSettings, dataResponse, generateBrandPalette } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { LimitReachedError } from '../../lib/errors.js';
 import { auditContext } from '../../lib/request.js';
@@ -57,8 +57,31 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
           );
         }
       }
+      /*
+       * The palette is derived here, from the accent, whatever the browser sent.
+       *
+       * It arrived as data and was stored after a shape check, which made every contrast guarantee
+       * in `generateBrandPalette` a promise the browser had to keep. A tab opened before a fix
+       * deployed still runs the old generator and its palette would be accepted, and a hand-written
+       * request could store any colours at all. Deriving it server side also means the palette can
+       * never disagree with the accent it is supposed to come from.
+       */
+      const body =
+        request.body.branding === undefined
+          ? request.body
+          : {
+              ...request.body,
+              branding: {
+                ...request.body.branding,
+                palette:
+                  request.body.branding.accent === null
+                    ? null
+                    : generateBrandPalette(request.body.branding.accent),
+              },
+            };
+
       const before = await app.settings.getAll();
-      const after = await app.settings.patch(request.body, request.user?.id ?? null);
+      const after = await app.settings.patch(body, request.user?.id ?? null);
       await app.audit.write(auditContext(request), {
         action: 'settings.update',
         entity: 'settings',

@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Loading';
 import { Tabs } from '@/components/ui/Menu';
 import { Select } from '@/components/ui/Select';
+import { TrendChart } from '@crm/ui/charts';
 import { BarChart, FunnelBar, ProgressBar, SERIES, StatCard } from '@/components/data/charts';
 import { DataTable, type Column } from '@/components/data/DataTable';
 import { DateTime, Duration, Money } from '@/components/data/formatters';
@@ -201,21 +202,39 @@ function CallVolumeReport({ filters }: { filters: { from: string; to: string } }
         />
       </div>
 
+      {/*
+        Calls over time, drawn as time. This was a list of horizontal bars with a date down the side,
+        which is a table with the numbers replaced by lengths: a reader could compare any two days
+        and see no trend at all, which is the only question worth asking of a series by day.
+      */}
       <Panel title="By day">
-        <BarChart
-          legend={[
-            { label: 'Answered', tone: SERIES[0] ?? 'var(--chart-1)' },
-            { label: 'Missed', tone: 'var(--danger)' },
-            { label: 'Outbound', tone: SERIES[1] ?? 'var(--chart-2)' },
+        <TrendChart
+          height={200}
+          granularity="day"
+          format={(v) => v.toLocaleString('en-KE')}
+          inspectLabel="Inspect calls by day"
+          emptyLabel="No calls in this range"
+          series={[
+            {
+              key: 'answered',
+              label: 'Answered',
+              points: series.map((d) => ({ t: d.date, v: d.answered })),
+            },
+            {
+              key: 'missed',
+              label: 'Missed',
+              color: 'var(--danger)',
+              area: false,
+              points: series.map((d) => ({ t: d.date, v: d.missed })),
+            },
+            {
+              key: 'outbound',
+              label: 'Outbound',
+              color: SERIES[1] ?? 'var(--chart-2)',
+              area: false,
+              points: series.map((d) => ({ t: d.date, v: d.outbound })),
+            },
           ]}
-          series={series.map((d) => ({
-            label: d.date.slice(5),
-            segments: [
-              { value: d.answered, tone: SERIES[0] ?? 'var(--chart-1)', label: 'Answered' },
-              { value: d.missed, tone: 'var(--danger)', label: 'Missed' },
-              { value: d.outbound, tone: SERIES[1] ?? 'var(--chart-2)', label: 'Outbound' },
-            ],
-          }))}
         />
       </Panel>
 
