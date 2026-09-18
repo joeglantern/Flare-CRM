@@ -40,18 +40,19 @@ const whatsappWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
     schema: { hide: true, response: { 200: z.object({ ok: z.literal(true) }) } },
     handler: async (request, reply) => {
       const raw = request.rawBody ?? Buffer.alloc(0);
-      if (
-        !app.config.WHATSAPP_ENABLED ||
-        !(await app.entitlements.has('messaging')) ||
-        !app.whatsappAdapter.verifyWebhook(raw, request.headers)
-      ) {
+      /*
+       * Logged, not audited, and the two reasons are told apart. See the note on the Yeastar
+       * webhook: a public route writing to an append-only log that nothing prunes let anyone put
+       * permanent rows into a customer's audit screen without credentials, and a channel still
+       * sending after messaging left the plan did the same with no attacker involved.
+       */
+      if (!app.config.WHATSAPP_ENABLED || !(await app.entitlements.has('messaging'))) {
+        request.log.info({ ip: request.ip }, 'whatsapp webhook ignored: messaging is not enabled');
+        // Answered rather than refused, so a sender stops retrying instead of queueing forever.
+        return reply.send({ ok: true as const });
+      }
+      if (!app.whatsappAdapter.verifyWebhook(raw, request.headers)) {
         request.log.warn({ ip: request.ip }, 'whatsapp webhook signature rejected');
-        await app.audit
-          .write(
-            { actorId: null, actorType: 'webhook', ip: request.ip, requestId: request.id },
-            { action: 'webhook.signature_rejected', entity: 'whatsapp' },
-          )
-          .catch(() => undefined);
         throw new UnauthenticatedError('Invalid signature');
       }
       const jobId = `wa-${createHash('sha256').update(raw).digest('hex')}`;

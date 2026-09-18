@@ -110,7 +110,14 @@ const importExportRoutes: FastifyPluginAsyncZod = async (app) => {
       const stored = await storeUpload(
         app.storage,
         Object.assign(file, { toBuffer: () => Promise.resolve(fileBuffer) }),
-        { prefix: 'imports', allowed: CSV_TYPES, maxBytes: 25 * 1024 * 1024 },
+        {
+          prefix: 'imports',
+          allowed: CSV_TYPES,
+          maxBytes: 25 * 1024 * 1024,
+          // The one upload path that did not count against the plan's storage. Every other caller
+          // of storeUpload passes this, and 25 MB a time adds up as fast as any attachment does.
+          beforeStore: (bytes) => app.entitlements.assertStorage(bytes, auditContext(request)),
+        },
       );
       const parsed = parseCsv(fileBuffer, 0);
       const unknownColumns = Object.keys(mapping.columns).filter(

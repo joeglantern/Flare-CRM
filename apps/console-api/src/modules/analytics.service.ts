@@ -108,12 +108,20 @@ export class AnalyticsService {
       .map((e) => {
         // The filter above proves it, but the compiler wants it said once.
         const expiresAt = e.expiresAt ?? new Date();
+        const charge = RollupService.effectivePrice(e, now);
         return {
           customerId: e.customerId,
           name: byCustomer.get(e.customerId)?.name ?? 'Unknown',
           expiresAt: expiresAt.toISOString(),
           days: Math.ceil((expiresAt.getTime() - now.getTime()) / DAY_MS),
-          mrrMinor: RollupService.effectivePrice(e, now).listMinor,
+          /*
+           * What is actually at risk, by the same rule the revenue report uses: somebody paying
+           * risks what they pay, and somebody still in a trial risks what they would start paying.
+           * This was the list price in both cases, so one screen showed a trial or a discounted
+           * customer at full price while the other showed the real figure, and the two disagreed
+           * about the same customer.
+           */
+          mrrMinor: charge.state === 'trial' ? charge.listMinor : Math.max(charge.chargedMinor, 0),
         };
       })
       .filter((e) => e.days <= 90)

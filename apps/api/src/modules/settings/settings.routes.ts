@@ -118,6 +118,13 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
         { branding: { ...before, logoKey: stored.key } },
         request.user?.id ?? null,
       );
+      // The picture it replaces goes with it. Anything under branding/ is readable by every signed
+      // in user, so a logo somebody thought they had replaced stayed both stored and open.
+      if (before.logoKey !== null && before.logoKey !== stored.key) {
+        await app.storage.delete(before.logoKey).catch((err: unknown) => {
+          request.log.warn({ err, key: before.logoKey }, 'could not remove the replaced logo');
+        });
+      }
       await app.audit.write(auditContext(request), {
         action: 'settings.update',
         entity: 'settings',
@@ -137,6 +144,16 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
         { branding: { ...before, logoKey: null } },
         request.user?.id ?? null,
       );
+      /*
+       * Removed means removed. Clearing the key alone left the file in storage and readable by
+       * anyone signed in who had the key, which is the wrong answer when the reason somebody is
+       * pressing Remove is that they uploaded the wrong picture.
+       */
+      if (before.logoKey !== null) {
+        await app.storage.delete(before.logoKey).catch((err: unknown) => {
+          request.log.warn({ err, key: before.logoKey }, 'could not remove the logo object');
+        });
+      }
       await app.audit.write(auditContext(request), {
         action: 'settings.update',
         entity: 'settings',

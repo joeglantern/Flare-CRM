@@ -20,17 +20,30 @@ const yeastarWebhookRoutes: FastifyPluginAsyncZod = async (app) => {
         : undefined;
       const raw = request.rawBody ?? Buffer.alloc(0);
       const signature = request.headers['x-signature'];
+      /*
+       * A refusal is logged, not audited.
+       *
+       * This route is public and takes 600 requests a minute per address, and the audit log has an
+       * immutability trigger with nothing that prunes it. Writing a row here let anyone on the
+       * internet put permanent entries into a customer's own audit screen, without credentials.
+       *
+       * It also happened with no attacker at all: a refusal includes telephony not being in the
+       * plan, so a PBX still sending after a downgrade, or after the secret was rotated, added one
+       * permanent row per call event. The old line also said the signature was rejected when the
+       * real reason was that the feature was off, which would mislead whoever came to debug it.
+       */
+      if (!secret) {
+        request.log.info(
+          { ip: request.ip },
+          'yeastar webhook ignored: telephony is not in the plan',
+        );
+        // Answered rather than refused, so a sender stops retrying instead of queueing forever.
+        return reply.send({ ok: true as const });
+      }
       if (
-        !secret ||
         !verifyYeastarSignature(raw, secret, Array.isArray(signature) ? signature[0] : signature)
       ) {
         request.log.warn({ ip: request.ip }, 'yeastar webhook signature rejected');
-        await app.audit
-          .write(
-            { actorId: null, actorType: 'webhook', ip: request.ip, requestId: request.id },
-            { action: 'webhook.signature_rejected', entity: 'pbx' },
-          )
-          .catch(() => undefined);
         throw new UnauthenticatedError('Invalid signature');
       }
       const body = request.body as { event?: unknown; type?: unknown } | undefined;

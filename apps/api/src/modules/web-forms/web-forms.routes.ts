@@ -50,6 +50,29 @@ function toDto(
 }
 
 export const webFormsRoutes: FastifyPluginAsyncZod = async (app) => {
+  /**
+   * A form's default owner, checked before it is stored.
+   *
+   * `defaultOwnerId` is a bare uuid column with no relation (schema.prisma), so the database will
+   * hold whatever it is given and keep holding it after that person is gone. Every public
+   * submission is assigned to it, so a stale one turns each new lead into a failed foreign key and
+   * a 500 for the visitor, with the lead lost. Checked here, and checked again at submission,
+   * because the person can leave between the two.
+   */
+  const ownerOrNull = async (id: string | null | undefined): Promise<string | null> => {
+    if (id === null || id === undefined) return null;
+    const owner = await app.db.user.findFirst({
+      where: { id, isActive: true },
+      select: { id: true },
+    });
+    if (!owner) {
+      throw new ValidationError([
+        { path: 'defaultOwnerId', message: 'That user does not exist or is not active' },
+      ]);
+    }
+    return owner.id;
+  };
+
   app.get('/web-forms', {
     config: { auth: { permission: 'webform:manage', feature: ['leads', 'webforms'] } },
     schema: { tags: ['web-forms'], response: { 200: dataResponse(z.array(webFormDto)) } },
@@ -75,7 +98,7 @@ export const webFormsRoutes: FastifyPluginAsyncZod = async (app) => {
           token: randomBytes(24).toString('base64url'),
           fields: request.body.fields,
           allowedOrigins: request.body.allowedOrigins,
-          defaultOwnerId: request.body.defaultOwnerId ?? null,
+          defaultOwnerId: await ownerOrNull(request.body.defaultOwnerId),
         },
       });
       await app.audit.write(auditContext(request), {
@@ -106,7 +129,9 @@ export const webFormsRoutes: FastifyPluginAsyncZod = async (app) => {
           ...(b.name !== undefined ? { name: b.name } : {}),
           ...(b.fields !== undefined ? { fields: b.fields } : {}),
           ...(b.allowedOrigins !== undefined ? { allowedOrigins: b.allowedOrigins } : {}),
-          ...(b.defaultOwnerId !== undefined ? { defaultOwnerId: b.defaultOwnerId } : {}),
+          ...(b.defaultOwnerId !== undefined
+            ? { defaultOwnerId: await ownerOrNull(b.defaultOwnerId) }
+            : {}),
           ...(b.isActive !== undefined ? { isActive: b.isActive } : {}),
         },
       });
@@ -185,6 +210,32 @@ export const publicFormsRoutes: FastifyPluginAsyncZod = async (app) => {
           .filter((k) => k.startsWith('cf:'))
           .map((k) => k.slice(3)),
       );
+      /*
+       * The owner as it stands right now, not as the form remembers it.
+       *
+       * Validated at create and update, and checked again here because the person can leave in
+       * between. A departed or deactivated owner means the lead goes to nobody rather than to them:
+       * assigning it to an inactive user hid it from every own-scoped agent and sent the only
+       * notification to somebody who cannot sign in, and assigning it to a deleted one failed the
+       * lead's foreign key and lost the lead outright. Unassigned is visible to everyone who can see
+       * leads, which is the safe end to fail towards for something a stranger just sent us.
+       */
+      const liveOwner =
+        form.defaultOwnerId === null
+          ? null
+          : ((
+              await app.db.user.findFirst({
+                where: { id: form.defaultOwnerId, isActive: true },
+                select: { id: true },
+              })
+            )?.id ?? null);
+      if (form.defaultOwnerId !== null && liveOwner === null) {
+        request.log.warn(
+          { formId: form.id, defaultOwnerId: form.defaultOwnerId },
+          'web form owner is gone or inactive; the lead is unassigned',
+        );
+      }
+
       const customFields = Object.fromEntries(
         Object.entries(request.body.customFields ?? {}).filter(([k]) => allowedCustom.has(k)),
       );
@@ -202,7 +253,7 @@ export const publicFormsRoutes: FastifyPluginAsyncZod = async (app) => {
           customFields,
         },
         null,
-        form.defaultOwnerId,
+        liveOwner,
         {
           actorId: null,
           actorType: 'system',
@@ -215,9 +266,9 @@ export const publicFormsRoutes: FastifyPluginAsyncZod = async (app) => {
         where: { id: form.id },
         data: { submissionsCount: { increment: 1 } },
       });
-      if (form.defaultOwnerId) {
+      if (liveOwner !== null) {
         await app.notifications.notify({
-          userId: form.defaultOwnerId,
+          userId: liveOwner,
           type: 'system',
           title:
             `New web lead: ${request.body.firstName ?? ''} ${request.body.lastName ?? ''}`.trim(),

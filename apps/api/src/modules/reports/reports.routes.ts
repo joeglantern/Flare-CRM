@@ -11,6 +11,7 @@ import {
   pipelineConversionDto,
   pipelineReportQuery,
   pipelineSummaryDto,
+  FEATURES,
   roleHasPermission,
   type VisibilityScope,
 } from '@crm/shared';
@@ -18,6 +19,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { csvStream } from '../../lib/csv.js';
+import { FeatureNotInPlanError, ForbiddenError } from '../../lib/errors.js';
 import { auditContext, requireUser } from '../../lib/request.js';
 import { scopeOf } from '../../lib/scope.js';
 import { CallsService } from '../calls/calls.service.js';
@@ -58,6 +60,20 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
     headers: string[],
     rows: unknown[][],
   ) => {
+    /*
+     * The export gate lives here, not on the routes.
+     *
+     * `format=csv` turns a report somebody may read on screen into a file they may take away, and
+     * those are different rights. All six routes are declared with `report:view_own` and the reports
+     * feature, which every agent has; exporting is its own permission and its own sold feature. The
+     * screen hides the button without them, and the button was the only thing enforcing it, so a
+     * query parameter was enough to walk round both. One helper serves all six, so one check does.
+     */
+    const user = requireUser(request);
+    if (!roleHasPermission(user.role ?? 'agent', 'report:export')) throw new ForbiddenError();
+    if (!(await app.entitlements.has('exports')))
+      throw new FeatureNotInPlanError('exports', FEATURES.exports.label);
+
     await app.audit.write(auditContext(request), {
       action: 'report.export',
       entity: 'report',

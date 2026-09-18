@@ -514,18 +514,57 @@ export class UsersService {
     if (id === actorId) throw new ConflictError('You cannot delete your own account');
     const user = await this.get(id);
 
-    const [notes, calls, conversations, contacts, companies, leads, deals, tasks] =
-      await this.deps.db.$transaction([
-        this.deps.db.note.count({ where: { authorId: id } }),
-        this.deps.db.call.count({ where: { userId: id } }),
-        this.deps.db.conversation.count({ where: { assigneeId: id } }),
-        this.deps.db.contact.count({ where: { ownerId: id } }),
-        this.deps.db.company.count({ where: { ownerId: id } }),
-        this.deps.db.lead.count({ where: { ownerId: id } }),
-        this.deps.db.deal.count({ where: { ownerId: id } }),
-        this.deps.db.task.count({ where: { assigneeId: id } }),
-      ]);
-    const history = { notes, calls, conversations, contacts, companies, leads, deals, tasks };
+    /*
+     * What counts as a history. Two of these are here because the refusal could not see them.
+     *
+     * `webForms` because a form's default owner is a bare column with no relation: deleting the
+     * owner left the form pointing at nobody, and every later submission failed the lead's owner
+     * foreign key, so a visitor got a 500 and the lead was lost. Likely during setup, which is
+     * exactly when a rep is most likely to be removed again.
+     *
+     * `messages` and `activities` because the refusal promises that deleting is refused so a
+     * person's work keeps their name on it, and those two carry a name with no foreign key to
+     * enforce it. An agent whose conversations had been handed on could be deleted, and every
+     * message they had ever sent was left showing no sender.
+     */
+    const [
+      notes,
+      calls,
+      conversations,
+      contacts,
+      companies,
+      leads,
+      deals,
+      tasks,
+      webForms,
+      messages,
+      activities,
+    ] = await this.deps.db.$transaction([
+      this.deps.db.note.count({ where: { authorId: id } }),
+      this.deps.db.call.count({ where: { userId: id } }),
+      this.deps.db.conversation.count({ where: { assigneeId: id } }),
+      this.deps.db.contact.count({ where: { ownerId: id } }),
+      this.deps.db.company.count({ where: { ownerId: id } }),
+      this.deps.db.lead.count({ where: { ownerId: id } }),
+      this.deps.db.deal.count({ where: { ownerId: id } }),
+      this.deps.db.task.count({ where: { assigneeId: id } }),
+      this.deps.db.webForm.count({ where: { defaultOwnerId: id } }),
+      this.deps.db.message.count({ where: { sentById: id } }),
+      this.deps.db.activity.count({ where: { actorId: id } }),
+    ]);
+    const history = {
+      notes,
+      calls,
+      conversations,
+      contacts,
+      companies,
+      leads,
+      deals,
+      tasks,
+      webForms,
+      messages,
+      activities,
+    };
     const total = Object.values(history).reduce((sum, n) => sum + n, 0);
     if (total > 0) {
       throw new ConflictError(

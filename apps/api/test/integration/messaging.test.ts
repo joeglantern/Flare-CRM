@@ -107,9 +107,19 @@ describe('messaging: WhatsApp channel end to end', () => {
     expect(bad.statusCode).toBe(401);
     const forged = await webhook(inboundText(PHONE_ID, '254712000001', 'hi'), false);
     expect(forged.statusCode).toBe(401);
+    /*
+     * And no audit row, which is the opposite of what this once asserted.
+     *
+     * Recording a forged webhook sounds like the careful thing to do. It is not: this route is
+     * public, takes over a thousand requests a minute per address, and the audit log has an
+     * immutability trigger with nothing that prunes it. Writing here let anyone on the internet put
+     * permanent entries into a customer's own audit screen with no credentials, and a channel still
+     * sending after messaging left the plan did the same with nobody attacking anything. A refusal
+     * belongs in the log and in a counter, where it can be rotated.
+     */
     expect(
       await ctx.app.db.auditLog.count({ where: { action: 'webhook.signature_rejected' } }),
-    ).toBe(1);
+    ).toBe(0);
   });
 
   it('inbound message → conversation matched to contact, timeline, notification, socket; agent replies within the window', async () => {

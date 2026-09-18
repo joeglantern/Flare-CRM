@@ -3,6 +3,7 @@
  * WhatsApp status dots and the user block. Collapsed state persists per user; Ctrl+B toggles it.
  */
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { Avatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/Button';
@@ -29,6 +30,7 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
 
   const { features, customerName } = useEntitlements();
   const { branding } = useSettings();
+  const [logoBroken, setLogoBroken] = useState(false);
   const items = NAV_ITEMS.filter(
     (n) =>
       n.roles.includes(me.role) &&
@@ -52,7 +54,7 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
           to="/home"
           className="flex min-w-0 items-center gap-2 no-underline hover:no-underline"
         >
-          {branding.logoKey === null ? (
+          {branding.logoKey === null || logoBroken ? (
             <>
               <img src="/brand/mark.svg" alt="" width={20} height={20} className="shrink-0" />
               {!collapsed && (
@@ -69,6 +71,13 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
               alt={customerName}
               className={cn('w-auto shrink-0 object-contain', collapsed ? 'max-h-6' : 'max-h-7')}
               style={{ maxWidth: collapsed ? 32 : 168 }}
+              // A key can outlive its object, most easily when a database is restored without the
+              // bucket beside it. A broken image in the corner of every screen is a worse answer
+              // than our own mark, so the element removes itself and the fallback shows through.
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                setLogoBroken(true);
+              }}
             />
           )}
         </Link>

@@ -438,8 +438,28 @@ export class MessagingService {
     const preview = (event.body ?? `[${event.contentType}]`).slice(0, 120);
     const display =
       contactRow?.displayName ?? event.profileName ?? (e164 ? formatNational(e164) : event.from);
+    /*
+     * An assignee who has left is the same as no assignee.
+     *
+     * The persistent notification goes only to the assignee, and agents are sent the live event only
+     * when a conversation is unassigned. A conversation is assigned to the contact's owner when it
+     * starts, and nothing reassigns it when that person is deactivated, so after a rep left their
+     * customers' messages notified only them: they cannot sign in, own-scoped agents cannot see the
+     * conversation, and a manager saw it only if they happened to be online at that moment. Treating
+     * a departed assignee as nobody puts the message back in front of everyone who can act on it.
+     */
+    const assignee =
+      conversation.assigneeId === null
+        ? null
+        : ((
+            await this.app.db.user.findFirst({
+              where: { id: conversation.assigneeId, isActive: true },
+              select: { id: true },
+            })
+          )?.id ?? null);
+
     const targets = new Set<string>();
-    if (conversation.assigneeId) targets.add(conversation.assigneeId);
+    if (assignee) targets.add(assignee);
     const payload = {
       at: nowIso(),
       conversationId: conversation.id,
@@ -455,7 +475,7 @@ export class MessagingService {
       rooms.role('admin'),
       ...[...targets].map((u) => rooms.user(u)),
     ];
-    if (!conversation.assigneeId) roomsToNotify.push(rooms.role('agent'));
+    if (assignee === null) roomsToNotify.push(rooms.role('agent'));
     this.app.realtime.to(roomsToNotify).emit('message:new', payload);
     for (const userId of targets) {
       await this.app.notifications.notify({

@@ -14,6 +14,16 @@ import { runCsvImport } from './csv-import.js';
 import { runRetention } from './retention.js';
 import { QUEUES, type JobPayloads, type QueueName } from './queues.js';
 
+/**
+ * The largest recording a worker will hold.
+ *
+ * The container is capped at a gigabyte and a download costs roughly twice the file while it is
+ * being assembled, so this leaves room for the rest of the process to keep working. A recorded call
+ * longer than this is refused and marked, rather than being retried five times with the worker dying
+ * each time and taking every other queue down with it.
+ */
+const MAX_RECORDING_BYTES = 200 * 1024 * 1024;
+
 export interface RunningWorkers {
   close(): Promise<void>;
 }
@@ -109,11 +119,43 @@ export function startProcessors(app: FastifyInstance): RunningWorkers {
     try {
       const { download_resource_url } = await client.recordingDownloadUrl({ file: fileName });
       const res = await client.downloadResource(download_resource_url);
+
+      /*
+       * Refused by size before a byte is read, and again while reading.
+       *
+       * The body was read whole into memory with nothing watching it, and the storage limit was
+       * checked only afterwards, so the check could not save the process that had already held the
+       * file. The worker is capped at a gigabyte and peak use is about twice the file, and a failed
+       * job retries five times: one very long recorded call could therefore kill the worker over and
+       * over, and each death stalls every queue it runs, including messaging and the CDR sync.
+       *
+       * The length the PBX declares is the cheap check; the running total is the honest one, since
+       * a declared length can be absent or wrong.
+       */
+      if (res.contentLength !== undefined && res.contentLength > MAX_RECORDING_BYTES) {
+        app.log.warn(
+          { callId, bytes: res.contentLength },
+          'recording refused: larger than the ceiling a worker can hold',
+        );
+        await app.db.call.update({ where: { id: callId }, data: { recordingStatus: 'failed' } });
+        return;
+      }
       const chunks: Uint8Array[] = [];
+      let held = 0;
       const reader = res.body.getReader();
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
+        held += value.byteLength;
+        if (held > MAX_RECORDING_BYTES) {
+          await reader.cancel().catch(() => undefined);
+          app.log.warn(
+            { callId, bytes: held },
+            'recording refused mid-download: larger than the ceiling a worker can hold',
+          );
+          await app.db.call.update({ where: { id: callId }, data: { recordingStatus: 'failed' } });
+          return;
+        }
         chunks.push(value);
       }
       const buffer = Buffer.concat(chunks);
