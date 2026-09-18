@@ -343,7 +343,12 @@ export function CallDetailScreen({ callId }: { callId: string }) {
                 {
                   label: 'Number',
                   value: (
-                    <PhoneNumber e164={call.externalNumber} contactId={call.contactId} actions />
+                    <PhoneNumber
+                      e164={call.externalNumber}
+                      contactId={call.contactId}
+                      callId={call.id}
+                      actions
+                    />
                   ),
                 },
               ]}

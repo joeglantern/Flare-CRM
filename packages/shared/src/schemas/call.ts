@@ -79,10 +79,19 @@ export const dialBody = z
     contactId: uuid.optional(),
     phoneId: uuid.optional(),
     number: phoneInput.optional(),
+    /**
+     * Redial: the server takes the number and the contact from the call itself.
+     *
+     * A call's number is often not one of its contact's saved phones, because somebody linked a call
+     * from an unsaved number to a contact, or the number changed afterwards. Sending the pair back
+     * as a number and a contact asks the server to trust a claim it cannot check; sending the call
+     * asks it to look one up. It is click to call from a record either way, not the keypad.
+     */
+    callId: uuid.optional(),
   })
   .strict()
-  .refine((v) => v.phoneId !== undefined || v.number !== undefined, {
-    message: 'phoneId or number is required',
+  .refine((v) => v.phoneId !== undefined || v.number !== undefined || v.callId !== undefined, {
+    message: 'phoneId, number or callId is required',
     path: ['number'],
   });
 export type DialBody = z.infer<typeof dialBody>;

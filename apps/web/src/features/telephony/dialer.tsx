@@ -24,6 +24,12 @@ export interface DialTarget {
   display?: string;
   contactId?: string | null;
   phoneId?: string | null;
+  /**
+   * Redialling a call that already happened. The server takes the number and the contact from the
+   * call rather than from here, because a call's number is often not one of its contact's saved
+   * phones and only the call knows which pairing was real.
+   */
+  callId?: string | null;
   contactName?: string;
   contactCompany?: string | null;
   phoneType?: string | null;
@@ -174,12 +180,14 @@ function DialDialog({ target, onClose }: { target: DialTarget | null; onClose: (
               loading={dial.isPending}
               onClick={() => {
                 dial.mutate(
-                  {
-                    ...(target.contactId != null ? { contactId: target.contactId } : {}),
-                    ...(target.phoneId != null
-                      ? { phoneId: target.phoneId }
-                      : { number: target.e164 }),
-                  },
+                  target.callId != null
+                    ? { callId: target.callId }
+                    : {
+                        ...(target.contactId != null ? { contactId: target.contactId } : {}),
+                        ...(target.phoneId != null
+                          ? { phoneId: target.phoneId }
+                          : { number: target.e164 }),
+                      },
                   {
                     onSuccess: () => {
                       onClose();

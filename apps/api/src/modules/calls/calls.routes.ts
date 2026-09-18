@@ -63,9 +63,14 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
     },
     schema: { tags: ['calls'], body: dialBody, response: { 202: dataResponse(dialResult) } },
     handler: async (request, reply) => {
-      // A number with nothing behind it is the dialpad: click to call always names the contact or
-      // the phone it came from. Gating the screen alone would leave the capability reachable.
-      if (request.body.contactId === undefined && request.body.phoneId === undefined) {
+      // A number with nothing behind it is the dialpad: click to call always names the phone, the
+      // contact or the call it came from. Gating the screen alone would leave the capability
+      // reachable.
+      if (
+        request.body.contactId === undefined &&
+        request.body.phoneId === undefined &&
+        request.body.callId === undefined
+      ) {
         if (!(await app.entitlements.has('dialpad'))) {
           throw new FeatureNotInPlanError('dialpad', FEATURES.dialpad.label);
         }

@@ -194,6 +194,8 @@ export function DialpadScreen() {
                         dialer.dial({
                           e164: c.externalNumber,
                           contactId: c.contactId,
+                          // From the call, so a number that is not on the contact still redials.
+                          callId: c.id,
                           ...(c.contact !== null ? { contactName: c.contact.displayName } : {}),
                         });
                       }}

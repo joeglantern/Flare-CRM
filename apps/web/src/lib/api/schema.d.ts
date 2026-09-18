@@ -994,6 +994,8 @@ export interface paths {
                 content: {
                     "application/json": {
                         /** Format: uuid */
+                        callId?: string;
+                        /** Format: uuid */
                         contactId?: string;
                         number?: string;
                         /** Format: uuid */

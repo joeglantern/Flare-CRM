@@ -24,6 +24,8 @@ export interface PhoneNumberProps {
   primary?: boolean;
   contactId?: string | null;
   phoneId?: string | null;
+  /** Set where the number came from a call: the server then redials from the call record itself. */
+  callId?: string | null;
   contactName?: string;
   contactCompany?: string | null;
   onWhatsApp?: () => void;
@@ -41,6 +43,7 @@ export function PhoneNumber({
   primary,
   contactId,
   phoneId,
+  callId,
   contactName,
   contactCompany,
   onWhatsApp,
@@ -58,6 +61,7 @@ export function PhoneNumber({
     display: national,
     contactId: contactId ?? null,
     phoneId: phoneId ?? null,
+    callId: callId ?? null,
     doNotCall,
     dncSetBy: dncSetBy ?? null,
     ...(contactName !== undefined ? { contactName } : {}),

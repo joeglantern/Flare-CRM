@@ -57,7 +57,15 @@ services:
       - seaweed_data_dev:/data
       - ./seaweedfs/s3.dev.json:/etc/seaweedfs/s3.json:ro
     healthcheck:
-      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/ || exit 1']
+      # 403 is a pass: the S3 root refuses an unauthenticated request whenever s3.config is set, so
+      # the old check treated a working service as broken and had failed 1,278 times in a row while
+      # every integration suite ran green against it. Production was corrected in 7d01161 and this
+      # file was missed.
+      test:
+        [
+          'CMD-SHELL',
+          'wget -S -q -O /dev/null http://127.0.0.1:8333/ 2>&1 | grep -qE "HTTP/1\\.[01] (200|403)"',
+        ]
       interval: 10s
       timeout: 5s
       retries: 20

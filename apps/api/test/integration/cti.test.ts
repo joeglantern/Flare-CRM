@@ -419,6 +419,67 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     );
   });
 
+  /**
+   * A call's number is frequently not one of its contact's saved phones: somebody linked a call from
+   * an unsaved number to a contact, or the number changed afterwards. Redial sends the call, so the
+   * server reads both from the record rather than being handed a pairing it can only refuse.
+   */
+  it('redials a call whose number the contact does not own', async () => {
+    const contact = (
+      await ctx.as(admin, {
+        method: 'POST',
+        url: '/api/v1/contacts',
+        payload: {
+          firstName: 'Linked',
+          lastName: 'Later',
+          phones: [{ number: '0712000123' }],
+          ownerId: agent.id,
+        },
+      })
+    ).json<Envelope<{ id: string }>>().data;
+
+    // Came in on a number nobody had saved, and was attached to the contact by hand afterwards.
+    const call = await ctx.app.db.call.create({
+      data: {
+        id: crypto.randomUUID(),
+        pbxCallId: nextCallId(),
+        direction: 'inbound',
+        status: 'completed',
+        fromNumber: '0733999888',
+        toNumber: '1001',
+        externalE164: '+254733999888',
+        // The agent took it, which is what puts it in their scope; an unattached call is invisible
+        // to them and could not be linked in the first place.
+        userId: agent.id,
+        extension: '1001',
+        startedAt: new Date(),
+      },
+      select: { id: true },
+    });
+    const linked = await ctx.as(agent, {
+      method: 'POST',
+      url: `/api/v1/calls/${call.id}/link-contact`,
+      payload: { contactId: contact.id },
+    });
+    expect(linked.statusCode, linked.body).toBe(200);
+
+    const redial = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/calls/dial',
+      payload: { callId: call.id },
+    });
+    expect(redial.statusCode, redial.body).toBe(202);
+    expect(redial.json<Envelope<{ callee: string }>>().data.callee).toContain('733999888');
+
+    // And the shape that used to be sent for this is still refused, because the claim is unverifiable.
+    const asClaim = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/calls/dial',
+      payload: { contactId: contact.id, number: '+254733999888' },
+    });
+    expect(asClaim.statusCode, asClaim.body).toBe(422);
+  });
+
   it('in-call controls reach the PBX with the agent leg channel and are audited', async () => {
     const socket = await agentSocket(agent);
     const ringing = waitFor<{ callId: string }>(socket, 'call:ringing');

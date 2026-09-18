@@ -340,7 +340,30 @@ export class CallsService {
 
     let e164: string | null = null;
     let contactId: string | null = body.contactId ?? null;
-    if (body.phoneId) {
+    if (body.callId) {
+      /*
+       * Redial. The number and the contact both come from the call, so nothing the client sent about
+       * either is taken on trust and there is no claim to verify.
+       *
+       * This exists because a call's number frequently is not one of its contact's saved phones: the
+       * call may have been linked to a contact by hand, which is what linkContact is for, or the
+       * number may have changed since. Asking those two screens to send a number and a contact made
+       * a claim the server could only refuse.
+       */
+      const call = await this.getVisible(scope, body.callId);
+      if (!call.externalE164)
+        throw new ValidationError([{ path: 'callId', message: 'That call has no number to dial' }]);
+      e164 = call.externalE164;
+      contactId = call.contactId;
+      if (contactId !== null) {
+        const contact = await this.db.contact.findFirst({
+          where: { id: contactId, deletedAt: null },
+          select: { doNotCall: true },
+        });
+        if (contact?.doNotCall && !this.can(actor, 'contact:override_dnc'))
+          throw new AppError('DO_NOT_CALL', 403, 'This contact is marked do-not-call');
+      }
+    } else if (body.phoneId) {
       const phone = await this.db.contactPhone.findFirst({
         where: {
           id: body.phoneId,
