@@ -123,12 +123,28 @@ const LEAVE_ALONE_BYTES = 300 * 1024;
 export async function prepareLogo(file: File): Promise<File> {
   let bitmap: ImageBitmap;
   try {
-    bitmap = await createImageBitmap(file);
+    /*
+     * The decoder is told the size we want up front. Without the hint a 10000 by 10000 photo is
+     * decoded whole first, which is 400 MB of bitmap on a phone, and a tab that runs out of memory
+     * there falls back to sending the original file, producing exactly the refusal this function
+     * exists to prevent. Only the width is given: with both, the decoder stretches the image to fit
+     * exactly and the logo comes out squashed, whereas one dimension keeps the proportions. The
+     * scaling below still runs, so an image that is tall and narrow is brought back to size there.
+     */
+    bitmap = await createImageBitmap(file, { resizeWidth: MAX_LOGO_EDGE, resizeQuality: 'high' });
   } catch {
-    return file;
+    try {
+      bitmap = await createImageBitmap(file);
+    } catch {
+      return file; // not an image this browser can decode, such as HEIC
+    }
   }
   const longest = Math.max(bitmap.width, bitmap.height);
-  if (longest <= MAX_LOGO_EDGE && file.size <= LEAVE_ALONE_BYTES) {
+  // Re-encoded whenever the type is not one the server accepts, however small: a GIF or an AVIF the
+  // browser can decode is worth converting rather than letting the upload be refused for its type.
+  const servable =
+    file.type === 'image/png' || file.type === 'image/jpeg' || file.type === 'image/webp';
+  if (servable && longest <= MAX_LOGO_EDGE && file.size <= LEAVE_ALONE_BYTES) {
     bitmap.close();
     return file;
   }

@@ -15,7 +15,7 @@
  * a known background, its lightness is moved until it is. That check is the reason this is a
  * function and not a table of colours.
  */
-import { clampChroma, converter, formatHex, parse, wcagContrast } from 'culori';
+import { clampChroma, converter, formatHex, inGamut, parse, wcagContrast } from 'culori';
 import { z } from 'zod';
 
 /** The mark Flare ships with, and what a customer's theme resets to. */
@@ -94,9 +94,17 @@ function toOklch(value: string): Oklch {
   return { mode: 'oklch', l: parsed.l, c: parsed.c, h: parsed.h ?? 0 };
 }
 
-/** Into sRGB, clipping chroma rather than letting the conversion clip the channels and shift hue. */
+/**
+ * Into sRGB, clipping chroma rather than letting the conversion clip the channels and shift hue.
+ *
+ * A colour already inside the gamut is converted untouched. Clamping it anyway moved pure blue to
+ * #0031e5 and pure cyan to #01ffff, because the round trip through OKLCH leaves float noise just
+ * outside the boundary and the clamp then pulls the colour in from it. Visible, and on a seed it
+ * breaks the one promise this file makes.
+ */
 function toHex(color: Oklch): string {
-  return formatHex(clampChroma({ ...color, l: clamp(color.l, 0, 1) }, 'oklch', 'rgb'));
+  const bounded = { ...color, l: clamp(color.l, 0, 1) };
+  return formatHex(inGamut('rgb')(bounded) ? bounded : clampChroma(bounded, 'oklch', 'rgb'));
 }
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -106,12 +114,17 @@ function clamp(n: number, lo: number, hi: number): number {
 function rampFrom(seed: Oklch): Ramp {
   const out = {} as Ramp;
   for (const step of STEPS) {
-    out[step.name] = toHex({
-      mode: 'oklch',
-      l: clamp(seed.l + step.dl, 0.05, 0.985),
-      c: seed.c * step.cs,
-      h: seed.h,
-    });
+    // Step 500 is the seed itself, handed back exactly. Running it through the same clamp as the
+    // rest turned a white brand into #fafafa, which is a different colour from the one given.
+    out[step.name] =
+      step.dl === 0
+        ? toHex(seed)
+        : toHex({
+            mode: 'oklch',
+            l: clamp(seed.l + step.dl, 0.05, 0.985),
+            c: seed.c * step.cs,
+            h: seed.h,
+          });
   }
   return out;
 }
@@ -136,11 +149,33 @@ function readableOn(color: Oklch, against: string, target: number, lighten: bool
   return toHex(candidate);
 }
 
-/** Black or white, whichever can actually be read on this colour. */
+/**
+ * Black or white, whichever reads better on the one background that cannot move.
+ *
+ * A primary button is three colours carrying one label: the accent at rest, and a lighter or darker
+ * step on hover and on press. Only the first of those is fixed, because it is the brand. So the
+ * label is chosen to suit the seed and the other two are moved to suit the label, rather than
+ * choosing for the worst of the three and leaving the seed itself failing.
+ *
+ * That choice cannot fail. Whichever of black and white is better against a colour, the worst case
+ * is a colour balanced exactly between them, and there the better one still reaches 4.58 to 1. The
+ * near-black used for body text does not have that property, which is what left a mid red at 4.47.
+ */
 function foregroundFor(background: string): string {
-  const onDark = wcagContrast(background, '#17171A');
-  const onLight = wcagContrast(background, '#FFFFFF');
-  return onDark >= onLight ? '#17171A' : '#FFFFFF';
+  return wcagContrast(background, '#000000') >= wcagContrast(background, '#FFFFFF')
+    ? '#000000'
+    : '#FFFFFF';
+}
+
+/**
+ * A surface the accent's own text sits on: a wash of the brand, not a step along its ramp.
+ *
+ * Relative steps break at the ends. Step 100 is the seed's lightness plus a fixed amount, so a black
+ * logo gave a mid grey where a pale surface belongs, and no foreground could then be read on it. A
+ * surface is an absolute thing, so it is stated absolutely and only takes its hue from the brand.
+ */
+function surfaceFor(seed: Oklch, lightness: number, maxChroma: number): string {
+  return toHex({ mode: 'oklch', l: lightness, c: Math.min(seed.c * 0.4, maxChroma), h: seed.h });
 }
 
 const DARK_BG = '#000000';
@@ -155,7 +190,16 @@ const LIGHT_BG = '#FAFAF8';
 export function generateBrandPalette(accent: string): BrandPalette {
   const seed = toOklch(accent);
   const ramp = rampFrom(seed);
-  const seedHex = ramp['500'];
+  /*
+   * The colour as it was given, not as it survives a round trip.
+   *
+   * Converting to OKLCH and back is lossy at the edge of the gamut: pure blue came back #0031e5 and
+   * pure cyan #01ffff, because the conversion lands a hair outside sRGB and the clamp then pulls it
+   * in. No tolerance fixes that in general, so the seed simply is not derived. It is the one value
+   * here that was chosen rather than computed.
+   */
+  const seedHex = /^#[0-9a-f]{6}$/i.test(accent.trim()) ? accent.trim().toLowerCase() : ramp['500'];
+  ramp['500'] = seedHex;
 
   const at = (name: StepName): Oklch => toOklch(ramp[name]);
 
@@ -163,8 +207,27 @@ export function generateBrandPalette(accent: string): BrandPalette {
   // to fail: a mid orange is fine on black and barely visible on paper.
   const linkDark = readableOn(at('300'), DARK_BG, 4.5, true);
   const linkLight = readableOn(at('700'), LIGHT_BG, 4.5, false);
-  const onSubtleDark = readableOn(at('300'), ramp['950'], 4.5, true);
-  const onSubtleLight = readableOn(at('700'), ramp['100'], 4.5, false);
+
+  const subtleDark = surfaceFor(seed, 0.19, 0.045);
+  const subtleLight = surfaceFor(seed, 0.95, 0.05);
+  const onSubtleDark = readableOn(at('300'), subtleDark, 4.5, true);
+  const onSubtleLight = readableOn(at('700'), subtleLight, 4.5, false);
+
+  /*
+   * A button's three states carry the same label, so the label is chosen against all three and then
+   * the two derived states are moved until they clear it. The seed never moves: it is the brand, and
+   * the states around it are ours to adjust. 4.5 rather than 3, because a button here is 12 to 13
+   * pixels at weight 500, which is not the large text the lower bar is for.
+   */
+  const onDark = foregroundFor(seedHex);
+  const onLight = foregroundFor(seedHex);
+  // Away from the label: a dark label needs a lighter button under it, and the other way round.
+  const lift = (c: Oklch, fg: string) => readableOn(c, fg, 4.5, fg === '#000000');
+
+  const hoverDark = lift(at('400'), onDark);
+  const pressedDark = lift(at('600'), onDark);
+  const hoverLight = lift(at('600'), onLight);
+  const pressedLight = lift(at('700'), onLight);
 
   const rampTokens: ThemeTokens = Object.fromEntries(
     STEPS.map((s) => [`--flare-${s.name}`, ramp[s.name]]),
@@ -175,23 +238,23 @@ export function generateBrandPalette(accent: string): BrandPalette {
     dark: {
       ...rampTokens,
       '--flare': seedHex,
-      '--flare-hover': ramp['400'],
-      '--flare-pressed': ramp['600'],
+      '--flare-hover': hoverDark,
+      '--flare-pressed': pressedDark,
       '--flare-link': linkDark,
-      '--flare-subtle': ramp['950'],
+      '--flare-subtle': subtleDark,
       '--flare-on-subtle': onSubtleDark,
-      '--on-flare': foregroundFor(seedHex),
+      '--on-flare': onDark,
       '--chart-1': seedHex,
     },
     light: {
       ...rampTokens,
       '--flare': seedHex,
-      '--flare-hover': ramp['600'],
-      '--flare-pressed': ramp['700'],
+      '--flare-hover': hoverLight,
+      '--flare-pressed': pressedLight,
       '--flare-link': linkLight,
-      '--flare-subtle': ramp['100'],
+      '--flare-subtle': subtleLight,
       '--flare-on-subtle': onSubtleLight,
-      '--on-flare': foregroundFor(seedHex),
+      '--on-flare': onLight,
       '--chart-1': seedHex,
     },
   };
@@ -216,9 +279,11 @@ export interface AccentCandidate {
  * make a strong accent so a screen can lead with them and mark the rest as muted.
  *
  * Colours a person would call the same are merged, since a logo's anti-aliasing invents dozens of
- * near-duplicates of every edge and offering all of them is the same as offering none.
+ * near-duplicates of every edge and offering all of them is the same as offering none. The tolerance
+ * is about one and a half times the smallest difference an eye can see in OKLab: wide enough to
+ * collapse a fringe, narrow enough to keep two reds a designer picked deliberately.
  */
-export function accentCandidates(colors: string[], tolerance = 0.05): AccentCandidate[] {
+export function accentCandidates(colors: string[], tolerance = 0.03): AccentCandidate[] {
   const parsed: { hex: string; c: Oklch }[] = [];
   for (const color of colors) {
     try {
