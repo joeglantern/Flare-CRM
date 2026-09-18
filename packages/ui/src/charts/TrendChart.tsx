@@ -91,9 +91,7 @@ export function TrendChart({
    * to and the eye always knows where to look for the current number. Wide enough for the widest
    * figure and no wider, capped so one enormous number cannot eat the plot.
    */
-  const endTexts = endValues
-    ? drawn.map((s) => format(s.points[s.points.length - 1]?.v ?? 0))
-    : [];
+  const endTexts = endValues ? drawn.map((s) => format(s.points[s.points.length - 1]?.v ?? 0)) : [];
   const gutter =
     endTexts.length === 0
       ? 0
