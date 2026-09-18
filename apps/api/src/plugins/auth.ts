@@ -9,6 +9,8 @@ import type { IncomingHttpHeaders } from 'node:http';
 import { z } from 'zod';
 import { createAuth, type AuthSession } from '../auth/auth.js';
 import { AuditService } from '../modules/audit/audit.service.js';
+import { NotFoundError } from '../lib/errors.js';
+import { auditContext } from '../lib/request.js';
 
 const AUDITED: Record<string, string> = {
   '/api/auth/sign-in/email': 'auth.sign_in',
@@ -19,14 +21,9 @@ const AUDITED: Record<string, string> = {
   '/api/auth/two-factor/enable': 'auth.two_factor_enabled',
   '/api/auth/two-factor/disable': 'auth.two_factor_disabled',
   '/api/auth/two-factor/verify-totp': 'auth.two_factor_verified',
-  '/api/auth/admin/set-role': 'user.role_changed',
-  '/api/auth/admin/ban-user': 'user.banned',
-  '/api/auth/admin/unban-user': 'user.unbanned',
-  '/api/auth/admin/create-user': 'user.created_via_auth',
-  '/api/auth/admin/remove-user': 'user.removed_via_auth',
-  '/api/auth/admin/set-user-password': 'user.password_set_by_admin',
-  '/api/auth/admin/revoke-user-sessions': 'user.sessions_revoked',
 };
+// Nothing under /api/auth/admin/ is listed, because nothing under it is reachable: the handler
+// refuses that prefix outright. Entries here would say the door exists and is merely watched.
 
 const bodyEmail = z.object({ email: z.string().max(254).optional() });
 
@@ -56,6 +53,38 @@ export default fp(
       schema: { hide: true },
       async handler(request, reply) {
         const url = new URL(request.url, app.config.APP_URL);
+
+        /*
+         * Better Auth's admin surface is shut, exactly as it is in the console (docs/21).
+         *
+         * This route is declared public, so the authorize hook never runs on it: no permission
+         * check, no feature check, and no plan-expiry check. Behind it, an administrator's role
+         * carries Better Auth's full admin access, which reaches creating a user, deleting one,
+         * impersonating one, and setting another person's password or email.
+         *
+         * Every one of those has a house rule that lives somewhere else and would be skipped here.
+         * Creating a user through this door adds a seat without `assertLimit('seats')`, and seats
+         * are the main thing a plan sells. Deleting one skips the refusal that keeps a departed
+         * person's work attributed to them, and the foreign keys then quietly strip their name off
+         * it. None of it is audited by us, and work done while impersonating is recorded as the
+         * impersonated person.
+         *
+         * Nothing needs the HTTP surface: the browser uses sign-in, sign-out, the session and the
+         * second factor, and the server's own admin calls go through `auth.api.*` in process, which
+         * never passes through this mount. Answered as a route that does not exist rather than one
+         * you may not use, so it says nothing about what is behind it.
+         */
+        if (url.pathname.startsWith('/api/auth/admin/')) {
+          await app.audit
+            .write(auditContext(request), {
+              action: 'access.denied',
+              entity: 'auth',
+              after: { method: request.method, url: url.pathname },
+            })
+            .catch(() => undefined);
+          throw new NotFoundError('Route');
+        }
+
         const headers = fromNodeHeaders(request.headers);
         headers.set('x-forwarded-for', request.ip);
         const init: RequestInit = { method: request.method, headers };

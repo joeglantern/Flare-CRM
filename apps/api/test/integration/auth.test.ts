@@ -55,6 +55,42 @@ describe('auth & authorization', () => {
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
   });
 
+  /**
+   * Better Auth's admin surface is mounted behind a route declared public, so nothing in the
+   * authorize hook runs on it: an administrator's role carries Better Auth's own admin access and
+   * would reach creating a user without the seat limit, deleting one without the refusal that keeps
+   * their work attributed, and impersonating one without an audit row of ours.
+   */
+  it('refuses the Better Auth admin surface, to an administrator as much as to anyone', async () => {
+    const admin = await ctx.createUser({ role: 'admin' });
+    for (const path of [
+      'create-user',
+      'remove-user',
+      'set-role',
+      'impersonate-user',
+      'set-user-password',
+      'list-users',
+    ]) {
+      const res = await ctx.as(admin, {
+        method: 'POST',
+        url: `/api/auth/admin/${path}`,
+        headers: { 'content-type': 'application/json', origin: ctx.env.APP_URL },
+        payload: {},
+      });
+      expect(res.statusCode, `${path} must not be reachable`).toBe(404);
+    }
+
+    // Seats are the main thing a plan sells, so the door that bypasses the limit stays shut.
+    const before = await ctx.app.db.user.count();
+    await ctx.as(admin, {
+      method: 'POST',
+      url: '/api/auth/admin/create-user',
+      headers: { 'content-type': 'application/json', origin: ctx.env.APP_URL },
+      payload: { email: 'seat@example.com', password: 'Str0ng-Passw0rd-xyz', name: 'Seat' },
+    });
+    expect(await ctx.app.db.user.count(), 'no user may be created through it').toBe(before);
+  });
+
   it('enforces role permissions: agents cannot manage settings, admins can', async () => {
     const agent = await ctx.createUser({ role: 'agent' });
     const admin = await ctx.createUser({ role: 'admin' });
