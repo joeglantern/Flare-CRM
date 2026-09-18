@@ -76,7 +76,10 @@ export function StatCard({
       )}
     </>
   );
-  const cls = cn('min-w-0 rounded-md border border-border bg-surface p-3.5 text-left', className);
+  // A figure needs no box. The number is large and the label is quiet, which is the whole of the
+  // hierarchy; a border around every one of them turns a row of readings into a row of cards and
+  // makes the screen louder than the data on it.
+  const cls = cn('min-w-0 rounded-md px-3.5 py-3 text-left', className);
   return onClick !== undefined ? (
     <button type="button" onClick={onClick} className={cn(cls, 'hover:bg-hover')}>
       {body}
@@ -130,18 +133,37 @@ export function BarChart({
             <span style={{ width: labelWidth }} className="shrink-0 truncate text-sm text-muted">
               {s.label}
             </span>
-            <span className="flex h-5 min-w-0 flex-1 items-center gap-px overflow-hidden rounded-[3px] bg-[var(--surface-hover)]">
+            {/*
+              No filled rail behind the bar. A track draws every row at full width whatever its
+              value, so the eye has to discount it before it can compare anything, and it is the one
+              element that makes a chart look like a progress list rather than a measurement. What
+              replaces it is three hairlines at a quarter, a half and three quarters of the peak,
+              drawn behind the bars and shared by every row, which is what a length is judged
+              against.
+            */}
+            <span className="relative flex h-2.5 min-w-0 flex-1 items-center gap-px">
+              <span aria-hidden className="pointer-events-none absolute inset-0">
+                {[25, 50, 75].map((pct) => (
+                  <i
+                    key={pct}
+                    className="absolute top-0 bottom-0 w-px bg-border"
+                    style={{ left: `${String(pct)}%`, opacity: 0.55 }}
+                  />
+                ))}
+              </span>
               {s.segments.map((seg, i) => (
                 <i
                   key={i}
                   title={`${seg.label ?? s.label}: ${format(seg.value)}`}
                   style={{ width: `${String((seg.value / peak) * 100)}%`, background: seg.tone }}
-                  className="h-full first:rounded-l-[3px] last:rounded-r-[3px]"
+                  className="relative h-full rounded-[2px]"
                   aria-hidden
                 />
               ))}
             </span>
-            <span className="tnum w-16 shrink-0 text-right text-sm">{s.meta ?? format(total)}</span>
+            <span className="tnum w-16 shrink-0 text-right text-sm font-medium">
+              {s.meta ?? format(total)}
+            </span>
           </>
         );
         return s.onClick !== undefined ? (
