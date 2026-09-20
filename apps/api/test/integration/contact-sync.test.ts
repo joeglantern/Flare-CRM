@@ -195,6 +195,32 @@ describe('contact sync (fake PBX)', () => {
     expect(await ctx.app.db.contact.count({ where: { id: contact.id, deletedAt: null } })).toBe(1);
   });
 
+  /*
+   * A phone system with the same number entered twice used to make the link jump between the two
+   * rows on every run, for ever, counting an import and writing an audit row each time. The audit
+   * log cannot be pruned, so a quiet no-op became permanent growth.
+   */
+  it('settles when the PBX holds the same number twice, instead of flip-flopping for ever', async () => {
+    await addContact('Jane', '0712000001');
+    await runContactSync(ctx.app);
+    const linkedTo = await ctx.app.db.pbxContactLink.findFirstOrThrow();
+
+    // Somebody adds the same number again on a handset.
+    pbx.contacts.set(900, { id: 900, contact_name: 'Jane Again', mobile: '+254712000001' });
+
+    const first = await runContactSync(ctx.app);
+    expect(first).toMatchObject({ imported: 0, duplicatesOnPbx: 1 });
+
+    const second = await runContactSync(ctx.app);
+    expect(second).toMatchObject({ imported: 0, duplicatesOnPbx: 1 });
+
+    // The link never moved, so nothing churns and no audit row is written for it.
+    const after = await ctx.app.db.pbxContactLink.findFirstOrThrow();
+    expect(after.pbxContactId).toBe(linkedTo.pbxContactId);
+    expect(await ctx.app.db.contact.count({ where: { deletedAt: null } })).toBe(1);
+    expect(await ctx.app.db.auditLog.count({ where: { action: 'contact.sync' } })).toBe(1);
+  });
+
   it('leaves a contact with no phone number alone, since the PBX cannot hold one', async () => {
     await ctx.as(admin, {
       method: 'POST',

@@ -250,6 +250,8 @@ export interface SyncSummary {
   adopted: number;
   removed: number;
   imported: number;
+  /** On the PBX twice under the same number. Counted and left alone, never merged or deleted. */
+  duplicatesOnPbx: number;
   skippedNoNumber: number;
   failed: number;
 }

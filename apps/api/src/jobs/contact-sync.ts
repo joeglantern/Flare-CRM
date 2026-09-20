@@ -44,6 +44,7 @@ export async function runContactSync(app: FastifyInstance): Promise<SyncSummary 
     adopted: 0,
     removed: 0,
     imported: 0,
+    duplicatesOnPbx: 0,
     skippedNoNumber: 0,
     failed: 0,
   };
@@ -162,8 +163,10 @@ export async function runContactSync(app: FastifyInstance): Promise<SyncSummary 
   for (const row of plan.importToCrm) {
     if (!budgetLeft()) break;
     try {
-      await importContact(app, row, country);
-      summary.imported++;
+      const outcome = await importContact(app, row, country);
+      if (outcome === 'imported') summary.imported++;
+      else if (outcome === 'linked') summary.adopted++;
+      else summary.duplicatesOnPbx++;
     } catch (err) {
       app.log.warn({ err, pbxContactId: row.id }, 'could not import a contact from the PBX');
       summary.failed++;
@@ -199,6 +202,12 @@ async function linkContact(
 /**
  * A person the PBX knows and the CRM does not, brought in.
  *
+ * Answers what it did, because two of the three outcomes are not imports. A number the CRM already
+ * holds means this row is the same person, and if that person is already linked to a different row
+ * then the PBX simply has them twice: that is left exactly as it is. Moving the link to the second
+ * row would move it back to the first on the next run, forever, and each pass would write an audit
+ * row that nothing can ever prune.
+ *
  * Unowned on purpose: the sync cannot know whose contact this is, and guessing would hand somebody
  * else's customer to whoever happens to run the job. Unowned contacts are visible to every agent,
  * so nobody loses sight of them while an admin decides.
@@ -209,15 +218,15 @@ async function importContact(
   app: FastifyInstance,
   row: Parameters<typeof rowE164s>[0],
   country: CountryCode,
-): Promise<void> {
+): Promise<'imported' | 'linked' | 'duplicate'> {
   const numbers = rowE164s(row, country);
   const first = numbers[0];
-  if (first === undefined) return;
+  if (first === undefined) return 'duplicate';
   const { firstName, lastName } = splitName(row);
   const displayName = [firstName, lastName].filter(Boolean).join(' ');
   const contactId = newId();
 
-  await app.db.$transaction(async (tx) => {
+  return app.db.$transaction(async (tx) => {
     // Another run, or a person, may have created this number in the meantime. The partial unique
     // index on a live number would refuse the insert; checking first turns that into a no-op.
     const clash = await tx.contactPhone.findFirst({
@@ -225,17 +234,27 @@ async function importContact(
       select: { contactId: true },
     });
     if (clash) {
-      await tx.pbxContactLink.upsert({
+      const existing = await tx.pbxContactLink.findUnique({
         where: { contactId: clash.contactId },
-        create: {
+        select: { pbxContactId: true },
+      });
+      if (existing) {
+        if (existing.pbxContactId === row.id) return 'linked';
+        app.log.warn(
+          { pbxContactId: row.id, alreadyLinkedTo: existing.pbxContactId },
+          'the PBX holds this number twice; leaving the second entry alone',
+        );
+        return 'duplicate';
+      }
+      await tx.pbxContactLink.create({
+        data: {
           contactId: clash.contactId,
           pbxContactId: row.id,
           fingerprint: '',
           syncedAt: new Date(),
         },
-        update: { pbxContactId: row.id },
       });
-      return;
+      return 'linked';
     }
 
     await tx.contact.create({
@@ -268,5 +287,6 @@ async function importContact(
         syncedAt: new Date(),
       },
     });
+    return 'imported';
   });
 }
