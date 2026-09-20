@@ -17,6 +17,13 @@ export class FakePbx {
   readonly requests: RecordedRequest[] = [];
   readonly sockets = new Set<WebSocket>();
   cdrs: unknown[] = [];
+  /** Company contacts, keyed by the id the PBX hands out. */
+  contacts = new Map<number, Record<string, unknown>>();
+  phonebooks: { id: number; name: string; member_select?: string }[] = [];
+  /** First names the PBX will refuse to create, so a test can fail one contact and not the rest. */
+  refuseContactNames = new Set<string>();
+  private contactSeq = 0;
+  private phonebookSeq = 0;
   recordingBytes = Buffer.from('RIFF....WAVEfmt fake-audio-bytes');
   tokenCounter = 0;
   dialCounter = 0;
@@ -133,6 +140,91 @@ export class FakePbx {
       errmsg: 'SUCCESS',
       data: { sign: 'fake-sign' },
     }));
+    // ── company contacts and phonebooks ────────────────────────────────────────────────
+    // Numbers go in as a `number_list` array and come back as one field per slot, which is how the
+    // real API behaves and the reason the mapping has to be written twice.
+    const slotField: Record<string, string> = {
+      mobile_number: 'mobile',
+      mobile_number2: 'mobile2',
+      business_number: 'business',
+      business_number2: 'business2',
+      home_number: 'home',
+      home_number2: 'home2',
+      other_number: 'other',
+    };
+    const toRow = (id: number, body: Record<string, unknown>): Record<string, unknown> => {
+      const numbers = Array.isArray(body.number_list)
+        ? (body.number_list as { num_type: string; number: string }[])
+        : [];
+      const row: Record<string, unknown> = {
+        id,
+        contact_name: [body.first_name, body.last_name].filter(Boolean).join(' '),
+        company: body.company ?? '',
+        email: body.email ?? '',
+        job_title: body.job_title ?? '',
+      };
+      for (const field of Object.values(slotField)) row[field] = '';
+      for (const n of numbers) {
+        const field = slotField[n.num_type];
+        if (field) row[field] = n.number;
+      }
+      return row;
+    };
+
+    app.get('/openapi/v1.0/company_contact/list', async (request) => {
+      if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
+      const q = request.query as Record<string, string | undefined>;
+      const size = Number(q.page_size ?? '10000');
+      const page = Number(q.page ?? '1');
+      const all = [...this.contacts.values()];
+      return {
+        errcode: 0,
+        errmsg: 'SUCCESS',
+        total_number: all.length,
+        data: all.slice((page - 1) * size, page * size),
+      };
+    });
+    app.post('/openapi/v1.0/company_contact/create', async (request) => {
+      if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      if (typeof body.first_name !== 'string' || body.first_name === '')
+        return { errcode: 40002, errmsg: 'The parameter first_name is invalid.' };
+      if (this.refuseContactNames.has(body.first_name))
+        return { errcode: 40003, errmsg: 'The contact could not be created.' };
+      const id = ++this.contactSeq;
+      this.contacts.set(id, toRow(id, body));
+      return { errcode: 0, errmsg: 'SUCCESS', id };
+    });
+    app.post('/openapi/v1.0/company_contact/update', async (request) => {
+      if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      const id = Number(body.id);
+      if (!this.contacts.has(id)) return { errcode: 40003, errmsg: 'The contact does not exist.' };
+      this.contacts.set(id, toRow(id, body));
+      return { errcode: 0, errmsg: 'SUCCESS' };
+    });
+    app.get('/openapi/v1.0/company_contact/delete', async (request) => {
+      if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
+      const q = request.query as Record<string, string>;
+      this.contacts.delete(Number(q.id));
+      return { errcode: 0, errmsg: 'SUCCESS' };
+    });
+    app.get('/openapi/v1.0/phonebook/list', async (request) => {
+      if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
+      return { errcode: 0, errmsg: 'SUCCESS', data: this.phonebooks };
+    });
+    app.post('/openapi/v1.0/phonebook/create', async (request) => {
+      if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
+      const body = (request.body ?? {}) as Record<string, unknown>;
+      const id = ++this.phonebookSeq;
+      this.phonebooks.push({
+        id,
+        name: typeof body.name === 'string' ? body.name : '',
+        ...(typeof body.member_select === 'string' ? { member_select: body.member_select } : {}),
+      });
+      return { errcode: 0, errmsg: 'SUCCESS', id };
+    });
+
     app.get('/openapi/v1.0/extension/list', async () => ({
       errcode: 0,
       errmsg: 'SUCCESS',

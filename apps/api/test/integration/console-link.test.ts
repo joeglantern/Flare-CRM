@@ -472,6 +472,23 @@ describe('the console link, from the stack side', () => {
      * it that way as the fact list grows.
      */
     it('describes the installation and nothing about the business on it', async () => {
+      /*
+       * A real contact exists while this runs, so the check below is about whether this person's
+       * details travel rather than about whether the word "contact" appears. It appears legitimately
+       * now: the contact sync has a queue named contact.sync and a migration named after its table,
+       * and both are facts about the installation rather than about anybody's business.
+       */
+      await ctx.as(admin, {
+        method: 'POST',
+        url: '/api/v1/contacts',
+        payload: {
+          firstName: 'Zanzibar',
+          lastName: 'Mwinyi',
+          phones: [{ number: '0712345678' }],
+          emails: [{ email: 'zanzibar@example.test' }],
+        },
+      });
+
       buildLink(() => undefined, undefined, diagnosticsDeps());
       await fake.waitFor('hello');
 
@@ -502,7 +519,12 @@ describe('the console link, from the stack side', () => {
       const wire = JSON.stringify(result);
       expect(wire).not.toContain(admin.email);
       expect(wire).not.toContain('Acme');
-      expect(wire).not.toContain('contact');
+      expect(wire).not.toContain('Zanzibar');
+      expect(wire).not.toContain('Mwinyi');
+      expect(wire).not.toContain('712345678');
+      expect(wire).not.toContain('zanzibar@example.test');
+      // Counts may travel; the records they count may not.
+      expect(wire).not.toContain('"contacts"');
 
       // Their administrator can see that we looked, in their own log.
       const row = await ctx.app.db.auditLog.findFirstOrThrow({

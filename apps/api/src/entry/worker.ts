@@ -184,6 +184,19 @@ async function main(): Promise<void> {
         { every: 10 * 60 * 1000 },
         { name: 'scheduled', data: {} },
       );
+    /*
+     * Contact sync (docs/06 §17). Every ten minutes, like the CDR reconciliation and for the same
+     * reason: it is a reconciliation, so the interval is how stale a phonebook may be, not how
+     * reliable the sync is. It costs two requests when nothing has changed.
+     */
+    await app.queues
+      .get(QUEUES.contactSync)
+      .upsertJobScheduler(
+        'contact-sync-10m',
+        { every: 10 * 60 * 1000 },
+        { name: 'scheduled', data: {} },
+      );
+
     const tokenTimer = setInterval(() => {
       app.cti.tokens?.getAccessToken().catch((err: unknown) => {
         app.log.warn({ err }, 'PBX token keep-alive failed');

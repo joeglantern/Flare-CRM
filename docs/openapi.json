@@ -3326,6 +3326,24 @@
                           ],
                           "additionalProperties": false
                         },
+                        "contactSync": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "phonebookName": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            }
+                          },
+                          "required": [
+                            "enabled",
+                            "phonebookName"
+                          ],
+                          "additionalProperties": false
+                        },
                         "matching": {
                           "type": "object",
                           "properties": {
@@ -3450,6 +3468,7 @@
                         "popup",
                         "recording",
                         "retention",
+                        "contactSync",
                         "matching",
                         "branding",
                         "security"
@@ -3602,6 +3621,23 @@
                       "softDeletePurgeDays",
                       "pbxEventsDays",
                       "rawMessagePayloadDays"
+                    ]
+                  },
+                  "contactSync": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "phonebookName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "phonebookName"
                     ]
                   },
                   "matching": {
@@ -3862,6 +3898,24 @@
                           ],
                           "additionalProperties": false
                         },
+                        "contactSync": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "phonebookName": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            }
+                          },
+                          "required": [
+                            "enabled",
+                            "phonebookName"
+                          ],
+                          "additionalProperties": false
+                        },
                         "matching": {
                           "type": "object",
                           "properties": {
@@ -3986,6 +4040,7 @@
                         "popup",
                         "recording",
                         "retention",
+                        "contactSync",
                         "matching",
                         "branding",
                         "security"

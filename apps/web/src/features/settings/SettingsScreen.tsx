@@ -248,7 +248,12 @@ export function SettingsScreen() {
           {active === 'general' && <GeneralSection />}
           {active === 'branding' && <BrandingSection />}
           {active === 'plan' && <PlanSection />}
-          {active === 'telephony' && <TelephonySection />}
+          {active === 'telephony' && (
+            <>
+              <TelephonySection />
+              <ContactSyncSection />
+            </>
+          )}
           {active === 'recording' && <RecordingSection />}
           {active === 'matching' && <MatchingSection />}
           {active === 'security' && <SecuritySection />}
@@ -1013,6 +1018,54 @@ function RecordingSection() {
               setDraft({ ...value, retentionDays: Number(e.target.value) });
             }}
           />
+        </>
+      )}
+    </SectionShell>
+  );
+}
+
+/* ── contact sync ───────────────────────────────────────────────────────────────────────── */
+
+function ContactSyncSection() {
+  const sync = useSettingsSection('contactSync');
+  const value = sync.value;
+
+  return (
+    <SectionShell
+      title="Contacts on the phone system"
+      description="Keeps the PBX's contacts and this CRM's contacts the same people, in both directions."
+      loading={sync.query.isPending}
+      error={sync.query.error}
+    >
+      {value !== undefined && (
+        <>
+          <Switch
+            checked={value.enabled}
+            disabled={!sync.canManage}
+            onChange={(v) => {
+              sync.save(
+                { ...value, enabled: v },
+                v ? 'Contacts will be kept in step' : 'Contacts are no longer copied',
+              );
+            }}
+            label="Keep contacts in step with the PBX"
+            description="Every contact here is copied to the phone system, and anyone typed into a handset is brought back. Checked every ten minutes."
+          />
+          <Input
+            label="Phonebook name"
+            disabled={!sync.canManage}
+            description="Created on the phone system if it is not there. It holds every company contact, so it cannot fall out of step with them."
+            value={value.phonebookName}
+            onChange={(e) => {
+              sync.save({ ...value, phonebookName: e.target.value }, 'Phonebook name saved');
+            }}
+          />
+          <p className="text-sm text-muted">
+            Deleting a contact here deletes it on the phone system. Deleting it on a handset does
+            not delete it here: it is put back at the next check, because a phone should not be able
+            to remove one of your records. A contact with no phone number is left out, since the
+            phone system cannot hold one.
+          </p>
         </>
       )}
     </SectionShell>

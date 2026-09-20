@@ -209,6 +209,7 @@ model Contact {
   conversations Conversation[]
   activities    Activity[]
   convertedFrom Lead[]         @relation("LeadConvertedContact")
+  pbxLink       PbxContactLink?
 
   @@index([ownerId])
   @@index([companyId])
@@ -217,6 +218,26 @@ model Contact {
   @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin, map: "contacts_display_name_trgm")
   @@index([searchVector], type: Gin, map: "contacts_search_idx")
   @@map("contacts")
+}
+
+/**
+ * Which PBX company contact a CRM contact is, and what we last sent there (docs/06 §17).
+ *
+ * A table of its own rather than a column on Contact: it belongs to the phone system rather than
+ * to the person, and a stack with no PBX should carry no trace of one. `fingerprint` records what
+ * the PBX was last given, so a run that changes nothing sends nothing.
+ */
+model PbxContactLink {
+  contactId    String   @id @map("contact_id") @db.Uuid
+  /// The PBX's own integer id for this contact.
+  pbxContactId Int      @unique @map("pbx_contact_id")
+  /// A summary of the fields last written, so an unchanged contact costs no request.
+  fingerprint  String   @default("")
+  syncedAt     DateTime @default(now()) @map("synced_at") @db.Timestamptz(3)
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@map("pbx_contact_links")
 }
 
 model ContactPhone {

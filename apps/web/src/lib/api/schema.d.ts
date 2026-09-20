@@ -7355,6 +7355,10 @@ export interface paths {
                                         };
                                     } | null;
                                 };
+                                contactSync: {
+                                    enabled: boolean;
+                                    phonebookName: string;
+                                };
                                 currency: string;
                                 defaultCountry: string;
                                 dialRules: {
@@ -7425,6 +7429,10 @@ export interface paths {
                                 };
                             } | null;
                         };
+                        contactSync?: {
+                            enabled: boolean;
+                            phonebookName: string;
+                        };
                         currency?: string;
                         defaultCountry?: string;
                         dialRules?: {
@@ -7485,6 +7493,10 @@ export interface paths {
                                             [key: string]: string;
                                         };
                                     } | null;
+                                };
+                                contactSync: {
+                                    enabled: boolean;
+                                    phonebookName: string;
                                 };
                                 currency: string;
                                 defaultCountry: string;

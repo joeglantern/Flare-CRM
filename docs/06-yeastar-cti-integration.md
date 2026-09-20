@@ -244,3 +244,53 @@ Runs (a) after every WebSocket (re)connect, (b) every 10 min by cron, (c) on dem
 - `/ready` includes `pbx: { connected, lastEventAt, tokenExpiresAt, leader }`.
 - Admin UI "PBX status" page shows the same + last 50 raw events + a "reconcile now" button.
 - Alert if no heartbeat response for 60 s, or `connected=false` for > 2 min.
+
+## 17. Contact sync (`jobs/contact-sync.ts`)
+
+The PBX's company contacts and the CRM's contacts are kept as the same set of people, in both
+directions. Off by default: `contactSync.enabled` in settings, with `contactSync.phonebookName`
+naming the phonebook. Requires `telephony` in the plan.
+
+**Reconciled, not hooked.** Every run reads both sides, plans the difference and applies it, the
+way `reconcile.ts` does for CDRs. A contact changes through a dozen paths, including the CSV
+import, a lead being converted, a merge and every phone endpoint, so a sync built from hooks on
+those paths is correct only until somebody adds the thirteenth. Scheduled every ten minutes from
+the worker; the interval is how stale a phonebook may be, not how reliable the sync is.
+
+**Matching is by phone number, never by name.** Numbers are compared as E.164, and the CRM's
+partial unique index guarantees one live contact per number, so a number identifies at most one
+person on each side. This is what stops a second run creating a second copy of everybody, and what
+lets a first run against a PBX that was already in use adopt its entries rather than duplicate
+them.
+
+**Who wins.** The CRM is the record of the business, so it wins on content. A contact only the PBX
+has is imported rather than deleted: somebody typed them into a phone, and deleting their work is
+not a sync. Imported contacts are unowned, so every agent can see them until an admin assigns them,
+and carry `source = 'yeastar'`.
+
+**Deleting is deliberately asymmetric.** Deleting in the CRM deletes on the PBX. Deleting on the
+PBX does not delete in the CRM; the contact is put back on the next run. A handset should not be
+able to destroy the business's own records.
+
+**Phonebook consistency.** The phonebook is created with `member_select: 'sel_all'`, so it holds
+every company contact by construction. A phonebook that named its members would need editing on
+every change, and the day that edit failed the phonebook and the contacts would disagree.
+
+**Shape mismatch.** Numbers are written as a `number_list` array and read back as one field per
+slot (`mobile`, `business`, `home` and their seconds), so the mapping is written twice. Seven slots
+are filled, most useful first; an eighth number is dropped rather than failing the contact. A
+contact with no number at all is skipped, because the PBX cannot hold one.
+
+**Cost and failure.** A run that changes nothing costs two requests. `fingerprint` records what was
+last written, so an unchanged contact is never re-sent, and fields the PBX cannot hold (tags,
+owner) do not count as changes. Writes are capped at 300 per run so a first sync of a large CRM is
+spread over several runs. Each contact is applied on its own: one refusal is counted and retried
+next run rather than stopping the rest.
+
+| Endpoint                                        | Used for                                              |
+| ----------------------------------------------- | ----------------------------------------------------- |
+| `GET /company_contact/list`                     | reading the PBX side, 1 000 per page                  |
+| `POST /company_contact/create`                  | a CRM contact the PBX does not have                   |
+| `POST /company_contact/update`                  | one the PBX has, out of date                          |
+| `GET /company_contact/delete`                   | one deleted in the CRM (single id only; no bulk form) |
+| `GET /phonebook/list`, `POST /phonebook/create` | making sure the phonebook exists                      |

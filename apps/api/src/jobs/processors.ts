@@ -11,6 +11,7 @@ import { reconcileCdrs } from '../integrations/yeastar/reconcile.js';
 import { rooms } from '../lib/realtime.js';
 import { TasksService } from '../modules/tasks/tasks.service.js';
 import { runCsvImport } from './csv-import.js';
+import { runContactSync } from './contact-sync.js';
 import { runRetention } from './retention.js';
 import { QUEUES, type JobPayloads, type QueueName } from './queues.js';
 
@@ -84,6 +85,14 @@ export function startProcessors(app: FastifyInstance): RunningWorkers {
 
   register(QUEUES.ctiEvent, 1, async (job) => {
     await app.cti.machine.handleRaw(job.data.raw, job.data.source, new Date(job.data.receivedAt));
+  });
+
+  /*
+   * One at a time, and never alongside itself: two runs would both see the same missing contacts
+   * and both create them, which is how a phone system ends up with everybody twice.
+   */
+  register(QUEUES.contactSync, 1, async () => {
+    await runContactSync(app);
   });
 
   register(QUEUES.ctiReconcile, 1, async (job) => {

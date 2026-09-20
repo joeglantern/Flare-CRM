@@ -62,6 +62,45 @@ export const tokenResponse = z.object({
 });
 export type TokenResponse = z.infer<typeof tokenResponse>;
 
+/** A contact as the PBX lists it: one field per number slot, and the phonebooks it belongs to. */
+export const companyContactRow = z
+  .object({
+    id: z.coerce.number(),
+    contact_name: z.string().optional(),
+    company: z.string().optional(),
+    email: z.string().optional(),
+    business: z.string().optional(),
+    business2: z.string().optional(),
+    mobile: z.string().optional(),
+    mobile2: z.string().optional(),
+    home: z.string().optional(),
+    home2: z.string().optional(),
+    other: z.string().optional(),
+  })
+  .loose();
+export type CompanyContactRow = z.infer<typeof companyContactRow>;
+
+export const NUMBER_SLOTS = [
+  'mobile_number',
+  'business_number',
+  'home_number',
+  'mobile_number2',
+  'business_number2',
+  'home_number2',
+  'other_number',
+] as const;
+export type NumberSlot = (typeof NUMBER_SLOTS)[number];
+
+/** What create and update accept. `first_name` and `number_list` are the only required fields. */
+export interface CompanyContactWrite {
+  first_name: string;
+  last_name?: string;
+  company?: string;
+  email?: string;
+  job_title?: string;
+  number_list: { num_type: NumberSlot; number: string }[];
+}
+
 export class YeastarClient {
   private readonly dispatcher: Dispatcher;
   private readonly apiBase: string;
@@ -271,6 +310,72 @@ export class YeastarClient {
           sign: z.string().optional(),
         })
         .loose(),
+    });
+  }
+
+  // ── Company contacts and phonebooks (docs/06 §17) ────────────────────────────────────────
+
+  /**
+   * One page of the PBX's company contacts. The default page size is the maximum the API allows,
+   * so a fleet of a few thousand contacts is two or three requests rather than a hundred.
+   *
+   * Numbers come back as one field per slot (`business`, `mobile`, `home` and their seconds) rather
+   * than as the `number_list` array that create and update take, so the two shapes differ in the
+   * same API and the mapping has to be written twice.
+   */
+  companyContactList(query: { page?: number; page_size?: number } = {}) {
+    return this.call('GET', '/company_contact/list', {
+      query: { page: query.page ?? 1, page_size: query.page_size ?? 1000 },
+      schema: z
+        .object({
+          total_number: z.coerce.number().optional(),
+          data: z.array(companyContactRow).optional(),
+        })
+        .loose(),
+    });
+  }
+
+  companyContactCreate(body: CompanyContactWrite) {
+    return this.call('POST', '/company_contact/create', {
+      body,
+      schema: z.object({ id: z.coerce.number() }).loose(),
+    });
+  }
+
+  companyContactUpdate(body: CompanyContactWrite & { id: number }) {
+    return this.call('POST', '/company_contact/update', { body, schema: z.object({}).loose() });
+  }
+
+  /** One at a time: the API takes a single id and has no bulk form. */
+  companyContactDelete(id: number) {
+    return this.call('GET', '/company_contact/delete', {
+      query: { id },
+      schema: z.object({}).loose(),
+    });
+  }
+
+  phonebookList(query: { page?: number; page_size?: number } = {}) {
+    return this.call('GET', '/phonebook/list', {
+      query: { page: query.page ?? 1, page_size: query.page_size ?? 1000 },
+      schema: z
+        .object({
+          data: z
+            .array(z.object({ id: z.coerce.number(), name: z.string().optional() }).loose())
+            .optional(),
+        })
+        .loose(),
+    });
+  }
+
+  /**
+   * `sel_all` rather than a list of ids on purpose: a phonebook that names its members has to be
+   * edited every time a contact is added or removed, and the day that edit fails the phonebook and
+   * the contacts disagree. "Everyone" cannot drift.
+   */
+  phonebookCreate(body: { name: string; member_select: 'sel_all' | 'sel_specific' }) {
+    return this.call('POST', '/phonebook/create', {
+      body,
+      schema: z.object({ id: z.coerce.number().optional() }).loose(),
     });
   }
 

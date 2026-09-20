@@ -31,6 +31,17 @@ export const settingSchemas = {
     pbxEventsDays: z.number().int().min(1).max(365),
     rawMessagePayloadDays: z.number().int().min(1).max(3650),
   }),
+  /**
+   * Copying contacts to and from the phone system (docs/06 §17).
+   *
+   * Off by default. Turning it on writes the CRM's contacts into the customer's PBX and brings the
+   * PBX's back, which is not something to start happening because somebody deployed.
+   */
+  contactSync: z.object({
+    enabled: z.boolean(),
+    /** Created if missing, holding every company contact so it cannot drift. */
+    phonebookName: z.string().trim().min(1).max(64),
+  }),
   matching: z.object({
     allowSuffixMatch: z.boolean(),
     suffixLength: z.number().int().min(6).max(10),
@@ -70,6 +81,7 @@ export const settingDefaults: Settings = {
     allowAgentPlayback: true,
   },
   retention: { softDeletePurgeDays: 90, pbxEventsDays: 30, rawMessagePayloadDays: 90 },
+  contactSync: { enabled: false, phonebookName: 'Flare CRM' },
   matching: { allowSuffixMatch: false, suffixLength: 9 },
   branding: brandingDefaults,
   security: { require2FAForPrivileged: true, require2FAForAll: false, sessionIdleMinutes: 60 },

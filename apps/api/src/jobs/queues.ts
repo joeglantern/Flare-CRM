@@ -10,6 +10,7 @@ export const QUEUES = {
   recordingDownload: 'recording.download',
   ctiEvent: 'cti.event',
   ctiReconcile: 'cti.reconcile',
+  contactSync: 'contact.sync',
   messagingInbound: 'messaging.inbound',
   messagingOutbound: 'messaging.outbound',
   csvImport: 'csv.import',
@@ -24,6 +25,7 @@ export interface JobPayloads {
   [QUEUES.recordingDownload]: { callId: string; fileName: string };
   [QUEUES.ctiEvent]: { raw: unknown; source: 'webhook' | 'websocket'; receivedAt: string };
   [QUEUES.ctiReconcile]: { since?: string };
+  [QUEUES.contactSync]: Record<string, never>;
   [QUEUES.messagingInbound]: { channelId: string; payload: unknown };
   [QUEUES.messagingOutbound]: { messageId: string };
   [QUEUES.csvImport]: { importJobId: string };
