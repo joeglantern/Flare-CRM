@@ -2,8 +2,43 @@
  * Zod schemas for the Yeastar P-Series Open API events we consume (docs/06 §7).
  * Shapes follow the vendor developer guide; unknown extra fields are allowed (`loose`) so a
  * firmware update that adds fields does not break parsing.
+ *
+ * One thing the guide's examples do not make obvious: on the wire, the PBX sends `msg` as a JSON
+ * string inside the JSON frame, `{ "type": 30012, "sn": "...", "msg": "{\"call_id\": ...}" }`,
+ * not as a nested object. Every schema here describes the object, so a frame has to be unwrapped
+ * with `unwrapFrame` before it is parsed. Reading it as an object failed quietly, at debug level,
+ * for every call event the live PBX ever sent: no popups, no user on any call, and the only calls
+ * that existed were the ones the ten-minute CDR sync backfilled afterwards.
  */
 import { z } from 'zod';
+
+/**
+ * A frame as the PBX actually sends it, with a string `msg` decoded into the object the schemas
+ * describe. Anything else is returned untouched, so a frame that is not JSON at all still reaches
+ * the archive and the "could not parse" log rather than being thrown away here.
+ */
+export function unwrapFrame(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null || !('msg' in raw)) return raw;
+  const msg = raw.msg;
+  if (typeof msg !== 'string') return raw;
+  try {
+    return { ...raw, msg: JSON.parse(msg) as unknown };
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * A party as `GET /cdr/search` prints it: `Queue Emergency<6400>` or `0745150974<0745150974>`,
+ * the display name and then the number in angle brackets. The 30012 event carries the bare
+ * number, and everything downstream, including the lookup that puts a user on a call, expects
+ * the bare number. Without this, a backfilled call was stored as `Liban Liban<1002>` and matched
+ * nobody.
+ */
+export function unwrapParty(value: string): string {
+  const m = /<([^<>]*)>\s*$/.exec(value);
+  return m?.[1]?.trim() ?? value.trim();
+}
 
 export const YEASTAR_EVENT = {
   extensionRegistration: 30007,
@@ -186,8 +221,8 @@ export function cdrFromSearchRow(row: YeastarCdrSearchRow, timeZone: string): Ye
   return {
     call_id: row.call_id,
     time_start: formatPbxTime(new Date(row.timestamp * 1000), timeZone),
-    call_from: row.call_from,
-    call_to: row.call_to,
+    call_from: unwrapParty(row.call_from),
+    call_to: unwrapParty(row.call_to),
     call_duration: row.duration,
     talk_duration: row.talk_duration,
     src_trunk_name: row.src_trunk,

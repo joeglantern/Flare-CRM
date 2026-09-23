@@ -276,9 +276,17 @@ export class FakePbx {
     return address;
   }
 
-  /** Push an event to every subscribed CRM socket. */
+  /**
+   * Push an event to every subscribed CRM socket, framed the way the real PBX frames it: `msg` is
+   * a JSON string inside the JSON frame, not a nested object. The builders below hand over objects
+   * for readability; encoding happens here so every test exercises the shape production sees.
+   */
   emit(event: unknown): void {
-    const text = JSON.stringify(event);
+    const framed =
+      typeof event === 'object' && event !== null && 'msg' in event
+        ? { ...event, msg: JSON.stringify(event.msg) }
+        : event;
+    const text = JSON.stringify(framed);
     for (const ws of this.sockets) ws.send(text);
   }
 

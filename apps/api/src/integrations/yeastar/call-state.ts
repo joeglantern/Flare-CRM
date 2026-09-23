@@ -13,6 +13,8 @@ import {
   genericEvent,
   knownEvent,
   parsePbxTime,
+  SUBSCRIBED_TOPICS,
+  unwrapFrame,
   type YeastarCdr,
   type YeastarEvent,
   type YeastarMemberEntry,
@@ -78,6 +80,8 @@ export class CallStateMachine {
     source: 'websocket' | 'webhook' | 'reconcile',
     receivedAt = new Date(),
   ): Promise<void> {
+    // The PBX sends `msg` as a JSON string inside the frame; every schema describes the object.
+    raw = unwrapFrame(raw);
     const generic = genericEvent.safeParse(raw);
     if (!generic.success) {
       this.app.log.warn({ issues: generic.error.issues.slice(0, 3) }, 'unparseable PBX event');
@@ -100,7 +104,16 @@ export class CallStateMachine {
       });
     const known = knownEvent.safeParse(raw);
     if (!known.success) {
-      this.app.log.debug({ type: generic.data.type }, 'PBX event without handler archived');
+      // A type we asked the PBX for and then could not read is a fault worth seeing at the
+      // production log level. A type we never subscribed to is not.
+      if ((SUBSCRIBED_TOPICS as readonly number[]).includes(generic.data.type)) {
+        this.app.log.warn(
+          { type: generic.data.type, issues: known.error.issues.slice(0, 3) },
+          'subscribed PBX event could not be parsed; archived and dropped',
+        );
+      } else {
+        this.app.log.debug({ type: generic.data.type }, 'PBX event without handler archived');
+      }
       return;
     }
     const event = known.data;

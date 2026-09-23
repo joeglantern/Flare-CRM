@@ -5,7 +5,16 @@
  * it existed while reporting success every ten minutes.
  */
 import { describe, expect, it } from 'vitest';
-import { cdrFromSearchRow, cdrMsg, cdrSearchRow, formatPbxTime, parsePbxTime } from './events.js';
+import {
+  cdrFromSearchRow,
+  cdrMsg,
+  cdrSearchRow,
+  formatPbxTime,
+  knownEvent,
+  parsePbxTime,
+  unwrapFrame,
+  unwrapParty,
+} from './events.js';
 
 const NAIROBI = 'Africa/Nairobi';
 
@@ -79,5 +88,90 @@ describe('a CDR row from the search endpoint', () => {
     expect(cdrMsg.safeParse(cdr).success).toBe(true);
     expect(cdr.call_duration).toBe(0);
     expect(cdr.recording).toBe('');
+  });
+});
+
+/**
+ * Copied from the live PBX's own archive: `msg` arrives as a JSON string inside the frame. Every
+ * call event the PBX ever sent looked like this, and every one was archived and dropped because
+ * the schemas describe the decoded object. No popup and no user on any call came from this.
+ */
+const liveFrame = {
+  sn: '3651064E8358',
+  type: 30012,
+  msg: '{"call_id":"1790197458.5215","time_start":"2026-09-24 00:04:18","call_from":"0111050596","call_to":"1002","call_duration":11,"talk_duration":11,"src_trunk_name":"Saf","dst_trunk_name":"","pin_code":"","status":"VOICEMAIL","type":"Inbound","recording":"","did_number":"","did_name":"","agent_ring_time":0,"uid":"2026092400041852EE8","call_note_id":"20260924000418-0FA8E","enb_call_note":4,"is_display":1,"realclidnum":""}',
+};
+
+describe('a frame as the PBX sends it', () => {
+  it('is not readable as sent, which is the fault', () => {
+    expect(knownEvent.safeParse(liveFrame).success).toBe(false);
+  });
+
+  it('is readable once the string body is decoded', () => {
+    const parsed = knownEvent.safeParse(unwrapFrame(liveFrame));
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === 30012) {
+      expect(parsed.data.msg.call_id).toBe('1790197458.5215');
+      expect(parsed.data.msg.call_to).toBe('1002');
+      expect(parsed.data.msg.status).toBe('VOICEMAIL');
+    }
+  });
+
+  it('decodes a ringing event the same way', () => {
+    const ringing = {
+      type: 30011,
+      sn: 'X',
+      msg: JSON.stringify({
+        call_id: '1790197458.5215',
+        members: [
+          {
+            inbound: {
+              from: '0111050596',
+              to: '1002',
+              channel_id: 'PJSIP/t-1',
+              member_status: 'ANSWERED',
+            },
+          },
+          { extension: { number: '1002', channel_id: 'PJSIP/1002-1', member_status: 'RING' } },
+        ],
+      }),
+    };
+    const parsed = knownEvent.safeParse(unwrapFrame(ringing));
+    expect(parsed.success).toBe(true);
+    if (parsed.success && parsed.data.type === 30011) {
+      expect(parsed.data.msg.members[1]?.extension?.number).toBe('1002');
+    }
+  });
+
+  it('leaves a frame whose body is already an object alone', () => {
+    const decoded = unwrapFrame(liveFrame);
+    expect(unwrapFrame(decoded)).toEqual(decoded);
+  });
+
+  it('leaves a body that is not JSON untouched, so it still reaches the archive', () => {
+    const bad = { type: 30012, msg: '{not json' };
+    expect(unwrapFrame(bad)).toEqual(bad);
+    expect(unwrapFrame('heartbeat response')).toBe('heartbeat response');
+    expect(unwrapFrame(null)).toBeNull();
+  });
+});
+
+describe('a party as the search endpoint prints it', () => {
+  it('keeps only the number, which is what the lookup needs', () => {
+    expect(unwrapParty('Queue Emergency<6400>')).toBe('6400');
+    expect(unwrapParty('0745150974<0745150974>')).toBe('0745150974');
+    expect(unwrapParty('Liban Liban<1002>')).toBe('1002');
+  });
+
+  it('passes a bare number through, and an empty name too', () => {
+    expect(unwrapParty('1002')).toBe('1002');
+    expect(unwrapParty('<1002>')).toBe('1002');
+    expect(unwrapParty('')).toBe('');
+  });
+
+  it('is applied to a search row, so a backfilled call reads like an evented one', () => {
+    const cdr = cdrFromSearchRow(cdrSearchRow.parse(searchRow), NAIROBI);
+    expect(cdr.call_from).toBe('0745150974');
+    expect(cdr.call_to).toBe('6400');
   });
 });
