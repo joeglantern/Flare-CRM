@@ -379,11 +379,28 @@ export class YeastarClient {
     });
   }
 
+  /**
+   * Every extension with the email the PBX holds for it, which is what ties an extension to a CRM
+   * user (docs/06 §18). Optional fields because an extension can exist with nothing filled in.
+   */
   extensionList(query: { page?: number; page_size?: number } = {}) {
     return this.call('GET', '/extension/list', {
-      query,
+      query: { page: query.page ?? 1, page_size: query.page_size ?? 1000 },
       schema: z
-        .object({ data: z.array(z.object({ number: z.string().optional() }).loose()).optional() })
+        .object({
+          total_number: z.coerce.number().optional(),
+          data: z
+            .array(
+              z
+                .object({
+                  number: z.string().optional(),
+                  caller_id_name: z.string().optional(),
+                  email_addr: z.string().optional(),
+                })
+                .loose(),
+            )
+            .optional(),
+        })
         .loose(),
     });
   }

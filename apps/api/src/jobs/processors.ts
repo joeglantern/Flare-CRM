@@ -12,6 +12,7 @@ import { rooms } from '../lib/realtime.js';
 import { TasksService } from '../modules/tasks/tasks.service.js';
 import { runCsvImport } from './csv-import.js';
 import { runContactSync } from './contact-sync.js';
+import { runExtensionSync } from './extension-sync.js';
 import { runRetention } from './retention.js';
 import { QUEUES, type JobPayloads, type QueueName } from './queues.js';
 
@@ -93,6 +94,10 @@ export function startProcessors(app: FastifyInstance): RunningWorkers {
    */
   register(QUEUES.contactSync, 1, async () => {
     await runContactSync(app);
+  });
+
+  register(QUEUES.extensionSync, 1, async () => {
+    await runExtensionSync(app);
   });
 
   register(QUEUES.ctiReconcile, 1, async (job) => {

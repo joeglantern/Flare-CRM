@@ -37,6 +37,12 @@ export const settingSchemas = {
    * Off by default. Turning it on writes the CRM's contacts into the customer's PBX and brings the
    * PBX's back, which is not something to start happening because somebody deployed.
    */
+  /**
+   * Tying each CRM user to their PBX extension by email (docs/06 §18), the way Yeastar's own CRM
+   * integration does. It only ever fills in a blank; a conflict is reported, never resolved by
+   * guessing, so leaving it on is safe.
+   */
+  extensionSync: z.object({ enabled: z.boolean() }),
   contactSync: z.object({
     enabled: z.boolean(),
     /** Created if missing, holding every company contact so it cannot drift. */
@@ -81,6 +87,7 @@ export const settingDefaults: Settings = {
     allowAgentPlayback: true,
   },
   retention: { softDeletePurgeDays: 90, pbxEventsDays: 30, rawMessagePayloadDays: 90 },
+  extensionSync: { enabled: true },
   contactSync: { enabled: false, phonebookName: 'Flare CRM' },
   matching: { allowSuffixMatch: false, suffixLength: 9 },
   branding: brandingDefaults,

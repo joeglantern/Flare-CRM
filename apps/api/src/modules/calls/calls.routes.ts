@@ -9,6 +9,7 @@ import {
   dialBody,
   dialResult,
   dispositionBody,
+  extensionLinkReportDto,
   FEATURES,
   idParams,
   linkContactBody,
@@ -24,6 +25,7 @@ import {
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { lastReconcileAt, reconcileCdrs } from '../../integrations/yeastar/reconcile.js';
+import { lastExtensionSyncReport, runExtensionSync } from '../../jobs/extension-sync.js';
 import { readCtiStatus } from '../../integrations/yeastar/subscriber.js';
 import {
   ConflictError,
@@ -419,6 +421,41 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
         after: result,
       });
       return { data: result };
+    },
+  });
+
+  /**
+   * Who is which extension, by email (docs/06 §18). The report of the last run, which is what the
+   * settings screen shows, so opening it does not ask the PBX anything.
+   */
+  app.get('/cti/extension-links', {
+    config: { auth: { permission: 'pbx:view_status', feature: 'telephony' } },
+    schema: { tags: ['cti'], response: { 200: dataResponse(extensionLinkReportDto.nullable()) } },
+    handler: async () => ({ data: await lastExtensionSyncReport(app.valkey) }),
+  });
+
+  app.post('/cti/extension-links/sync', {
+    config: {
+      auth: { permission: 'pbx:reconcile', feature: 'telephony' },
+      rateLimit: { max: 5, timeWindow: '1 minute' },
+    },
+    schema: { tags: ['cti'], response: { 200: dataResponse(extensionLinkReportDto) } },
+    handler: async (request) => {
+      if (!app.cti.enabled || !app.cti.client)
+        throw new PbxUnavailableError('Telephony integration is not enabled');
+      const report = await runExtensionSync(app);
+      if (report === null)
+        throw new ConflictError('Extension matching is switched off in settings');
+      await app.audit.write(auditContext(request), {
+        action: 'pbx.extension_links',
+        entity: 'pbx',
+        after: {
+          matched: report.matched,
+          assigned: report.assigned.length,
+          conflicts: report.conflicts.length,
+        },
+      });
+      return { data: report };
     },
   });
 

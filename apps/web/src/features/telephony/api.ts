@@ -1,7 +1,12 @@
 /**
  * Telephony data access (docs/06). Everything the popup, dialer, calls list and live board need.
  */
-import type { CallControlBody, DialBody, callDispositionDto } from '@crm/shared';
+import type {
+  CallControlBody,
+  DialBody,
+  ExtensionLinkReport,
+  callDispositionDto,
+} from '@crm/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { z } from 'zod';
 import { api, unwrap } from '@/lib/api/client';
@@ -75,6 +80,29 @@ export function useCtiStatus(enabled = true) {
     queryFn: async (): Promise<CtiStatus> => unwrap(await api.GET('/api/v1/cti/status')).data,
     refetchInterval: 30_000,
     enabled,
+  });
+}
+
+/** The last run of the email matching between CRM users and PBX extensions (docs/06 §18). */
+export function useExtensionLinks(enabled = true) {
+  return useQuery({
+    queryKey: [...qk.cti(), 'extension-links'],
+    queryFn: async (): Promise<ExtensionLinkReport | null> =>
+      unwrap(await api.GET('/api/v1/cti/extension-links')).data,
+    enabled,
+  });
+}
+
+export function useMatchExtensions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<ExtensionLinkReport> =>
+      unwrap(await api.POST('/api/v1/cti/extension-links/sync')).data,
+    onSuccess: (report) => {
+      qc.setQueryData([...qk.cti(), 'extension-links'], report);
+      // An assignment changes who can dial and whose calls pop, which the users list shows.
+      void qc.invalidateQueries({ queryKey: qk.list('users') });
+    },
   });
 }
 

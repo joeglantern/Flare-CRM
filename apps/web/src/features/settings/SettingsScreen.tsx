@@ -70,7 +70,7 @@ import {
   type AccentCandidate,
 } from '@crm/shared';
 import { useDispositions } from '@/features/telephony/api';
-import { useCtiStatus } from '@/features/telephony/api';
+import { useCtiStatus, useExtensionLinks, useMatchExtensions } from '@/features/telephony/api';
 import { MAX_PAGE_SIZE } from '@crm/shared';
 import { usePipelines } from '@/features/deals/api';
 import {
@@ -788,6 +788,8 @@ function TelephonySection() {
         </Panel>
       )}
 
+      {perms.has('pbx:view_status') && <ExtensionLinksPanel canRun={perms.has('pbx:reconcile')} />}
+
       <SectionShell
         title="Dial rules"
         description="How an E.164 number is turned into what the PBX actually dials."
@@ -1021,6 +1023,127 @@ function RecordingSection() {
         </>
       )}
     </SectionShell>
+  );
+}
+
+/* ── extension links ────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Who is which extension, decided by email the way Yeastar's own CRM integration does. What is
+ * worth showing is not the matches but the leftovers: a person with no extension gets no popups
+ * and no calls logged against them, and until now nothing on any screen said so.
+ */
+function ExtensionLinksPanel({ canRun }: { canRun: boolean }) {
+  const links = useExtensionLinks();
+  const match = useMatchExtensions();
+  const report = links.data ?? null;
+
+  return (
+    <Panel
+      title="Who is which extension"
+      note="matched by email, the way the PBX itself does it"
+      actions={
+        canRun ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={match.isPending}
+            onClick={() => {
+              match.mutate(undefined, {
+                onSuccess: (r) => {
+                  toast({
+                    tone: 'success',
+                    title:
+                      r.assigned.length === 0
+                        ? 'Nothing to change'
+                        : `${String(r.assigned.length)} extension${r.assigned.length === 1 ? '' : 's'} filled in`,
+                    description: `${String(r.matched + r.assigned.length)} of ${String(r.pbxExtensions)} PBX extensions belong to somebody here.`,
+                  });
+                },
+                onError: (e) => {
+                  toast({ tone: 'danger', title: 'Could not match', description: errorMessage(e) });
+                },
+              });
+            }}
+          >
+            Match now
+          </Button>
+        ) : undefined
+      }
+    >
+      {links.isPending ? (
+        <Skeleton height={80} shape="block" />
+      ) : links.isError ? (
+        <ErrorState
+          message={errorMessage(links.error)}
+          onRetry={() => {
+            void links.refetch();
+          }}
+        />
+      ) : report === null ? (
+        <p className="text-muted">Not run yet. It runs every ten minutes, or press Match now.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <DetailList
+            items={[
+              { label: 'Last run', value: <DateTime value={report.ranAt} mode="relative" /> },
+              {
+                label: 'Extensions on the PBX',
+                value: <span className="mono">{report.pbxExtensions}</span>,
+              },
+              {
+                label: 'Tied to a person here',
+                value: <span className="mono">{report.matched + report.assigned.length}</span>,
+              },
+            ]}
+          />
+          {report.usersWithoutExtension.length > 0 && (
+            <div>
+              <p className="font-medium text-warning">
+                No extension, so no popups and no calls logged against them
+              </p>
+              <ul className="mt-1 text-muted">
+                {report.usersWithoutExtension.map((u) => (
+                  <li key={u.userId}>
+                    {u.userName} <span className="mono">{u.email}</span>
+                    <span className="text-faint"> · no PBX extension carries this email</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {report.conflicts.length > 0 && (
+            <div>
+              <p className="font-medium text-danger">Needs a decision</p>
+              <ul className="mt-1 text-muted">
+                {report.conflicts.map((c, i) => (
+                  <li key={`${c.kind}-${c.userId ?? ''}-${String(i)}`}>{c.detail}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {report.unmatchedExtensions.length > 0 && (
+            <div>
+              <p className="font-medium">On the PBX, nobody's here</p>
+              <ul className="mt-1 text-muted">
+                {report.unmatchedExtensions.map((e) => (
+                  <li key={e.number}>
+                    <span className="mono">{e.number}</span> {e.name ?? ''}
+                    {e.email !== null && <span className="mono"> {e.email}</span>}
+                    {e.email === null && <span className="text-faint"> · no email on the PBX</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {report.usersWithoutExtension.length === 0 &&
+            report.conflicts.length === 0 &&
+            report.unmatchedExtensions.length === 0 && (
+              <p className="text-muted">Every extension and every person here line up.</p>
+            )}
+        </div>
+      )}
+    </Panel>
   );
 }
 

@@ -17,6 +17,11 @@ export class FakePbx {
   readonly requests: RecordedRequest[] = [];
   readonly sockets = new Set<WebSocket>();
   cdrs: unknown[] = [];
+  /** What the PBX answers for its extension list; a test sets the emails it needs. */
+  extensions: { number: string; caller_id_name?: string; email_addr?: string }[] = [
+    { number: '1001' },
+    { number: '1002' },
+  ];
   /** Company contacts, keyed by the id the PBX hands out. */
   contacts = new Map<number, Record<string, unknown>>();
   phonebooks: { id: number; name: string; member_select?: string }[] = [];
@@ -228,7 +233,8 @@ export class FakePbx {
     app.get('/openapi/v1.0/extension/list', async () => ({
       errcode: 0,
       errmsg: 'SUCCESS',
-      data: [{ number: '1001' }, { number: '1002' }],
+      total_number: this.extensions.length,
+      data: this.extensions,
     }));
 
     const wss = new WebSocketServer({ noServer: true });

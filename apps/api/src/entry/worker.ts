@@ -197,6 +197,19 @@ async function main(): Promise<void> {
         { name: 'scheduled', data: {} },
       );
 
+    /*
+     * Extension sync (docs/06 §18): who is which extension, by email. Ten minutes means a new
+     * member of staff is taking calls with their name on them within ten minutes of being given
+     * an email on the PBX, without anyone typing an extension into the CRM.
+     */
+    await app.queues
+      .get(QUEUES.extensionSync)
+      .upsertJobScheduler(
+        'extension-sync-10m',
+        { every: 10 * 60 * 1000 },
+        { name: 'scheduled', data: {} },
+      );
+
     const tokenTimer = setInterval(() => {
       app.cti.tokens?.getAccessToken().catch((err: unknown) => {
         app.log.warn({ err }, 'PBX token keep-alive failed');

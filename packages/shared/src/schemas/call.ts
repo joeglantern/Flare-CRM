@@ -156,6 +156,40 @@ export const liveCallDto = z.object({
   since: isoDateTime,
 });
 
+/**
+ * Which CRM user is which PBX extension, worked out from email (docs/06 §18).
+ *
+ * The same rule Yeastar's own CRM integration uses: an extension and a user with the same email
+ * address are the same person. What the report lists is everything that rule could not settle on
+ * its own, so somebody can settle it by hand.
+ */
+export const extensionLinkConflictDto = z.object({
+  kind: z.enum(['extension_taken', 'extension_differs', 'ambiguous_email', 'extension_not_on_pbx']),
+  userId: uuid.nullable(),
+  userName: z.string().nullable(),
+  userEmail: z.string().nullable(),
+  /** What the CRM user currently has. */
+  extension: z.string().nullable(),
+  /** What the PBX says that person's email is on. */
+  pbxExtension: z.string().nullable(),
+  detail: z.string(),
+});
+export const extensionLinkReportDto = z.object({
+  ranAt: isoDateTime,
+  pbxExtensions: z.number().int(),
+  /** Already consistent: same email, same extension, nothing to do. */
+  matched: z.number().int(),
+  assigned: z.array(z.object({ userId: uuid, userName: z.string(), extension: z.string() })),
+  conflicts: z.array(extensionLinkConflictDto),
+  unmatchedExtensions: z.array(
+    z.object({ number: z.string(), name: z.string().nullable(), email: z.string().nullable() }),
+  ),
+  usersWithoutExtension: z.array(
+    z.object({ userId: uuid, userName: z.string(), email: z.string() }),
+  ),
+});
+export type ExtensionLinkReport = z.infer<typeof extensionLinkReportDto>;
+
 export const reconcileBody = z.object({ since: isoDateTime.optional() }).strict();
 export const reconcileResult = z.object({
   scanned: z.number().int(),

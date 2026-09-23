@@ -294,3 +294,37 @@ next run rather than stopping the rest.
 | `POST /company_contact/update`                  | one the PBX has, out of date                          |
 | `GET /company_contact/delete`                   | one deleted in the CRM (single id only; no bulk form) |
 | `GET /phonebook/list`, `POST /phonebook/create` | making sure the phonebook exists                      |
+
+## 18. Who is which extension (`jobs/extension-sync.ts`)
+
+A call pops for a person, and is logged against a person, through one lookup: the ringing
+extension's number, looked up in the extension map built from `users.extension` (§8). Both the
+popup and the call record read that same map, so they agree by construction. What used to be weak
+was how the map was filled: somebody typed an extension into a profile, and a blank or mistyped one
+failed silently. That person's calls popped for nobody and were logged against nobody.
+
+This is the rule Yeastar's own CRM integration applies with "Associate Automatically": an extension
+and a user account with the same email are the same person. `GET /extension/list` returns
+`email_addr` for every extension, and every CRM user has an email, so it is the one key that needs
+no maintenance on either side.
+
+**What it does, and only this.** Every ten minutes from the worker, and on the "Match now" button
+under Settings → Telephony, it reads the PBX's extensions and the CRM's active users and fills in an
+extension on any user who has none, when exactly one extension carries their email and nobody else
+holds it. Then it refreshes the extension map, so the next call pops correctly.
+
+**What it never does.** Change an extension somebody set. Give one extension to two people. Guess
+between two extensions with the same email. Each of those is reported with a sentence saying what
+to decide, because a wrong guess sends a person's calls to the wrong desk, which is quieter and
+worse than a blank.
+
+**What the report shows.** Users with no extension (no popups, nothing logged to them), extensions
+on the PBX that belong to nobody here, and conflicts. The last report is kept in Valkey under
+`cti:extension-links:last` so the screen reads it without asking the PBX.
+
+**What it does not do: routing.** Which extensions ring is decided by the inbound route, ring group
+or queue on the PBX. If every agent's phone rings, that is a ring group; the CRM pops only for
+extensions that ring (`call-state.ts`), never for everyone.
+
+Switched on by default (`extensionSync.enabled`), because filling a blank from an exact match is
+safe and the alternative is the silent failure above.
