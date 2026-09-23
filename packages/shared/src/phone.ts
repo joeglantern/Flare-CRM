@@ -70,6 +70,16 @@ export function isE164(value: string): boolean {
   return /^\+[1-9]\d{6,14}$/.test(value);
 }
 
+/**
+ * Whether free text typed into a search box is a phone number rather than a name. Loose on
+ * purpose: it decides whether to offer the text as a number to save, not whether it is valid,
+ * which the normaliser settles later.
+ */
+export function looksLikePhoneNumber(raw: string): boolean {
+  const s = raw.trim();
+  return /^\+?[\d\s().-]{6,24}$/.test(s) && s.replace(/\D/g, '').length >= 6;
+}
+
 export interface DialRules {
   stripPlus: boolean;
   outboundPrefix: string;

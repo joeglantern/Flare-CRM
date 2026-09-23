@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/Toggle';
 import { Tag } from '@/components/ui/Badge';
 import { DateTime } from '@/components/data/formatters';
 import { PhoneNumber } from '@/components/data/PhoneNumber';
+import { datetimeFromLocalInput, datetimeToLocalInput } from '@/lib/datetime-input';
 import { cn } from '@/lib/utils';
 
 export type CustomFieldValues = Record<string, unknown>;
@@ -56,14 +57,24 @@ export function CustomFieldInput({
         />
       );
     case 'date':
+      return (
+        <Input
+          {...common}
+          type="date"
+          value={asString(value).slice(0, 10)}
+          onChange={(e) => {
+            onChange(e.target.value === '' ? null : e.target.value);
+          }}
+        />
+      );
     case 'datetime':
       return (
         <Input
           {...common}
-          type={definition.type === 'date' ? 'date' : 'datetime-local'}
-          value={asString(value).slice(0, definition.type === 'date' ? 10 : 16)}
+          type="datetime-local"
+          value={datetimeToLocalInput(value)}
           onChange={(e) => {
-            onChange(e.target.value === '' ? null : e.target.value);
+            onChange(datetimeFromLocalInput(e.target.value));
           }}
         />
       );

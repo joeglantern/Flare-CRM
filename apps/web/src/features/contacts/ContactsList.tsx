@@ -3,7 +3,7 @@
  * saved views, export and all five states. Offset paginated (GAP-01).
  * Bulk actions are manager and admin only; an agent sees the rows but not the bar.
  */
-import type { ContactSummaryDto } from '@crm/shared';
+import { looksLikePhoneNumber, type ContactSummaryDto } from '@crm/shared';
 import { useNavigate } from '@tanstack/react-router';
 import { Ban, Download, Plus, Tag as TagIcon, Trash2, Upload, UserPlus } from 'lucide-react';
 import { useState } from 'react';
@@ -51,6 +51,14 @@ export function ContactsListScreen() {
   const { bulk } = useContactMutations();
 
   const rows = query.data?.data ?? [];
+  // The phone system sends an agent here with the caller's number as the search. When nobody
+  // matches, the number is what the new contact is for, so it is carried into the form rather
+  // than typed a second time from the handset display.
+  const searched = list.filters.q?.trim() ?? '';
+  const searchedNumber = searched !== '' && looksLikePhoneNumber(searched) ? searched : undefined;
+  const openCreate = () => {
+    setCreateParam(searchedNumber ?? 'true');
+  };
   const state = viewStateOf({
     allowed: canRead,
     online,
@@ -132,6 +140,20 @@ export function ContactsListScreen() {
       render: (c) => (
         <span className="text-muted">
           <DateTime value={c.updatedAt} />
+        </span>
+      ),
+    },
+    {
+      key: 'createdAt',
+      header: 'Created',
+      width: '0.9fr',
+      align: 'end',
+      sortable: true,
+      hideable: true,
+      optional: true,
+      render: (c) => (
+        <span className="text-muted">
+          <DateTime value={c.createdAt} mode="absolute" showTime={false} />
         </span>
       ),
     },
@@ -221,13 +243,7 @@ export function ContactsListScreen() {
               </Button>
             )}
             {perms.has('contact:create') && (
-              <Button
-                variant="primary"
-                icon={Plus}
-                onClick={() => {
-                  setCreateParam('true');
-                }}
-              >
+              <Button variant="primary" icon={Plus} onClick={openCreate}>
                 New contact
               </Button>
             )}
@@ -316,27 +332,28 @@ export function ContactsListScreen() {
         forbidden={{ permission: 'contact:read', what: 'Contacts' }}
         emptyState={
           list.activeCount > 0
-            ? {
-                object: 'magnifier',
-                title: `No contacts match ${list.filters.q !== undefined ? `“${list.filters.q}”` : 'these filters'}`,
-                description:
-                  'Try a name, company or number. Numbers match on the last 9 digits when suffix match is on.',
-                primaryAction: { label: 'Clear filters', onClick: list.reset },
-              }
+            ? searchedNumber !== undefined && perms.has('contact:create')
+              ? {
+                  object: 'contact-card',
+                  title: `Nobody has the number ${searchedNumber}`,
+                  description: 'Save them now and the number is filled in for you.',
+                  primaryAction: { label: 'Save as new contact', icon: Plus, onClick: openCreate },
+                  secondaryAction: { label: 'Clear search', onClick: list.reset },
+                }
+              : {
+                  object: 'magnifier',
+                  title: `No contacts match ${list.filters.q !== undefined ? `“${list.filters.q}”` : 'these filters'}`,
+                  description:
+                    'Try a name, company or number. Numbers match on the last 9 digits when suffix match is on.',
+                  primaryAction: { label: 'Clear filters', onClick: list.reset },
+                }
             : {
                 object: 'contact-card',
                 title: 'No contacts yet',
                 description:
                   'Add your first contact, or bring your list across from a spreadsheet.',
                 ...(perms.has('contact:create')
-                  ? {
-                      primaryAction: {
-                        label: 'New contact',
-                        onClick: () => {
-                          setCreateParam('true');
-                        },
-                      },
-                    }
+                  ? { primaryAction: { label: 'New contact', onClick: openCreate } }
                   : {}),
                 ...(perms.has('contact:import')
                   ? { secondaryAction: { label: 'Import CSV', href: '/imports' } }

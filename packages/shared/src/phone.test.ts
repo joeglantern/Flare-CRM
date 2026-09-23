@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizePhone, toDialable, toE164 } from './phone.js';
+import { looksLikePhoneNumber, normalizePhone, toDialable, toE164 } from './phone.js';
 
 describe('normalizePhone', () => {
   it('normalizes Kenyan national numbers to E.164', () => {
@@ -26,6 +26,25 @@ describe('normalizePhone', () => {
   });
   it('flags invalid numbers without throwing', () => {
     expect(normalizePhone('12', { defaultCountry: 'KE' })).toEqual({ kind: 'invalid', raw: '12' });
+  });
+});
+
+describe('looksLikePhoneNumber', () => {
+  it('takes the shapes a caller id or a person typing a number produce', () => {
+    for (const s of [
+      '0712345678',
+      '+254 712 345 678',
+      '254712345678',
+      '(0712) 345-678',
+      ' 0712345678 ',
+    ]) {
+      expect(looksLikePhoneNumber(s), s).toBe(true);
+    }
+  });
+  it('leaves names, emails and short codes alone', () => {
+    for (const s of ['Jane', 'jane@example.com', '1001', '', 'Acme 2024', '+']) {
+      expect(looksLikePhoneNumber(s), s).toBe(false);
+    }
   });
 });
 

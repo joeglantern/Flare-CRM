@@ -104,6 +104,7 @@ export const contactSummarySelect = {
   avatarKey: true,
   tags: true,
   doNotCall: true,
+  createdAt: true,
   updatedAt: true,
   phones: {
     where: { deletedAt: null },
@@ -127,6 +128,7 @@ export function contactToSummary(r: {
   avatarKey: string | null;
   tags: string[];
   doNotCall: boolean;
+  createdAt: Date;
   updatedAt: Date;
   phones: { e164: string }[];
   emails: { email: string }[];
@@ -141,6 +143,7 @@ export function contactToSummary(r: {
     avatarUrl: avatarUrl(r.avatarKey),
     tags: r.tags,
     doNotCall: r.doNotCall,
+    createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };
 }

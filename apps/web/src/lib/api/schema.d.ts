@@ -1573,6 +1573,8 @@ export interface paths {
                                     id: string;
                                     name: string;
                                 } | null;
+                                /** Format: date-time */
+                                createdAt: string;
                                 displayName: string;
                                 doNotCall: boolean;
                                 /** Format: uuid */
@@ -1710,6 +1712,8 @@ export interface paths {
                                     id: string;
                                     name: string;
                                 } | null;
+                                /** Format: date-time */
+                                createdAt: string;
                                 displayName: string;
                                 doNotCall: boolean;
                                 /** Format: uuid */
@@ -3005,6 +3009,8 @@ export interface paths {
                                         id: string;
                                         name: string;
                                     } | null;
+                                    /** Format: date-time */
+                                    createdAt: string;
                                     displayName: string;
                                     doNotCall: boolean;
                                     /** Format: uuid */

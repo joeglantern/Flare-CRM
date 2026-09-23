@@ -4,7 +4,7 @@
  * named (`details[i].path`, e.g. `phones.0.number`) and the first error is focused.
  */
 import { createContactBody, updateContactBody, type ContactDto } from '@crm/shared';
-import { Plus, Trash2 } from 'lucide-react';
+import { CalendarClock, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useResetWhen } from '@/lib/hooks';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -13,6 +13,7 @@ import { Drawer } from '@/components/ui/Overlay';
 import { Select } from '@/components/ui/Select';
 import { Switch } from '@/components/ui/Toggle';
 import { toast } from '@/components/ui/toast';
+import { DateTime } from '@/components/data/formatters';
 import { CustomFieldsForm } from '@/components/entity/CustomFields';
 import { CompanyPicker, OwnerPicker } from '@/components/entity/pickers';
 import { TagInput } from '@/components/entity/TagInput';
@@ -108,6 +109,8 @@ export function ContactFormDrawer({
     return {
       ...EMPTY,
       ownerId: me.id,
+      // A number handed in came from a call, so that is where this contact came from.
+      source: prefillPhone !== undefined ? 'call' : 'manual',
       phones: [{ number: prefillPhone ?? '', type: 'mobile', isPrimary: true }],
     };
   }, [contact, me.id, prefillPhone]);
@@ -475,6 +478,18 @@ export function ContactFormDrawer({
             patch({ customFields: v });
           }}
         />
+
+        {/* Recorded by the CRM itself, so nobody needs a custom field to hold it. */}
+        <p className="flex items-center gap-1.5 text-sm text-muted">
+          <CalendarClock size={13} aria-hidden />
+          {editing ? (
+            <>
+              Created <DateTime value={contact.createdAt} mode="absolute" />
+            </>
+          ) : (
+            'The date and time of creation are recorded when you save.'
+          )}
+        </p>
       </form>
     </Drawer>
   );

@@ -290,9 +290,12 @@ are filled, most useful first; an eighth number is dropped rather than failing t
 contact with no number at all is skipped, because the PBX cannot hold one.
 
 **From the call popup.** A caller nobody has heard of can be saved as a contact from the popup
-itself, prefilled with the number; the call is linked to them at once. Any change to a contact
-nudges the sync to run within seconds rather than at its next tick, so the new person reaches
-the phone system's phonebook while the call is still fresh.
+itself, prefilled with the number; the call is linked to them at once. The same holds when the
+PBX's own popup sends an agent to the contacts page with the caller's number as the search
+(Custom Popup URL `/contacts?q={{.CallerNumber}}`): when nobody matches, the page offers to save
+the number as a new contact, already filled in. Any change to a contact nudges the sync to run
+within seconds rather than at its next tick, so the new person reaches the phone system's
+phonebook while the call is still fresh.
 
 **Cost and failure.** A run that changes nothing costs two requests. `fingerprint` records what was
 last written, so an unchanged contact is never re-sent, and fields the PBX cannot hold (tags,

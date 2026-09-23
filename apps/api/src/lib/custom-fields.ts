@@ -10,6 +10,7 @@ import type { Db } from '../plugins/prisma.js';
 
 interface Definition {
   key: string;
+  label: string;
   type: CustomFieldType;
   options: unknown;
   required: boolean;
@@ -68,6 +69,12 @@ function fieldSchema(def: Definition): z.ZodType {
   return def.required ? s : s.nullable().optional();
 }
 
+function isBlank(value: unknown): boolean {
+  return (
+    value === undefined || value === null || (typeof value === 'string' && value.trim() === '')
+  );
+}
+
 export function buildCustomFieldsSchema(defs: Definition[]) {
   const shape: Record<string, z.ZodType> = {};
   for (const d of defs) shape[d.key] = fieldSchema(d);
@@ -87,10 +94,11 @@ export class CustomFieldsValidator {
   async definitions(entity: CustomFieldEntity): Promise<Definition[]> {
     const rows = await this.db.customFieldDefinition.findMany({
       where: { entity, isActive: true },
-      select: { key: true, type: true, options: true, required: true },
+      select: { key: true, label: true, type: true, options: true, required: true },
     });
     return rows.map((r) => ({
       key: r.key,
+      label: r.label,
       type: r.type as CustomFieldType,
       options: r.options,
       required: r.required,
@@ -112,14 +120,23 @@ export class CustomFieldsValidator {
       throw new FeatureNotInPlanError('custom_fields', FEATURES.custom_fields.label);
     }
     const merged = { ...(existing ?? {}), ...input };
+    // A required field nobody filled in is the commonest mistake, and zod describes it as a type
+    // error ("expected string, received undefined"), which tells an agent nothing. Name it first.
+    const missing = defs.filter((d) => d.required && isBlank(merged[d.key]));
     const result = buildCustomFieldsSchema(defs).safeParse(merged);
-    if (!result.success) {
-      throw new ValidationError(
-        result.error.issues.map((i) => ({
-          path: `customFields.${i.path.join('.')}`,
-          message: i.message,
-        })),
-      );
+    if (missing.length > 0 || !result.success) {
+      const named = new Set(missing.map((d) => d.key));
+      const issues = missing.map((d) => ({
+        path: `customFields.${d.key}`,
+        message: `${d.label} is required`,
+      }));
+      if (!result.success) {
+        for (const i of result.error.issues) {
+          if (named.has(String(i.path[0]))) continue;
+          issues.push({ path: `customFields.${i.path.join('.')}`, message: i.message });
+        }
+      }
+      throw new ValidationError(issues);
     }
     // strip nulls for tidiness
     return Object.fromEntries(

@@ -180,6 +180,38 @@ describe('core CRM: contacts, companies, custom fields, visibility', () => {
     ).toEqual({ segment: 'smb' });
   });
 
+  it('names a required custom field left blank, and takes a datetime with an offset', async () => {
+    const def = await ctx.as(admin, {
+      method: 'POST',
+      url: '/api/v1/custom-fields',
+      payload: {
+        entity: 'contact',
+        key: 'since',
+        label: 'Customer since',
+        type: 'datetime',
+        required: true,
+      },
+    });
+    expect(def.statusCode, def.body).toBe(201);
+
+    const blank = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/contacts',
+      payload: { firstName: 'X', customFields: {} },
+    });
+    expect(blank.statusCode).toBe(422);
+    expect(blank.json<{ error: { details: unknown } }>().error.details).toEqual([
+      { path: 'customFields.since', message: 'Customer since is required' },
+    ]);
+
+    const ok = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/contacts',
+      payload: { firstName: 'X', customFields: { since: '2026-09-24T07:30:00.000Z' } },
+    });
+    expect(ok.statusCode, ok.body).toBe(201);
+  });
+
   it('merges duplicates, moving history to the survivor and freeing identifiers', async () => {
     const a = (
       await ctx.as(agent, {

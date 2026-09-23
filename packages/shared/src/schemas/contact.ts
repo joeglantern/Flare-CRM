@@ -56,6 +56,7 @@ export const contactSummaryDto = z.object({
   avatarUrl: z.string().nullable(),
   tags: z.array(z.string()),
   doNotCall: z.boolean(),
+  createdAt: isoDateTime,
   updatedAt: isoDateTime,
 });
 export type ContactSummaryDto = z.infer<typeof contactSummaryDto>;
