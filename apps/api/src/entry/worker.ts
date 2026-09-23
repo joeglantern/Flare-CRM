@@ -10,6 +10,7 @@ import { ConsoleLink } from '../integrations/console/link.js';
 import { YeastarSubscriber } from '../integrations/yeastar/subscriber.js';
 import { reconcileCdrs } from '../integrations/yeastar/reconcile.js';
 import { QUEUES } from '../jobs/queues.js';
+import { nudgeContactSync } from '../jobs/contact-sync.js';
 import { startProcessors } from '../jobs/processors.js';
 import { nowIso, rooms } from '../lib/realtime.js';
 
@@ -209,6 +210,27 @@ async function main(): Promise<void> {
         { every: 10 * 60 * 1000 },
         { name: 'scheduled', data: {} },
       );
+
+    /*
+     * A scheduler's first run comes one interval after it is created, not at once, so a deploy or a
+     * restart left the phonebook, the extension map and the call log up to ten minutes behind for
+     * no reason. One run of each now, as the worker comes up; the schedulers carry on from there.
+     * Fixed job ids, so a worker restarting in a loop cannot pile them up.
+     */
+    const once = { removeOnComplete: true, removeOnFail: true } as const;
+    await nudgeContactSync(app);
+    await app.queues.add(
+      QUEUES.extensionSync,
+      'startup',
+      {},
+      { jobId: 'extension-sync-startup', ...once },
+    );
+    await app.queues.add(
+      QUEUES.ctiReconcile,
+      'startup',
+      {},
+      { jobId: 'cti-reconcile-startup', ...once },
+    );
 
     const tokenTimer = setInterval(() => {
       app.cti.tokens?.getAccessToken().catch((err: unknown) => {
