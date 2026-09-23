@@ -8,6 +8,7 @@
  */
 import { beforeAll, afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { runContactSync } from '../../src/jobs/contact-sync.js';
+import { QUEUES } from '../../src/jobs/queues.js';
 import { FakePbx } from '../setup/fake-pbx.js';
 import { TestContext, type TestUser } from '../setup/test-app.js';
 
@@ -249,5 +250,13 @@ describe('contact sync (fake PBX)', () => {
     const second = await runContactSync(ctx.app);
     expect(second).toMatchObject({ created: 1, failed: 0 });
     expect(namesOnPbx()).toEqual(['Jane Test', 'Mary Test']);
+  });
+
+  it('asks for a prompt sync when a contact is saved, so a caller reaches the phonebook soon', async () => {
+    await addContact('Jane', '0712000001');
+
+    const queue = ctx.app.queues.get(QUEUES.contactSync);
+    const pending = [...(await queue.getDelayed()), ...(await queue.getWaiting())];
+    expect(pending.some((j) => j.id === 'contact-sync-nudge')).toBe(true);
   });
 });

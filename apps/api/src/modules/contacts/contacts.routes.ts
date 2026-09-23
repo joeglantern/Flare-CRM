@@ -21,6 +21,7 @@ import {
   uuid,
 } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import { nudgeContactSync } from '../../jobs/contact-sync.js';
 import { z } from 'zod';
 import { auditContext } from '../../lib/request.js';
 import { scopeOf } from '../../lib/scope.js';
@@ -37,6 +38,13 @@ const updatePhoneBody = z
   .strict();
 
 const contactsRoutes: FastifyPluginAsyncZod = async (app) => {
+  // Every successful change to a contact, through any of the routes below, nudges the phonebook
+  // sync (docs/06 section 17). One hook rather than a line in each handler, so a route added later
+  // cannot forget it; the sync would still catch up on its own timer, this only makes it prompt.
+  app.addHook('onResponse', async (request, reply) => {
+    if (request.method !== 'GET' && reply.statusCode < 300) await nudgeContactSync(app);
+  });
+
   const service = new ContactsService(app);
   const actorFor = (role: string, id: string) => ({
     id,

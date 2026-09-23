@@ -26,6 +26,7 @@ import {
   type SyncSummary,
 } from '../integrations/yeastar/contact-sync.js';
 import { newId } from '../lib/ids.js';
+import { QUEUES } from './queues.js';
 import { SYSTEM_AUDIT } from '../modules/entitlements/entitlements.service.js';
 
 /**
@@ -36,6 +37,27 @@ import { SYSTEM_AUDIT } from '../modules/entitlements/entitlements.service.js';
  * Whatever is left is simply the difference the next run finds.
  */
 const MAX_WRITES_PER_RUN = 300;
+
+/**
+ * Asks for a sync soon rather than at the next tick.
+ *
+ * The sync is a reconciliation and needs no hint to be correct; this only shortens how long a
+ * contact saved from a call popup takes to reach the phone system's phonebook. One job id and a
+ * short delay fold a burst of edits into a single run, and the id is released when that run
+ * finishes so the next edit can ask again.
+ */
+export async function nudgeContactSync(app: FastifyInstance): Promise<void> {
+  try {
+    await app.queues.add(
+      QUEUES.contactSync,
+      'nudge',
+      {},
+      { jobId: 'contact-sync-nudge', delay: 3_000, removeOnComplete: true, removeOnFail: true },
+    );
+  } catch (err) {
+    app.log.warn({ err }, 'could not nudge the contact sync');
+  }
+}
 
 export async function runContactSync(app: FastifyInstance): Promise<SyncSummary | null> {
   const summary: SyncSummary = {

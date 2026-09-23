@@ -46,7 +46,8 @@ import { useSocketEvent } from '@/lib/socket/client';
 import { usePermissions } from '@/providers/permissions';
 import { useSettings } from '@/providers/settings';
 import { cn } from '@/lib/utils';
-import { useCallControl, useCapabilities } from './api';
+import { ContactFormDrawer } from '@/features/contacts/ContactForm';
+import { useCallControl, useCapabilities, useLinkCallContact } from './api';
 import { activeCall, talkSeconds, useCallStore, type CallCard } from './call-store';
 import { DispositionForm } from './DispositionForm';
 import { TransferPicker } from './TransferPicker';
@@ -211,6 +212,9 @@ function CallCardView({
     card.status === 'answered' || card.status === 'ringing' || card.status === 'dialing',
   );
   const [transferOpen, setTransferOpen] = useState(false);
+  const [addingContact, setAddingContact] = useState(false);
+  const linkContact = useLinkCallContact();
+  const onContactLinked = useCallStore((s) => s.onContactLinked);
 
   const ringing = card.status === 'ringing';
   const inCall = card.status === 'answered';
@@ -404,6 +408,56 @@ function CallCardView({
               </Link>
             ))}
           </div>
+        )}
+
+        {/*
+          A caller nobody has heard of. Saving them here, mid-call, is when the number and the
+          name are both in front of the agent; afterwards it is a task nobody comes back to. The
+          call is linked to the new contact at once, and the contact reaches the phone system's
+          own phonebook through the contact sync, which is nudged rather than left to its timer.
+        */}
+        {unknown && number !== null && perms.has('contact:create') && (
+          <>
+            <Button
+              variant="secondary"
+              icon={UserPlus}
+              onClick={() => {
+                setAddingContact(true);
+              }}
+            >
+              Add as contact
+            </Button>
+            <ContactFormDrawer
+              open={addingContact}
+              onOpenChange={setAddingContact}
+              prefillPhone={number}
+              onSaved={(c) => {
+                setAddingContact(false);
+                onContactLinked(card.pbxCallId, {
+                  id: c.id,
+                  displayName: c.displayName,
+                  company: c.company ?? null,
+                  avatarUrl: c.avatarUrl ?? null,
+                  ownerId: c.ownerId ?? null,
+                  doNotCall: c.doNotCall,
+                });
+                if (card.callId !== null) {
+                  linkContact.mutate(
+                    { callId: card.callId, contactId: c.id },
+                    {
+                      onError: (e) => {
+                        toast({
+                          tone: 'danger',
+                          title: 'Saved, but could not attach them to this call',
+                          description: errorMessage(e),
+                        });
+                      },
+                    },
+                  );
+                }
+              }}
+            />
+          </>
         )}
 
         {ended && card.callId !== null ? (

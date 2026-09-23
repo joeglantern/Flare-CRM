@@ -53,6 +53,8 @@ interface CallStore {
   onUpdated: (payload: ServerEventPayload<'call:updated'>) => void;
   onEnded: (payload: ServerEventPayload<'call:ended'>) => void;
   onLogged: (payload: LoggedPayload) => void;
+  /** An unknown caller was just saved as a contact from the popup itself. */
+  onContactLinked: (pbxCallId: string, contact: NonNullable<RingingPayload['contact']>) => void;
   close: (pbxCallId: string) => void;
   clearCancelled: () => void;
   reset: () => void;
@@ -86,6 +88,16 @@ export const useCallStore = create<CallStore>((set, get) => ({
       popLatencyMs: Math.max(0, now - Date.parse(payload.at)),
     };
     set((s) => ({ cards: [card, ...s.cards] }));
+  },
+
+  onContactLinked: (pbxCallId, contact) => {
+    set((s) => ({
+      cards: patch(s.cards, pbxCallId, (c) =>
+        c.ringing === null
+          ? c
+          : { ...c, ringing: { ...c.ringing, contact, matchCandidates: [], restricted: false } },
+      ),
+    }));
   },
 
   onDialing: (payload, now = Date.now()) => {
