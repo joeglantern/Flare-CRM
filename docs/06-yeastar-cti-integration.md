@@ -163,6 +163,14 @@ Transitions and side effects:
 
 Queue / ring-group calls ring several extensions at once: every mapped user gets a pop; the first `ANSWERED` cancels the others.
 
+**Events the PBX never sends.** The PBX reports an extension's ring and talk states (`30008`, and
+the extension legs of `30011`) only for extensions enabled under Integrations → API → Advanced
+Settings → Extension Status Monitor, and `30016` only for trunks with Control Inbound Call on. For
+anyone outside that list the first event the CRM sees is the hangup, so no popup is possible from
+the CRM side; the CDR still logs the call. A hangup for a call never seen ringing records nothing
+(the CDR carries it all), an ended state lives two minutes rather than six hours, and the CDR
+reconciliation closes any row left ringing for thirty minutes.
+
 ## 9. Number normalization & matching (`normalize.ts`)
 
 ```

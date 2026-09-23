@@ -54,6 +54,14 @@ export interface LiveCallState {
 }
 
 const STATE_TTL_SEC = 6 * 60 * 60;
+/**
+ * How long a call that has hung up stays in Valkey. Long enough for a CDR arriving a moment later
+ * to find and finish it, short enough that a call which never gets one does not sit on the live
+ * board for six hours looking like it is still ringing.
+ */
+const ENDED_STATE_TTL_SEC = 120;
+/** A call still "ringing" this long after it started did not ring for this long. */
+const STALE_RINGING_MS = 30 * 60 * 1000;
 const keyOf = (id: string) => `cti:call:${id}`;
 
 export interface CallStateDeps {
@@ -172,7 +180,12 @@ export class CallStateMachine {
   }
 
   private async saveState(state: LiveCallState): Promise<void> {
-    await this.app.valkey.set(keyOf(state.pbxCallId), JSON.stringify(state), 'EX', STATE_TTL_SEC);
+    await this.app.valkey.set(
+      keyOf(state.pbxCallId),
+      JSON.stringify(state),
+      'EX',
+      state.ended ? ENDED_STATE_TTL_SEC : STATE_TTL_SEC,
+    );
   }
 
   private async deleteState(pbxCallId: string): Promise<void> {
@@ -187,10 +200,54 @@ export class CallStateMachine {
       cursor = next;
       if (keys.length > 0) {
         const values = await this.app.valkey.mget(...keys);
-        for (const v of values) if (v) out.push(JSON.parse(v) as LiveCallState);
+        for (const v of values) {
+          if (!v) continue;
+          const state = JSON.parse(v) as LiveCallState;
+          // Hung up, waiting only for its CDR: not live, whatever the board used to say.
+          if (!state.ended) out.push(state);
+        }
       }
     } while (cursor !== '0');
     return out.sort((a, b) => a.firstEventAt.localeCompare(b.firstEventAt));
+  }
+
+  /**
+   * Closes call rows left "ringing" long after any call could still be ringing.
+   *
+   * Two ways a row gets stuck: a hangup-only event used to create one (fixed above, but the rows it
+   * already made are still there), and a ringing event whose CDR never arrives. When a finished
+   * row for the same PBX call exists the stuck one is a duplicate and goes; otherwise it is closed
+   * as missed or failed, which is what a call nobody answered and nobody recorded was.
+   */
+  async closeStaleRinging(now = new Date()): Promise<{ deleted: number; closed: number }> {
+    const cutoff = new Date(now.getTime() - STALE_RINGING_MS);
+    const stale = await this.app.db.call.findMany({
+      where: { status: 'ringing', pbxCdrUid: null, startedAt: { lt: cutoff } },
+      select: { id: true, pbxCallId: true, direction: true },
+    });
+    let deleted = 0;
+    let closed = 0;
+    for (const row of stale) {
+      const finished = await this.app.db.call.findFirst({
+        where: { pbxCallId: row.pbxCallId, pbxCdrUid: { not: null }, NOT: { id: row.id } },
+        select: { id: true },
+      });
+      if (finished) {
+        await this.app.db.call.delete({ where: { id: row.id } });
+        deleted++;
+      } else {
+        await this.app.db.call.update({
+          where: { id: row.id },
+          data: { status: row.direction === 'outbound' ? 'failed' : 'missed', endedAt: now },
+        });
+        closed++;
+      }
+      await this.deleteState(row.pbxCallId);
+    }
+    if (deleted + closed > 0) {
+      this.app.log.warn({ deleted, closed }, 'closed calls left ringing with no end');
+    }
+    return { deleted, closed };
   }
 
   private async normalizeOptions(): Promise<NormalizeOptions> {
@@ -232,6 +289,31 @@ export class CallStateMachine {
     const settings = await this.app.settings.getAll();
 
     if (!state) {
+      /*
+       * A hangup for a call this process never saw begin. The PBX sends the extension leg's BYE
+       * for calls it never reported ringing (an extension outside its status monitor, or a call
+       * that began before the worker did), and treating that as the first event created a fresh
+       * "ringing" call with nothing in it and a live-board entry that never went away. The CDR
+       * that follows carries everything the record needs; this carries nothing.
+       */
+      const legs = classified.extensions;
+      const hangupOnly =
+        classified.trunkStatus === 'BYE' ||
+        (legs.length > 0 && legs.every((l) => l.status === 'BYE'));
+      if (hangupOnly) {
+        this.app.log.debug(
+          { pbxCallId },
+          'hangup for a call never seen ringing; nothing to record',
+        );
+        return;
+      }
+      // Likewise an event arriving after the CDR already finished the call.
+      const finished = await this.app.db.call.findFirst({
+        where: { pbxCallId, pbxCdrUid: { not: null } },
+        select: { id: true },
+      });
+      if (finished) return;
+
       if (classified.direction === 'internal' && !settings.popup.popOnInternalCalls) {
         // still create the call row for logging; the CDR finalizes it
         state = await this.initState(pbxCallId, classified, receivedAt, false);

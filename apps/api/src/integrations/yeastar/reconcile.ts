@@ -72,9 +72,11 @@ export async function reconcileCdrs(
     page++;
     if (page > 200) break; // safety cap: 20k CDRs per run
   }
+  // Anything still "ringing" that the CDRs above did not finish was never going to be finished.
+  const stale = await deps.machine.closeStaleRinging();
   await deps.valkey.set(LAST_RECONCILE_KEY, new Date().toISOString());
   deps.log.info(
-    { since: since.toISOString(), scanned, inserted, updated, unreadable },
+    { since: since.toISOString(), scanned, inserted, updated, unreadable, stale },
     'CDR reconciliation complete',
   );
   return { since: since.toISOString(), scanned, inserted, updated, unreadable };

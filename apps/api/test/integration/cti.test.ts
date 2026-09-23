@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { yeastarSignature } from '../../src/integrations/yeastar/webhook-verify.js';
 import { YeastarSubscriber } from '../../src/integrations/yeastar/subscriber.js';
 import { reconcileCdrs } from '../../src/integrations/yeastar/reconcile.js';
+import { newId } from '../../src/lib/ids.js';
 import { startProcessors, type RunningWorkers } from '../../src/jobs/processors.js';
 import {
   FakePbx,
@@ -666,4 +667,91 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       myExtension: '1001',
     });
   }, 30_000);
+
+  /*
+   * Seen live: the PBX only reports ring states for extensions in its status monitor, so for
+   * anyone outside it the first event the CRM ever sees is the hangup. That used to create a
+   * fresh "ringing" call with nothing in it and an entry on the live board that never went away.
+   */
+  it('records nothing from a hangup for a call it never saw ring', async () => {
+    const callId = nextCallId();
+    pbx.emit(inboundBye(callId, '0712000001', '1001'));
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(await ctx.app.db.call.count({ where: { pbxCallId: callId } })).toBe(0);
+    expect((await ctx.app.cti.machine.liveCalls()).some((c) => c.pbxCallId === callId)).toBe(false);
+  });
+
+  it('does not duplicate a call when the hangup arrives after the CDR', async () => {
+    const callId = nextCallId();
+    pbx.emit(
+      cdr(callId, { from: '0712000001', to: '1001', type: 'Inbound', status: 'ANSWERED', talk: 5 }),
+    );
+    await until(async () => (await ctx.app.db.call.count({ where: { pbxCallId: callId } })) === 1);
+    pbx.emit(inboundBye(callId, '0712000001', '1001'));
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(await ctx.app.db.call.count({ where: { pbxCallId: callId } })).toBe(1);
+  });
+
+  it('takes a call off the live board the moment it hangs up', async () => {
+    const callId = nextCallId();
+    pbx.emit(inboundRinging(callId, '0712000001', '1001'));
+    await until(async () =>
+      (await ctx.app.cti.machine.liveCalls()).some((c) => c.pbxCallId === callId),
+    );
+    pbx.emit(inboundBye(callId, '0712000001', '1001'));
+    await until(
+      async () => !(await ctx.app.cti.machine.liveCalls()).some((c) => c.pbxCallId === callId),
+    );
+
+    // Still on disk for the CDR to finish, just not live.
+    expect(await ctx.app.cti.machine.loadState(callId)).not.toBeNull();
+  });
+
+  it('closes a call left ringing with no end, and deletes one that duplicates a finished call', async () => {
+    const orphan = nextCallId();
+    const twin = nextCallId();
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await ctx.app.db.call.createMany({
+      data: [
+        {
+          id: newId(),
+          pbxCallId: orphan,
+          direction: 'inbound',
+          status: 'ringing',
+          fromNumber: '0712',
+          toNumber: '1001',
+          startedAt: old,
+        },
+        {
+          id: newId(),
+          pbxCallId: twin,
+          direction: 'inbound',
+          status: 'ringing',
+          fromNumber: '0712',
+          toNumber: '1001',
+          startedAt: old,
+        },
+        {
+          id: newId(),
+          pbxCallId: twin,
+          pbxCdrUid: 'uid-twin',
+          direction: 'inbound',
+          status: 'completed',
+          fromNumber: '0712',
+          toNumber: '1001',
+          startedAt: old,
+        },
+      ],
+    });
+
+    const swept = await ctx.app.cti.machine.closeStaleRinging();
+
+    expect(swept).toEqual({ deleted: 1, closed: 1 });
+    expect(await ctx.app.db.call.count({ where: { pbxCallId: twin } })).toBe(1);
+    expect((await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: orphan } })).status).toBe(
+      'missed',
+    );
+  });
 });
