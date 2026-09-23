@@ -24,6 +24,7 @@ import {
   ValidationError,
 } from '../../lib/errors.js';
 import { newId } from '../../lib/ids.js';
+import { claimPastCalls } from '../calls/claim-calls.js';
 import { jsonObject } from '../../lib/object.js';
 import { SHAPES, assertCanAssign, assertCanWrite, scopeWhere } from '../../lib/scope.js';
 import type { AuditContext } from '../audit/audit.service.js';
@@ -287,6 +288,7 @@ export class ContactsService {
           });
         }
       }
+      await claimPastCalls(tx, [id]);
     });
     const dto = await this.get(scope, id);
     this.app.events.emit('contact.created', {
@@ -431,6 +433,7 @@ export class ContactsService {
           entity: 'contact',
           entityId: id,
         });
+        await claimPastCalls(tx, [id]);
       });
     } catch (err) {
       if ((err as { code?: string }).code === 'P2002')
@@ -481,6 +484,7 @@ export class ContactsService {
         entityId: contactId,
         after: phone,
       });
+      await claimPastCalls(tx, [contactId]);
     });
     return this.get(scope, contactId);
   }

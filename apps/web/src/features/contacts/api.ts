@@ -56,6 +56,11 @@ export function useContactMutations() {
   const qc = useQueryClient();
   const invalidate = (id?: string) => {
     void qc.invalidateQueries({ queryKey: qk.list('contacts') });
+    // Saving a number hands that number's past calls to the contact (docs/06 section 17), so the
+    // call log and any open call stop saying "Unknown number".
+    void qc.invalidateQueries({ queryKey: qk.list('calls') });
+    void qc.invalidateQueries({ queryKey: qk.list('missed-calls') });
+    void qc.invalidateQueries({ queryKey: ['entity', 'call'] });
     if (id !== undefined) {
       void qc.invalidateQueries({ queryKey: qk.entity('contact', id) });
       void qc.invalidateQueries({ queryKey: qk.timeline('contact', id) });

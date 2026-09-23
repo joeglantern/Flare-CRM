@@ -88,7 +88,9 @@ export const settingDefaults: Settings = {
   },
   retention: { softDeletePurgeDays: 90, pbxEventsDays: 30, rawMessagePayloadDays: 90 },
   extensionSync: { enabled: true },
-  contactSync: { enabled: false, phonebookName: 'Flare CRM' },
+  // On: the phone system's phonebook is expected to hold the business's contacts, and a sync that
+  // has to be found and switched on was left off in practice, with nothing to say it was.
+  contactSync: { enabled: true, phonebookName: 'Flare CRM' },
   matching: { allowSuffixMatch: false, suffixLength: 9 },
   branding: brandingDefaults,
   security: { require2FAForPrivileged: true, require2FAForAll: false, sessionIdleMinutes: 60 },

@@ -5,7 +5,7 @@
  */
 import type { CallDto } from '@crm/shared';
 import { useNavigate } from '@tanstack/react-router';
-import { Check, Download, Grid3x3, Phone } from 'lucide-react';
+import { Check, Download, Grid3x3, Phone, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -26,6 +26,7 @@ import { PageHeader } from '@/app/shell/TopBar';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { useDispositions } from '@/features/telephony/api';
 import { Dialpad } from '@/features/telephony/Dialpad';
+import { ContactFormDrawer } from '@/features/contacts/ContactForm';
 import { linkTo } from '@/lib/links';
 import { useListState } from '@/lib/list-state';
 import { viewStateOf, errorInfo } from '@/lib/view-state';
@@ -47,6 +48,8 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
   const [range, setRange] = useState<DateRange>(() => presetRange('30d'));
   const [dialpadOpen, setDialpadOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [saving, setSaving] = useState<CallDto | null>(null);
+  const canCreateContact = perms.has('contact:create');
 
   const scope =
     list.filters.mine === 'true' ? 'mine' : list.filters.userId !== undefined ? 'agent' : 'all';
@@ -92,7 +95,24 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
               <span className="truncate font-medium">{c.contact.displayName}</span>
             </>
           ) : (
-            <span className="truncate text-muted">Unknown number</span>
+            <>
+              <span className="truncate text-muted">Unknown number</span>
+              {canCreateContact && c.externalNumber !== null && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={UserPlus}
+                  className="ml-auto shrink-0"
+                  onClick={(e) => {
+                    // The row itself opens the call; this button must not.
+                    e.stopPropagation();
+                    setSaving(c);
+                  }}
+                >
+                  Add contact
+                </Button>
+              )}
+            </>
           )}
         </span>
       ),
@@ -396,6 +416,22 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
       />
 
       <Dialpad open={dialpadOpen} onOpenChange={setDialpadOpen} />
+      {/*
+        Every earlier call from the same number takes the new name as well; the server does that
+        when the contact is saved, and the list refreshes when the save lands.
+      */}
+      <ContactFormDrawer
+        open={saving !== null}
+        onOpenChange={(v) => {
+          if (!v) setSaving(null);
+        }}
+        {...(saving?.externalNumber != null ? { prefillPhone: saving.externalNumber } : {})}
+        {...(saving !== null ? { linkCallId: saving.id } : {})}
+        onSaved={() => {
+          setSaving(null);
+        }}
+      />
+
       <ExportDialog
         open={exportOpen}
         onOpenChange={setExportOpen}

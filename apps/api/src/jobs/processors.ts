@@ -8,6 +8,7 @@ import { LimitReachedError } from '../lib/errors.js';
 import { SYSTEM_AUDIT } from '../modules/entitlements/entitlements.service.js';
 import { newObjectKey } from '../integrations/storage/storage.js';
 import { reconcileCdrs } from '../integrations/yeastar/reconcile.js';
+import { claimPastCalls } from '../modules/calls/claim-calls.js';
 import { rooms } from '../lib/realtime.js';
 import { TasksService } from '../modules/tasks/tasks.service.js';
 import { runCsvImport } from './csv-import.js';
@@ -112,6 +113,10 @@ export function startProcessors(app: FastifyInstance): RunningWorkers {
       },
       job.data.since ? new Date(job.data.since) : undefined,
     );
+    // After the CDRs, so calls the reconciliation just inserted are claimed in the same run.
+    const claimed = await claimPastCalls(app.db);
+    if (claimed > 0)
+      app.log.info({ claimed }, 'past calls given to the contacts who own their numbers');
   });
 
   register(QUEUES.recordingDownload, 2, async (job) => {

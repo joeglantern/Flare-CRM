@@ -212,6 +212,138 @@ describe('core CRM: contacts, companies, custom fields, visibility', () => {
     expect(ok.statusCode, ok.body).toBe(201);
   });
 
+  describe('calls made before a caller was saved', () => {
+    const unknownCall = async (e164: string | null, extra: { contactId?: string } = {}) =>
+      (
+        await ctx.app.db.call.create({
+          data: {
+            id: crypto.randomUUID(),
+            pbxCallId: crypto.randomUUID(),
+            direction: 'inbound',
+            status: 'completed',
+            fromNumber: e164 ?? 'anonymous',
+            toNumber: '1001',
+            externalE164: e164,
+            userId: agent.id,
+            extension: '1001',
+            startedAt: new Date(),
+            ...extra,
+          },
+          select: { id: true },
+        })
+      ).id;
+
+    it('take the name of the contact saved for their number, timeline included', async () => {
+      const first = await unknownCall('+254733999888');
+      const second = await unknownCall('+254733999888');
+      const other = await unknownCall('+254700000111');
+      await ctx.app.db.activity.create({
+        data: {
+          id: crypto.randomUUID(),
+          type: 'call',
+          occurredAt: new Date(),
+          summary: 'Inbound call',
+          refTable: 'calls',
+          refId: first,
+        },
+      });
+
+      const res = await ctx.as(agent, {
+        method: 'POST',
+        url: '/api/v1/contacts',
+        payload: { firstName: 'Late', phones: [{ number: '0733 999 888' }] },
+      });
+      expect(res.statusCode, res.body).toBe(201);
+      const id = res.json<Envelope<{ id: string }>>().data.id;
+
+      const calls = await ctx.app.db.call.findMany({
+        where: { id: { in: [first, second, other] } },
+        select: { id: true, contactId: true },
+      });
+      const byId = new Map(calls.map((c) => [c.id, c.contactId]));
+      expect(byId.get(first)).toBe(id);
+      expect(byId.get(second)).toBe(id);
+      expect(byId.get(other)).toBeNull();
+      const act = await ctx.app.db.activity.findFirstOrThrow({ where: { refId: first } });
+      expect(act.contactId).toBe(id);
+
+      const list = await ctx.as(agent, { method: 'GET', url: '/api/v1/calls' });
+      const rows =
+        list.json<Envelope<{ id: string; contact: { displayName: string } | null }[]>>().data;
+      expect(rows.find((r) => r.id === second)?.contact?.displayName).toBe('Late');
+    });
+
+    it('are claimed when the number is added to an existing contact', async () => {
+      const call = await unknownCall('+254733999888');
+      const c = (
+        await ctx.as(agent, {
+          method: 'POST',
+          url: '/api/v1/contacts',
+          payload: { firstName: 'Has', phones: [{ number: '0711 000 001' }] },
+        })
+      ).json<Envelope<{ id: string }>>().data;
+
+      const res = await ctx.as(agent, {
+        method: 'POST',
+        url: `/api/v1/contacts/${c.id}/phones`,
+        payload: { number: '0733 999 888' },
+      });
+      expect(res.statusCode, res.body).toBe(201);
+      expect((await ctx.app.db.call.findUniqueOrThrow({ where: { id: call } })).contactId).toBe(
+        c.id,
+      );
+    });
+
+    it('never moves a call somebody linked by hand, and the sweep finds the rest', async () => {
+      const someone = (
+        await ctx.as(agent, {
+          method: 'POST',
+          url: '/api/v1/contacts',
+          payload: { firstName: 'Someone', phones: [{ number: '0711 000 002' }] },
+        })
+      ).json<Envelope<{ id: string }>>().data;
+      const handLinked = await unknownCall('+254733999888', { contactId: someone.id });
+      const withheld = await unknownCall(null);
+
+      // A number arriving by a path that does not claim inline, as the PBX import does.
+      const late = await unknownCall('+254733999888');
+      const owner = await ctx.app.db.contact.create({
+        data: {
+          id: crypto.randomUUID(),
+          firstName: 'Imported',
+          displayName: 'Imported',
+          source: 'yeastar',
+          phones: {
+            create: [
+              {
+                id: crypto.randomUUID(),
+                e164: '+254733999888',
+                raw: '+254733999888',
+                isPrimary: true,
+              },
+            ],
+          },
+        },
+      });
+      expect(
+        (await ctx.app.db.call.findUniqueOrThrow({ where: { id: late } })).contactId,
+      ).toBeNull();
+
+      const { claimPastCalls } = await import('../../src/modules/calls/claim-calls.js');
+      expect(await claimPastCalls(ctx.app.db)).toBe(1);
+      expect(await claimPastCalls(ctx.app.db)).toBe(0);
+
+      const rows = await ctx.app.db.call.findMany({
+        where: { id: { in: [handLinked, withheld, late] } },
+        select: { id: true, contactId: true },
+      });
+      const byId = new Map(rows.map((r) => [r.id, r.contactId]));
+      expect(byId.get(handLinked)).toBe(someone.id);
+      expect(byId.get(withheld)).toBeNull();
+      expect(byId.get(late)).toBe(owner.id);
+    });
+  });
+
   it('merges duplicates, moving history to the survivor and freeing identifiers', async () => {
     const a = (
       await ctx.as(agent, {

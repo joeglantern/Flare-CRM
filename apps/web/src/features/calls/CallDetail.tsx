@@ -7,7 +7,7 @@
  * An unmatched call offers to link a contact, which is the only way the call joins a timeline.
  */
 import { Link } from '@tanstack/react-router';
-import { Link2, ScrollText, SquareCheck, Trash2, UserRound } from 'lucide-react';
+import { Link2, ScrollText, SquareCheck, Trash2, UserPlus, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -23,6 +23,7 @@ import { DetailList, EntityHeader, Panel } from '@/components/entity/EntityHeade
 import { NotesPanel } from '@/components/entity/Notes';
 import { ContactPicker } from '@/components/entity/pickers';
 import { usePageMeta } from '@/app/shell/page-meta';
+import { ContactFormDrawer } from '@/features/contacts/ContactForm';
 import { DispositionForm } from '@/features/telephony/DispositionForm';
 import { useLinkCallContact } from '@/features/telephony/api';
 import { TaskFormDialog } from '@/features/tasks/TaskForm';
@@ -43,6 +44,7 @@ export function CallDetailScreen({ callId }: { callId: string }) {
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkTarget, setLinkTarget] = useState<string | null>(null);
   const [taskOpen, setTaskOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [confirmDeleteRecording, setConfirmDeleteRecording] = useState(false);
 
   usePageMeta([{ label: 'Calls', href: '/calls' }, { label: 'Call' }]);
@@ -135,6 +137,19 @@ export function CallDetailScreen({ callId }: { callId: string }) {
                 },
               ]
             : []),
+          ...(unmatched && call.externalNumber !== null && perms.has('contact:create')
+            ? [
+                {
+                  id: 'add',
+                  label: 'Add as contact',
+                  icon: UserPlus,
+                  variant: 'secondary' as const,
+                  onClick: () => {
+                    setAddOpen(true);
+                  },
+                },
+              ]
+            : []),
           ...(unmatched && perms.has('contact:update')
             ? [
                 {
@@ -149,6 +164,17 @@ export function CallDetailScreen({ callId }: { callId: string }) {
               ]
             : []),
         ]}
+      />
+
+      {/* Saving the caller links this call, and every earlier call from the same number. */}
+      <ContactFormDrawer
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        {...(call.externalNumber !== null ? { prefillPhone: call.externalNumber } : {})}
+        linkCallId={call.id}
+        onSaved={() => {
+          setAddOpen(false);
+        }}
       />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">

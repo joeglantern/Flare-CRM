@@ -70,12 +70,15 @@ export function ContactFormDrawer({
   onOpenChange,
   contact,
   prefillPhone,
+  linkCallId,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   contact?: ContactDto;
   prefillPhone?: string;
+  /** The call this contact is being saved from, linked to them in the same request. */
+  linkCallId?: string;
   onSaved?: (c: ContactDto) => void;
 }) {
   const me = useMe();
@@ -156,6 +159,7 @@ export function ContactFormDrawer({
       body.phones = phones;
       body.emails = emails;
       if (form.notes.trim() !== '') body.notes = form.notes.trim();
+      if (linkCallId !== undefined) body.linkCallId = linkCallId;
     }
 
     // Same schema as the server, so the messages match before a request is even made.

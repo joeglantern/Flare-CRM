@@ -256,8 +256,9 @@ Runs (a) after every WebSocket (re)connect, (b) every 10 min by cron, (c) on dem
 ## 17. Contact sync (`jobs/contact-sync.ts`)
 
 The PBX's company contacts and the CRM's contacts are kept as the same set of people, in both
-directions. Off by default: `contactSync.enabled` in settings, with `contactSync.phonebookName`
-naming the phonebook. Requires `telephony` in the plan.
+directions. On by default: `contactSync.enabled` in settings, with `contactSync.phonebookName`
+naming the phonebook. Requires `telephony` in the plan. It started life off by default and was
+simply never switched on, so a phonebook that looked broken was a sync that had never run.
 
 **Reconciled, not hooked.** Every run reads both sides, plans the difference and applies it, the
 way `reconcile.ts` does for CDRs. A contact changes through a dozen paths, including the CSV
@@ -288,6 +289,13 @@ every change, and the day that edit failed the phonebook and the contacts would 
 slot (`mobile`, `business`, `home` and their seconds), so the mapping is written twice. Seven slots
 are filled, most useful first; an eighth number is dropped rather than failing the contact. A
 contact with no number at all is skipped, because the PBX cannot hold one.
+
+**Calls made before a caller was saved.** Saving a number gives every call from it that has no
+contact to the person who now owns it, and their timeline entries with them
+(`modules/calls/claim-calls.ts`). It runs inline when the contacts service creates, restores or
+adds a number to a contact, so the call log is right when the form closes, and as a sweep after
+each CDR reconciliation, which covers the import, lead conversion and this sync. A call somebody
+linked by hand is never moved.
 
 **From the call popup.** A caller nobody has heard of can be saved as a contact from the popup
 itself, prefilled with the number; the call is linked to them at once. The same holds when the
