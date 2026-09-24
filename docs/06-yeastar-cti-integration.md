@@ -171,6 +171,13 @@ the CRM side; the CDR still logs the call. A hangup for a call never seen ringin
 (the CDR carries it all), an ended state lives two minutes rather than six hours, and the CDR
 reconciliation closes any row left ringing for thirty minutes.
 
+**Ringing with no call event.** Even with an extension monitored, the live PBX sends `30008`
+("1002 Ringing") when the phone rings but the call's own `30011` only at hangup. `30008` names the
+extension and nothing else, so on a ringing or busy `30008` for a CRM user's extension the machine
+asks `GET /call/query?extension=` what is on it and feeds each call through the same path a `30011`
+takes, on that call's queue. `30008` words states its own way (`Ringing`, `Busy`, `Idle`), not in
+member words (`RING`, `ANSWERED`), and is read in those words.
+
 ## 9. Number normalization & matching (`normalize.ts`)
 
 ```

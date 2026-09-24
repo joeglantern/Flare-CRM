@@ -25,6 +25,8 @@ export class FakePbx {
   /** Company contacts, keyed by the id the PBX hands out. */
   contacts = new Map<number, Record<string, unknown>>();
   phonebooks: { id: number; name: string; member_select?: string }[] = [];
+  /** What `GET /call/query` answers: calls in progress, in the 30011 member layout. */
+  liveCalls: { call_id: string; members: object[] }[] = [];
   /** First names the PBX will refuse to create, so a test can fail one contact and not the rest. */
   refuseContactNames = new Set<string>();
   private contactSeq = 0;
@@ -111,7 +113,14 @@ export class FakePbx {
           : { errcode: 10004, errmsg: 'Invalid token' },
       );
     }
-    app.get('/openapi/v1.0/call/query', async () => ({ errcode: 0, errmsg: 'SUCCESS', data: [] }));
+    app.get('/openapi/v1.0/call/query', async (request) => {
+      if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
+      const ext = (request.query as Record<string, string | undefined>).extension;
+      const onExt = (c: { members: object[] }) =>
+        ext === undefined ||
+        c.members.some((m) => (m as { extension?: { number?: string } }).extension?.number === ext);
+      return { errcode: 0, errmsg: 'SUCCESS', data: this.liveCalls.filter(onExt) };
+    });
     app.get('/openapi/v1.0/cdr/search', async (request) => {
       if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
       // The real endpoint takes unix seconds here and answers 40002 to anything else, including the

@@ -263,6 +263,32 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     );
   }, 30_000);
 
+  it('pops from the extension ringing, when the PBX sends no call event until hangup', async () => {
+    // What the live PBX does: 30008 "Ringing" for the extension, then nothing about the call
+    // itself until the hangup. The call is found by asking the PBX what is on the extension.
+    const contact = (
+      await ctx.as(admin, {
+        method: 'POST',
+        url: '/api/v1/contacts',
+        payload: { firstName: 'Ext', lastName: 'Only', phones: [{ number: '0712000061' }] },
+      })
+    ).json<Envelope<{ id: string }>>().data;
+    const socket = await agentSocket(agent);
+    const ringing = waitFor<{ contact: { id: string } | null; callerNumber: string }>(
+      socket,
+      'call:ringing',
+    );
+    const callId = nextCallId();
+    pbx.liveCalls = [inboundRinging(callId, '0712000061', '1001').msg];
+    pbx.emit({ type: 30008, sn: 'FAKE0001', msg: { extension: '1001', status: 'Ringing' } });
+
+    const pop = await ringing;
+    expect(pop.contact?.id).toBe(contact.id);
+    expect(pop.callerNumber).toBe('+254712000061');
+    pbx.liveCalls = [];
+    socket.disconnect();
+  });
+
   it('missed inbound call from an unknown number → unknown-caller pop, missed status, notification, then linking a new contact', async () => {
     const socket = await agentSocket(agent);
     const ringing = waitFor<{ callId: string; contact: unknown; callerDisplay: string }>(

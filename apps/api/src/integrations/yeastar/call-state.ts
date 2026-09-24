@@ -5,6 +5,7 @@
 import type { CallStatus, ServerEventPayload } from '@crm/shared';
 import type { FastifyInstance } from 'fastify';
 import type { CountryCode } from 'libphonenumber-js';
+import { z } from 'zod';
 import { QUEUES } from '../../jobs/queues.js';
 import { newId } from '../../lib/ids.js';
 import { nowIso, rooms } from '../../lib/realtime.js';
@@ -12,6 +13,7 @@ import { contactSummarySelect, contactToSummary } from '../../modules/contacts/c
 import {
   genericEvent,
   knownEvent,
+  memberEntry,
   parsePbxTime,
   SUBSCRIBED_TOPICS,
   unwrapFrame,
@@ -29,6 +31,13 @@ import {
   type Direction,
   type NormalizeOptions,
 } from './normalize.js';
+
+/** Extension states as 30008 words them. */
+const EXT_RINGING = new Set(['RINGING']);
+const EXT_BUSY = new Set(['BUSY', 'INUSE', 'IN USE', 'TALKING', 'HOLD', 'ONHOLD']);
+
+/** One call from `GET /call/query`, which uses the same member layout as a 30011. */
+const liveCallRow = z.object({ call_id: z.string(), members: z.array(memberEntry) }).loose();
 
 export interface LiveCallState {
   pbxCallId: string;
@@ -156,7 +165,7 @@ export class CallStateMachine {
         await this.applyCdr(event.msg, source);
         return;
       case 30008:
-        await this.onExtensionCallState(event.msg.extension, event.msg.status);
+        await this.onExtensionCallState(event.msg.extension, event.msg.status, receivedAt);
         return;
       case 30007:
         await this.onExtensionRegistration(event.msg.extension, event.msg.status);
@@ -798,15 +807,23 @@ export class CallStateMachine {
 
   // ── other events ─────────────────────────────────────────────────────────────────────
 
-  private async onExtensionCallState(extension: string, status: string): Promise<void> {
+  private async onExtensionCallState(
+    extension: string,
+    status: string,
+    receivedAt: Date,
+  ): Promise<void> {
     const mapped = await this.deps.extMap.lookup(extension);
     if (!mapped) return;
+    // An extension's state is reported in its own words ("Ringing", "Busy", "Idle"), not in the
+    // call-member words ("RING", "ANSWERED") the two sets below were written for. Read against
+    // those alone, a ringing phone was taken for an idle one.
     const s = status.toUpperCase();
-    const callState = IS_RINGING.has(s)
-      ? 'ringing'
-      : IS_TALKING.has(s) || s === 'HOLD' || s === 'BUSY' || s === 'INUSE'
-        ? 'busy'
-        : 'idle';
+    const callState =
+      IS_RINGING.has(s) || EXT_RINGING.has(s)
+        ? 'ringing'
+        : IS_TALKING.has(s) || EXT_BUSY.has(s)
+          ? 'busy'
+          : 'idle';
     this.app.realtime.to([rooms.role('manager'), rooms.role('admin')]).emit('agent:presence', {
       at: nowIso(),
       userId: mapped.userId,
@@ -814,6 +831,38 @@ export class CallStateMachine {
       registered: null,
       callState,
     });
+    if (callState !== 'idle') await this.fetchCallsFor(extension, receivedAt);
+  }
+
+  /**
+   * Asks the PBX which call is on an extension that just started ringing or talking.
+   *
+   * The live PBX reports "1002 is Ringing" (30008) the moment a phone rings, but its call-level
+   * event (30011) for that call arrives only at hangup. 30008 names the extension and nothing
+   * else: no call id, no caller. So the popup, which is built from call state, had nothing to
+   * build from, and appeared for nobody. The PBX will say what is on the extension if asked, in
+   * the same member layout 30011 uses, so the answer goes through exactly the path a 30011 would
+   * have taken, on that call's own queue so it cannot race the call's hangup.
+   */
+  private async fetchCallsFor(extension: string, receivedAt: Date): Promise<void> {
+    const client = this.app.cti.client;
+    if (!client) return;
+    let calls: z.infer<typeof liveCallRow>[];
+    try {
+      const res = await client.queryCall({ extension });
+      calls = (res.data ?? []).flatMap((row) => {
+        const parsed = liveCallRow.safeParse(row);
+        return parsed.success ? [parsed.data] : [];
+      });
+    } catch (err) {
+      this.app.log.warn({ err, extension }, 'could not ask the PBX which call is ringing');
+      return;
+    }
+    for (const call of calls) {
+      await this.serialized(call.call_id, () =>
+        this.onCallState(call.call_id, call.members, receivedAt),
+      );
+    }
   }
 
   private async onExtensionRegistration(extension: string, status: string): Promise<void> {
