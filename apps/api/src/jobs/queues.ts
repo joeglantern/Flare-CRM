@@ -10,6 +10,7 @@ export const QUEUES = {
   recordingDownload: 'recording.download',
   ctiEvent: 'cti.event',
   ctiReconcile: 'cti.reconcile',
+  ctiDialCheck: 'cti.dial-check',
   contactSync: 'contact.sync',
   extensionSync: 'extension.sync',
   messagingInbound: 'messaging.inbound',
@@ -26,6 +27,7 @@ export interface JobPayloads {
   [QUEUES.recordingDownload]: { callId: string; fileName: string };
   [QUEUES.ctiEvent]: { raw: unknown; source: 'webhook' | 'websocket'; receivedAt: string };
   [QUEUES.ctiReconcile]: { since?: string };
+  [QUEUES.ctiDialCheck]: { pbxCallId: string; attempt: number };
   [QUEUES.contactSync]: Record<string, never>;
   [QUEUES.extensionSync]: Record<string, never>;
   [QUEUES.messagingInbound]: { channelId: string; payload: unknown };

@@ -451,6 +451,108 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
    * an unsaved number to a contact, or the number changed afterwards. Redial sends the call, so the
    * server reads both from the record rather than being handed a pairing it can only refuse.
    */
+  describe('a dial never claims to ring when it does not', () => {
+    // Each dial from its own address: the route's limit is keyed before the user is known, and
+    // these tests would otherwise spend the rest of the file's budget of ten a minute.
+    let lane = 0;
+    const dialOut = async () => {
+      lane++;
+      const res = await ctx.as(agent, {
+        method: 'POST',
+        url: '/api/v1/calls/dial',
+        payload: { number: '0745000222' },
+        headers: { 'x-forwarded-for': `10.77.0.${String(lane)}` },
+      });
+      expect(res.statusCode, res.body).toBe(202);
+      return res.json<Envelope<{ callId: string; pbxCallId: string }>>().data;
+    };
+    const failure = (callId: string, reason: string) => ({
+      type: 30015,
+      sn: 'FAKE0001',
+      msg: { reason, call_id: callId, members: [] },
+    });
+    const rowOf = async (callId: string) =>
+      ctx.app.db.call.findUniqueOrThrow({ where: { id: callId }, select: { status: true } });
+
+    it('says why when the PBX refuses the dial, and closes the row', async () => {
+      const socket = await agentSocket(agent);
+      const cancelled = waitFor<{ reason: string; detail?: string }>(socket, 'call:cancelled');
+      const dial = await dialOut();
+      pbx.emit(failure(dial.pbxCallId, 'NO Dial Permission'));
+
+      const c = await cancelled;
+      expect(c.reason).toBe('refused');
+      expect(c.detail).toMatch(/extension 1001 is not allowed to dial this number/);
+      expect((await rowOf(dial.callId)).status).toBe('failed');
+      expect(await ctx.app.cti.machine.loadState(dial.pbxCallId)).toBeNull();
+      socket.disconnect();
+    });
+
+    it('applies a refusal that arrives before the dial has written its state', async () => {
+      // The production race: the PBX refused within the same second, before the API had the
+      // call id stored. The refusal is kept and the dial applies it the moment it has.
+      const next = `dial.${String(pbx.dialCounter + 1)}`;
+      await ctx.app.cti.machine.handleRaw(
+        JSON.parse(JSON.stringify(failure(next, 'NO Dial Permission'))),
+        'websocket',
+      );
+      const socket = await agentSocket(agent);
+      const cancelled = waitFor<{ pbxCallId: string; reason: string }>(socket, 'call:cancelled');
+      const dial = await dialOut();
+
+      expect(dial.pbxCallId).toBe(next);
+      expect(await cancelled).toMatchObject({ pbxCallId: next, reason: 'refused' });
+      expect((await rowOf(dial.callId)).status).toBe('failed');
+      socket.disconnect();
+    });
+
+    it('ends a dial the PBX has no record of, rather than dialing for ever', async () => {
+      const socket = await agentSocket(agent);
+      const cancelled = waitFor<{ reason: string; detail?: string }>(socket, 'call:cancelled');
+      const dial = await dialOut();
+      pbx.liveCalls = [];
+
+      await ctx.app.cti.machine.checkDial(dial.pbxCallId, 1);
+
+      const c = await cancelled;
+      expect(c.reason).toBe('no_ring');
+      expect(c.detail).toMatch(/signed in as extension 1001/);
+      expect((await rowOf(dial.callId)).status).toBe('failed');
+      socket.disconnect();
+    });
+
+    it('keeps a dial the PBX does have, and takes its legs from the answer', async () => {
+      const dial = await dialOut();
+      pbx.liveCalls = [outboundRinging(dial.pbxCallId, '1001', '0745000222').msg];
+
+      await ctx.app.cti.machine.checkDial(dial.pbxCallId, 1);
+
+      const state = await ctx.app.cti.machine.loadState(dial.pbxCallId);
+      expect(state).not.toBeNull();
+      expect(Object.keys(state?.members ?? {}).length).toBeGreaterThan(0);
+      expect((await rowOf(dial.callId)).status).not.toBe('failed');
+      pbx.liveCalls = [];
+    });
+
+    it('lets the agent hang up a dial that has no leg yet', async () => {
+      const socket = await agentSocket(agent);
+      const cancelled = waitFor<{ reason: string }>(socket, 'call:cancelled');
+      const dial = await dialOut();
+
+      const res = await ctx.as(agent, {
+        method: 'POST',
+        url: `/api/v1/calls/${dial.callId}/control`,
+        payload: { action: 'hangup' },
+      });
+
+      expect(res.statusCode, res.body).toBeLessThan(300);
+      expect((await cancelled).reason).toBe('abandoned');
+      expect(pbx.requestsTo('/openapi/v1.0/call/hangup')).toHaveLength(0);
+      expect((await rowOf(dial.callId)).status).toBe('failed');
+      socket.disconnect();
+    });
+  });
+
   it('redials a call whose number the contact does not own', async () => {
     const contact = (
       await ctx.as(admin, {

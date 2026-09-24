@@ -202,7 +202,22 @@ Anonymous/withheld caller IDs (`anonymous`, `unknown`, empty) → `contact: null
 - `callee` is derived: E.164 → dialable via `Setting.dialRules` (`e164ToDialable: national` → `07XXXXXXXX` for KE; `international` → `+254…` or `00254…`; prefix prepended if trunks need one).
 - Optional `dial_permission` = a supervisor extension configured in `Setting.dialRules.dialPermissionExtension` (used when the agent's extension lacks outbound permission on the PBX).
 - Rate limit: 10 dials / minute / user.
-- Response `202 { callId, pbxCallId }`. The popup opens in "dialing" state immediately from the HTTP response, then follows 30011 events.
+- Response `202 { callId, pbxCallId }`. The popup opens in "dialing" state from the `call:dialing` socket event, then follows 30011 events.
+- **A dial never claims to ring when it does not.** Every dial ends in a truthful state within
+  seconds, whatever the PBX sends:
+  - A refusal (30015, e.g. `NO Dial Permission` when the extension is in no outbound route for the
+    number) ends the call with `call:cancelled { reason: 'refused', detail }` in words the agent can
+    act on. The PBX refuses within milliseconds, often before the API has stored the call, so a
+    refusal for an unknown call id is kept for two minutes (`cti:early-end:{id}`) and applied by
+    the dial the moment its state is written.
+  - Ten seconds after a dial with no call event, the watchdog (`cti.dial-check` queue) asks
+    `GET /call/query?call_id=`. The PBX answers an unknown id with success and no data, so an empty
+    answer means the phone never rang: `reason: 'no_ring'`. A call it does know is fed in like a 30011.
+  - Hang up on a dial with no leg yet ends it in the CRM (`reason: 'abandoned'`) instead of asking
+    the PBX to hang up an empty channel.
+  - All of these go through `endUnconnected`, which takes the state with GETDEL so a race between
+    them records the call once. The popup's last line of defence is a notice and a Close button
+    after 45 seconds of silence.
 - Contacts with `do_not_call=true` → `409 DO_NOT_CALL` unless actor has `contact:override_dnc`.
 
 ## 11. In-app call controls (R-4.3) — capability flags

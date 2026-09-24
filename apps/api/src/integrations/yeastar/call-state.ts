@@ -72,6 +72,42 @@ const ENDED_STATE_TTL_SEC = 120;
 /** A call still "ringing" this long after it started did not ring for this long. */
 const STALE_RINGING_MS = 30 * 60 * 1000;
 const keyOf = (id: string) => `cti:call:${id}`;
+/** An ending that arrived before the call's state was written (the dial race). */
+const earlyEndKey = (id: string) => `cti:early-end:${id}`;
+const EARLY_END_TTL_SEC = 120;
+
+/** How long after a dial the PBX is asked whether the call exists at all. */
+export const DIAL_CHECK_DELAY_MS = 10_000;
+const DIAL_CHECK_ATTEMPTS = 3;
+
+type CancelPayload = ServerEventPayload<'call:cancelled'>;
+
+/**
+ * Turns the PBX's failure reason into something an agent can act on. "NO Dial Permission" is the
+ * one seen in production: the extension is not in any outbound route that matches the number.
+ */
+export function describeDialFailure(
+  raw: string,
+  extension: string | null,
+): { reason: CancelPayload['reason']; detail: string } {
+  const ext = extension ?? 'your extension';
+  if (/permission/i.test(raw)) {
+    return {
+      reason: 'refused',
+      detail: `The phone system refused this call: extension ${ext} is not allowed to dial this number. Add it to an outbound route on the PBX, or set a dial-permission extension in Settings, Telephony.`,
+    };
+  }
+  if (/486|busy/i.test(raw)) {
+    return { reason: 'refused', detail: 'The number you called is busy.' };
+  }
+  if (/404|not found|no route|unallocated/i.test(raw)) {
+    return { reason: 'refused', detail: 'The phone system could not route this number.' };
+  }
+  return {
+    reason: 'refused',
+    detail: `The phone system could not place this call (${raw === '' ? 'no reason given' : raw}).`,
+  };
+}
 
 export interface CallStateDeps {
   app: FastifyInstance;
@@ -243,15 +279,21 @@ export class CallStateMachine {
       });
       if (finished) {
         await this.app.db.call.delete({ where: { id: row.id } });
+        await this.deleteState(row.pbxCallId);
         deleted++;
       } else {
-        await this.app.db.call.update({
-          where: { id: row.id },
+        // Through endUnconnected when the state is still there, so a card left open anywhere is
+        // told; the row is closed either way.
+        await this.endUnconnected(
+          row.pbxCallId,
+          row.direction === 'outbound' ? 'no_ring' : 'caller_hung_up',
+        );
+        await this.app.db.call.updateMany({
+          where: { id: row.id, status: 'ringing' },
           data: { status: row.direction === 'outbound' ? 'failed' : 'missed', endedAt: now },
         });
         closed++;
       }
-      await this.deleteState(row.pbxCallId);
     }
     if (deleted + closed > 0) {
       this.app.log.warn({ deleted, closed }, 'closed calls left ringing with no end');
@@ -334,6 +376,9 @@ export class CallStateMachine {
           { pbxCallId },
           'hangup for a call never seen ringing; nothing to record',
         );
+        // If this is a click-to-call whose state the API has not written yet, the dial picks this
+        // up the moment it has, instead of showing "Dialing" for a call that is already over.
+        await this.rememberEarlyEnd(pbxCallId, 'ended before it connected');
         return;
       }
       // Likewise an event arriving after the CDR already finished the call.
@@ -754,7 +799,9 @@ export class CallStateMachine {
       );
     }
 
-    if (source !== 'reconcile') {
+    // A CDR found by the reconciliation still ends a card somebody has open: without this, a
+    // call whose only record came that way stayed on screen for good.
+    if (source !== 'reconcile' || state !== null) {
       const targets = new Set<string>([...(state?.poppedUsers ?? []), ...(userId ? [userId] : [])]);
       for (const target of targets) {
         this.app.realtime.to(rooms.user(target)).emit('call:logged', {
@@ -911,19 +958,127 @@ export class CallStateMachine {
   private async onFailure(msg: Record<string, unknown>): Promise<void> {
     const callId = typeof msg.call_id === 'string' ? msg.call_id : null;
     if (!callId) return;
-    const state = await this.loadState(callId);
+    const raw = typeof msg.reason === 'string' ? msg.reason : '';
+    if (!(await this.loadState(callId))) {
+      /*
+       * The PBX refuses a click-to-call within milliseconds ("NO Dial Permission"), often before
+       * the API has written the call's state, because the call id only exists once the dial
+       * request returns. Dropping the refusal here is what left "Dialing" on screen for a call
+       * that was never placed. It is kept for the dial to find, and checked again in case the
+       * state landed while it was being kept.
+       */
+      await this.rememberEarlyEnd(callId, raw);
+      if (!(await this.loadState(callId))) return;
+    }
+    await this.endFromFailure(callId, raw);
+  }
+
+  private async endFromFailure(pbxCallId: string, raw: string): Promise<void> {
+    const state = await this.loadState(pbxCallId);
     if (!state) return;
-    await this.app.db.call
-      .update({ where: { id: state.crmCallId }, data: { status: 'failed', endedAt: new Date() } })
-      .catch(() => undefined);
+    if (state.direction === 'outbound') {
+      const { reason, detail } = describeDialFailure(raw, state.ringingExtensions[0] ?? null);
+      await this.endUnconnected(pbxCallId, reason, detail);
+    } else {
+      // An inbound failure is the caller giving up while it rang (487); the CDR records it.
+      await this.endUnconnected(pbxCallId, 'caller_hung_up');
+    }
+  }
+
+  private async rememberEarlyEnd(pbxCallId: string, raw: string): Promise<void> {
+    await this.app.valkey.set(earlyEndKey(pbxCallId), raw, 'EX', EARLY_END_TTL_SEC);
+  }
+
+  /**
+   * Called by the dial right after it writes the call's state: an ending that arrived first is
+   * applied now. Between this and onFailure's second look, one of the two always sees the other.
+   */
+  async settleEarlyEnd(pbxCallId: string): Promise<boolean> {
+    const raw = await this.app.valkey.get(earlyEndKey(pbxCallId));
+    if (raw === null) return false;
+    await this.endFromFailure(pbxCallId, raw);
+    return true;
+  }
+
+  /**
+   * Ends a call that never connected, exactly once, and tells everyone watching it why.
+   *
+   * The state is taken with GETDEL, so when a refusal, the watchdog and a hang-up race for the
+   * same call only the first one records it. Returns false when somebody else already did, or
+   * the call was answered after all.
+   */
+  async endUnconnected(
+    pbxCallId: string,
+    reason: CancelPayload['reason'],
+    detail?: string,
+  ): Promise<boolean> {
+    const raw = await this.app.valkey.getdel(keyOf(pbxCallId));
+    await this.app.valkey.del(earlyEndKey(pbxCallId));
+    if (raw === null) return false;
+    const state = JSON.parse(raw) as LiveCallState;
+    if (state.answeredAt !== null) {
+      await this.saveState(state);
+      return false;
+    }
+    await this.app.db.call.updateMany({
+      where: { id: state.crmCallId, status: 'ringing' },
+      data: { status: state.direction === 'outbound' ? 'failed' : 'missed', endedAt: new Date() },
+    });
     for (const userId of state.poppedUsers)
       this.app.realtime.to(rooms.user(userId)).emit('call:cancelled', {
         at: nowIso(),
         callId: state.crmCallId,
-        pbxCallId: callId,
-        reason: 'timeout',
+        pbxCallId,
+        reason,
+        ...(detail !== undefined ? { detail } : {}),
       });
-    await this.deleteState(callId);
+    await this.broadcastLive();
+    return true;
+  }
+
+  /**
+   * The dial watchdog: a click-to-call that has produced no call event is checked against the
+   * PBX itself rather than trusted or timed out blind. This PBX is quiet about call state (30011
+   * often only at hangup), so silence proves nothing; asking does. The PBX answers an unknown call
+   * id with success and no data, so an empty answer means the call does not exist and the phone
+   * never rang. If it does exist, its legs are fed in exactly like a 30011.
+   */
+  async checkDial(pbxCallId: string, attempt: number): Promise<void> {
+    const state = await this.loadState(pbxCallId);
+    if (!state || state.ended || state.answeredAt !== null) return;
+    if (Object.keys(state.members).length > 0) return;
+    const client = this.app.cti.client;
+    if (!client) return;
+    let calls: z.infer<typeof liveCallRow>[];
+    try {
+      const res = await client.queryCall({ call_id: pbxCallId });
+      calls = (res.data ?? []).flatMap((row) => {
+        const parsed = liveCallRow.safeParse(row);
+        return parsed.success && parsed.data.call_id === pbxCallId ? [parsed.data] : [];
+      });
+    } catch (err) {
+      this.app.log.warn({ err, pbxCallId, attempt }, 'could not check a dial with the PBX');
+      if (attempt < DIAL_CHECK_ATTEMPTS) {
+        await this.app.queues.add(
+          QUEUES.ctiDialCheck,
+          'check',
+          { pbxCallId, attempt: attempt + 1 },
+          { delay: DIAL_CHECK_DELAY_MS, removeOnComplete: true, removeOnFail: true },
+        );
+      }
+      return;
+    }
+    const [live] = calls;
+    if (live === undefined) {
+      const ext = state.ringingExtensions[0] ?? 'your extension';
+      await this.endUnconnected(
+        pbxCallId,
+        'no_ring',
+        `Your phone never rang. Check that Linkus or your desk phone is signed in as extension ${ext}.`,
+      );
+      return;
+    }
+    await this.serialized(pbxCallId, () => this.onCallState(pbxCallId, live.members, new Date()));
   }
 
   private async broadcastLive(): Promise<void> {

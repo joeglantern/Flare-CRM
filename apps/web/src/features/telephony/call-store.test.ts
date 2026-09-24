@@ -116,6 +116,8 @@ describe('call store state machine', () => {
       pbxCallId: 'a',
       reason: 'answered_elsewhere',
       callerDisplay: '0712 345678',
+      detail: null,
+      outbound: false,
     });
     state.clearCancelled();
     expect(useCallStore.getState().lastCancelled).toBeNull();

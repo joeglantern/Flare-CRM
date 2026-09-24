@@ -15,6 +15,7 @@ import type { FastifyInstance } from 'fastify';
 import type { CountryCode } from 'libphonenumber-js';
 import type { z } from 'zod';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { DIAL_CHECK_DELAY_MS } from '../../integrations/yeastar/call-state.js';
 import { YeastarApiError } from '../../integrations/yeastar/client.js';
 import { IS_TALKING } from '../../integrations/yeastar/normalize.js';
 import {
@@ -25,6 +26,7 @@ import {
   PbxUnavailableError,
   ValidationError,
 } from '../../lib/errors.js';
+import { QUEUES } from '../../jobs/queues.js';
 import { newId } from '../../lib/ids.js';
 import { isoOrNull } from '../../lib/object.js';
 import { SHAPES, scopeWhere } from '../../lib/scope.js';
@@ -498,6 +500,21 @@ export class CallsService {
     this.app.realtime
       .to(`user:${actor.id}`)
       .emit('call:dialing', { at: new Date().toISOString(), callId, pbxCallId, callee });
+    // After call:dialing, so a refusal that already arrived replaces the card it just opened.
+    const settled = await cti.machine.settleEarlyEnd(pbxCallId);
+    if (!settled) {
+      await this.app.queues.add(
+        QUEUES.ctiDialCheck,
+        'check',
+        { pbxCallId, attempt: 1 },
+        {
+          jobId: `dial-check-${pbxCallId}`,
+          delay: DIAL_CHECK_DELAY_MS,
+          removeOnComplete: true,
+          removeOnFail: true,
+        },
+      );
+    }
     return { callId, pbxCallId, callee };
   }
 
@@ -550,6 +567,12 @@ export class CallsService {
           await cti.client.refuseInbound(state.trunkChannelId);
           break;
         case 'hangup':
+          // A dial with no leg yet has nothing on the PBX to hang up; asking it to hang up an
+          // empty channel failed, and left the agent looking at "Dialing" with no way out.
+          if (channel === undefined && state.trunkChannelId === null) {
+            await cti.machine.endUnconnected(call.pbxCallId, 'abandoned');
+            break;
+          }
           await cti.client.hangup(channel ?? state.trunkChannelId ?? '');
           break;
         case 'hold':

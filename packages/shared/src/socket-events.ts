@@ -61,7 +61,19 @@ export const serverEvents = {
     at,
     callId: uuid.nullable(),
     pbxCallId: z.string(),
-    reason: z.enum(['answered_elsewhere', 'caller_hung_up', 'timeout']),
+    reason: z.enum([
+      'answered_elsewhere',
+      'caller_hung_up',
+      'timeout',
+      /** The phone system turned the call down, e.g. no permission to dial out. */
+      'refused',
+      /** The agent's own phone never rang, so nothing was placed. */
+      'no_ring',
+      /** The agent gave up on a call that never connected. */
+      'abandoned',
+    ]),
+    /** What happened, in words an agent can act on. */
+    detail: z.string().optional(),
   }),
   'call:updated': z.object({
     at,

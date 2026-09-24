@@ -119,6 +119,10 @@ export function startProcessors(app: FastifyInstance): RunningWorkers {
       app.log.info({ claimed }, 'past calls given to the contacts who own their numbers');
   });
 
+  register(QUEUES.ctiDialCheck, 2, async (job) => {
+    await app.cti.machine.checkDial(job.data.pbxCallId, job.data.attempt);
+  });
+
   register(QUEUES.recordingDownload, 2, async (job) => {
     const { callId, fileName } = job.data;
     const client = app.cti.client;

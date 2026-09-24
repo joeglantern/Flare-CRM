@@ -46,6 +46,7 @@ import { usePermissions } from '@/providers/permissions';
 import { useSettings } from '@/providers/settings';
 import { cn } from '@/lib/utils';
 import { ContactFormDrawer } from '@/features/contacts/ContactForm';
+import { cancelledCopy, DIAL_SILENCE_SEC } from './cancel-copy';
 import { useCallControl, useCapabilities, useLinkCallContact } from './api';
 import { activeCall, talkSeconds, useCallStore, type CallCard } from './call-store';
 import { DispositionForm } from './DispositionForm';
@@ -62,19 +63,16 @@ export function CallPopupHost() {
   const [minimised, setMinimised] = useState<string[]>([]);
   const navigate = useNavigate();
 
-  // A cancelled call leaves a short toast rather than a card (Flows · branches).
+  // A cancelled call leaves a short toast rather than a card (Flows · branches). The toast says
+  // what actually happened: a refused or never-rung dial reads as exactly that, never as
+  // "Nobody answered", which is what hid a click-to-call that was never placed.
   useEffect(() => {
     if (lastCancelled === null) return;
-    const reason =
-      lastCancelled.reason === 'answered_elsewhere'
-        ? 'Answered by a colleague'
-        : lastCancelled.reason === 'timeout'
-          ? 'Nobody answered'
-          : 'Caller hung up';
+    const { title, tone } = cancelledCopy(lastCancelled);
     toast({
-      tone: lastCancelled.reason === 'timeout' ? 'warning' : 'neutral',
-      title: reason,
-      description: lastCancelled.callerDisplay ?? undefined,
+      tone,
+      title,
+      description: lastCancelled.detail ?? lastCancelled.callerDisplay ?? undefined,
       key: `call-${lastCancelled.pbxCallId}`,
     });
     clearCancelled();
@@ -529,6 +527,28 @@ function CallCardView({
                 )}
               </div>
             )}
+
+            {/*
+              The server ends every dial in a truthful state within seconds (a refusal, or the
+              PBX saying the call does not exist). This is the last line: if even that never
+              arrives, the card says so and can be closed rather than claiming to dial forever.
+            */}
+            {card.status === 'dialing' &&
+              Math.floor((now - card.receivedAt) / 1000) >= DIAL_SILENCE_SEC && (
+                <div className="flex flex-col gap-2">
+                  <p role="status" className="text-sm text-warning">
+                    No response from the phone system. The call may not have been placed.
+                  </p>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      close(card.pbxCallId);
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+              )}
 
             {card.status === 'ended' && card.callId === null && (
               <Button

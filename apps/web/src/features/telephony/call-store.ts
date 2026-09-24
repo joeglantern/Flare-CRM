@@ -39,6 +39,10 @@ export interface CancelledEvent {
   pbxCallId: string;
   reason: CancelReason;
   callerDisplay: string | null;
+  /** The server's own words for what happened, when it has them. */
+  detail: string | null;
+  /** Whether the card was this agent's own call going out, which changes how it reads. */
+  outbound: boolean;
 }
 
 interface CallStore {
@@ -142,6 +146,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
         pbxCallId: payload.pbxCallId,
         reason: payload.reason,
         callerDisplay: card?.ringing?.callerDisplay ?? card?.callee ?? null,
+        detail: payload.detail ?? null,
+        outbound: card?.status === 'dialing' || card?.direction === 'outbound',
       },
     }));
   },
