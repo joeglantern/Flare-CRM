@@ -10,7 +10,7 @@ import { ConsoleLink } from '../integrations/console/link.js';
 import { YeastarSubscriber } from '../integrations/yeastar/subscriber.js';
 import { reconcileCdrs } from '../integrations/yeastar/reconcile.js';
 import { QUEUES } from '../jobs/queues.js';
-import { nudgeContactSync, schedulePoll } from '../jobs/contact-sync.js';
+import { POLL_SCHEDULER, nudgeContactSync, schedulePoll } from '../jobs/contact-sync.js';
 import { startProcessors } from '../jobs/processors.js';
 import { nowIso, rooms } from '../lib/realtime.js';
 
@@ -204,6 +204,10 @@ async function main(): Promise<void> {
     // Every process hears settings writes on this channel; the settings cache clears on the same
     // notice, so the read waits a moment to be sure it sees the new value.
     settingsListener = app.valkey.duplicate();
+    // Without a listener a dropped connection is an unhandled error event, which ends the process.
+    settingsListener.on('error', (err: unknown) => {
+      app.log.warn({ err }, 'settings listener connection error');
+    });
     await settingsListener.subscribe('settings:changed');
     settingsListener.on('message', (_channel, key) => {
       if (key !== 'contactSync') return;
@@ -231,7 +235,8 @@ async function main(): Promise<void> {
      * A scheduler's first run comes one interval after it is created, not at once, so a deploy or a
      * restart left the phonebook, the extension map and the call log up to ten minutes behind for
      * no reason. One run of each now, as the worker comes up; the schedulers carry on from there.
-     * Fixed job ids, so a worker restarting in a loop cannot pile them up.
+     * Fixed job ids, so a worker restarting in a loop cannot pile them up. The contact sync's nudge
+     * is the exception: its id names a three-second window, which folds a restart loop the same way.
      */
     const once = { removeOnComplete: true, removeOnFail: true } as const;
     await nudgeContactSync(app);
@@ -254,10 +259,15 @@ async function main(): Promise<void> {
       });
     }, 60_000);
     tokenTimer.unref();
-  } else if (app.cti.enabled) {
-    app.log.info('CTI event source is webhook-only; websocket subscriber not started');
   } else {
-    app.log.warn('YEASTAR_ENABLED=false — telephony integration inactive');
+    if (app.cti.enabled) {
+      app.log.info('CTI event source is webhook-only; websocket subscriber not started');
+    } else {
+      app.log.warn('YEASTAR_ENABLED=false; telephony integration inactive');
+    }
+    // A poll scheduled while telephony was on outlives the process that made it. Every half minute
+    // it would wake the worker for a run that can only return at once, so it goes.
+    await app.queues.get(QUEUES.contactSync).removeJobScheduler(POLL_SCHEDULER);
   }
 
   const shutdown = (signal: string) => {

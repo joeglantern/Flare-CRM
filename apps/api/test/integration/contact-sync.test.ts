@@ -6,7 +6,7 @@
  * that running it again is free and changes nothing, and the two asymmetries that matter: deleting
  * in the CRM removes from the PBX, and deleting on the PBX does not remove from the CRM.
  */
-import { beforeAll, afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runContactSync } from '../../src/jobs/contact-sync.js';
 import { runCsvImport } from '../../src/jobs/csv-import.js';
 import { QUEUES } from '../../src/jobs/queues.js';
@@ -40,6 +40,7 @@ describe('contact sync (fake PBX)', () => {
     await ctx.reset();
     admin = await ctx.createUser({ role: 'admin', extension: '1000' });
     pbx.contacts.clear();
+    pbx.contactPageCap = null;
     pbx.phonebooks.length = 0;
     pbx.requests.length = 0;
     await ctx.app.settings.patch(
@@ -536,6 +537,140 @@ describe('contact sync (fake PBX)', () => {
       await runContactSync(ctx.app);
       expect(row(pbxId).business).toBe('');
       expect((await loaded(contact.id)).phones.map((p) => p.e164)).toEqual(['+254712000001']);
+    });
+  });
+  describe('what a sync must never do', () => {
+    const linkOf = (contactId: string) =>
+      ctx.app.db.pbxContactLink.findUniqueOrThrow({ where: { contactId } });
+    const liveNumbers = async (contactId: string) =>
+      (
+        await ctx.app.db.contactPhone.findMany({
+          where: { contactId, deletedAt: null },
+          select: { e164: true },
+        })
+      ).map((p) => p.e164);
+
+    it('keeps a number when a handset moves it to one another contact holds', async () => {
+      const a = await addContact('Anne', '0712000001');
+      const b = await addContact('Ben', '0712000002');
+      await runContactSync(ctx.app);
+      const aPbx = (await linkOf(a.id)).pbxContactId;
+      const row = pbx.contacts.get(aPbx) ?? {};
+      pbx.contacts.set(aPbx, { ...row, mobile: '0712000002' });
+
+      await runContactSync(ctx.app);
+
+      expect(await liveNumbers(a.id)).toEqual(['+254712000001']);
+      expect(await liveNumbers(b.id)).toEqual(['+254712000002']);
+      // Anne is still on the phone system, put back under her own number.
+      await runContactSync(ctx.app);
+      expect(pbx.contacts.get(aPbx)?.mobile).toBe('+254712000001');
+      expect(await runContactSync(ctx.app)).toMatchObject({ updated: 0, pulled: 0, failed: 0 });
+    });
+
+    it('loses nothing and duplicates nothing when the PBX serves two rows a page', async () => {
+      pbx.contactPageCap = 2;
+      for (let i = 1; i <= 5; i++) await addContact(`P${String(i)}`, `071200000${String(i)}`);
+
+      expect(await runContactSync(ctx.app)).toMatchObject({ created: 5, failed: 0 });
+      for (let i = 0; i < 3; i++) {
+        expect(await runContactSync(ctx.app)).toMatchObject({ created: 0, imported: 0 });
+      }
+      expect(pbx.contacts.size).toBe(5);
+      expect(await ctx.app.db.contact.count({ where: { deletedAt: null } })).toBe(5);
+    });
+
+    it('writes the CRM version over a link with no PBX baseline that disagrees', async () => {
+      const contact = await addContact('Jane', '0712000001');
+      await runContactSync(ctx.app);
+      const link = await linkOf(contact.id);
+      // As every link was before the PBX fingerprint existed, with the PBX since edited.
+      await ctx.app.db.pbxContactLink.update({
+        where: { contactId: contact.id },
+        data: { pbxFingerprint: '' },
+      });
+      pbx.contacts.set(link.pbxContactId, {
+        ...(pbx.contacts.get(link.pbxContactId) ?? {}),
+        contact_name: 'Jane Elsewhere',
+      });
+
+      expect(await runContactSync(ctx.app)).toMatchObject({ updated: 1, pulled: 0 });
+      expect(pbx.contacts.get(link.pbxContactId)?.contact_name).toBe('Jane Test');
+      expect((await linkOf(contact.id)).pbxFingerprint).not.toBe('');
+    });
+
+    it('takes a contact off the PBX once all its numbers are removed, and imports no copy', async () => {
+      const contact = await addContact('Jane', '0712000001');
+      await runContactSync(ctx.app);
+      await ctx.app.db.contactPhone.updateMany({
+        where: { contactId: contact.id },
+        data: { deletedAt: new Date(), isPrimary: false },
+      });
+
+      expect(await runContactSync(ctx.app)).toMatchObject({ removed: 1, imported: 0 });
+      expect(pbx.contacts.size).toBe(0);
+      expect(await ctx.app.db.contact.count({ where: { deletedAt: null } })).toBe(1);
+    });
+
+    it('counts an import that loses a race for its link as a duplicate, not a failure', async () => {
+      pbx.contacts.set(90, { id: 90, contact_name: 'Wanjiru Kamau', mobile: '0722000002' });
+      // A contact the sync never links itself, having no number, to take the link in the race.
+      const racer = (
+        await ctx.as(admin, {
+          method: 'POST',
+          url: '/api/v1/contacts',
+          payload: { firstName: 'Racer', emails: [{ email: 'racer@example.com' }] },
+        })
+      ).json<Envelope<{ id: string }>>().data;
+      const db = ctx.app.db;
+      const original = db.$transaction.bind(db);
+      const spy = vi
+        .spyOn(db, '$transaction')
+        .mockImplementationOnce(async (...args: Parameters<typeof db.$transaction>) => {
+          await db.pbxContactLink.create({
+            data: { contactId: racer.id, pbxContactId: 90, fingerprint: '', pbxFingerprint: '' },
+          });
+          return original(...args);
+        });
+
+      try {
+        const summary = await runContactSync(ctx.app);
+        expect(summary).toMatchObject({ imported: 0, duplicatesOnPbx: 1, failed: 0 });
+      } finally {
+        spy.mockRestore();
+      }
+      expect(await ctx.app.db.contact.count({ where: { firstName: 'Wanjiru' } })).toBe(0);
+    });
+
+    it('does not pull over an edit made in the CRM while the run was going', async () => {
+      const contact = await addContact('Jane', '0712000001');
+      await runContactSync(ctx.app);
+      const { pbxContactId } = await linkOf(contact.id);
+      pbx.contacts.set(pbxContactId, {
+        ...(pbx.contacts.get(pbxContactId) ?? {}),
+        contact_name: 'Jane Handset',
+      });
+      // Saved in the CRM between the run reading both sides and the pull being applied.
+      const db = ctx.app.db;
+      const original = db.$transaction.bind(db);
+      const spy = vi
+        .spyOn(db, '$transaction')
+        .mockImplementationOnce(async (...args: Parameters<typeof db.$transaction>) => {
+          await db.contact.update({ where: { id: contact.id }, data: { lastName: 'Desk' } });
+          return original(...args);
+        });
+
+      try {
+        expect(await runContactSync(ctx.app)).toMatchObject({ pulled: 0 });
+      } finally {
+        spy.mockRestore();
+      }
+      expect(
+        (await ctx.app.db.contact.findUniqueOrThrow({ where: { id: contact.id } })).lastName,
+      ).toBe('Desk');
+      // The next run sees both sides changed; the CRM wins and the PBX follows.
+      expect(await runContactSync(ctx.app)).toMatchObject({ updated: 1, conflicts: 1 });
+      expect(pbx.contacts.get(pbxContactId)?.contact_name).toBe('Jane Desk');
     });
   });
 });

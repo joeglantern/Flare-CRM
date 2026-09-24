@@ -274,12 +274,19 @@ export function planSync(input: {
   const claimed = new Set<number>();
 
   for (const contact of input.crm) {
+    const link = linkByContact.get(contact.id);
     if (contact.numbers.length === 0) {
       plan.skippedNoNumber.push(contact.id);
+      // Linked once, and every number since removed in the CRM. The PBX cannot hold a contact with
+      // no number, so its entry goes, as for a deleted contact. Left alone it would look like
+      // somebody the CRM had never heard of and be imported as a second copy on every run.
+      if (link && pbxById.has(link.pbxContactId)) {
+        claimed.add(link.pbxContactId);
+        plan.remove.push({ contactId: contact.id, pbxContactId: link.pbxContactId });
+      }
       continue;
     }
     const print = fingerprint(toWrite(contact));
-    const link = linkByContact.get(contact.id);
 
     // The link still points at a contact the PBX has. Which side moved since the last sync decides
     // what happens, and the two fingerprints are what make that answerable.
@@ -288,12 +295,14 @@ export function planSync(input: {
       claimed.add(link.pbxContactId);
       const rowPrint = pbxFingerprint(linkedRow, input.country);
       const crmChanged = link.fingerprint !== print;
-      // No stored PBX fingerprint means no baseline: the link predates them. What the PBX holds is
-      // taken as agreed rather than guessed to be an edit, and recorded so the next one shows.
-      const pbxChanged = link.pbxFingerprint !== '' && link.pbxFingerprint !== rowPrint;
+      // No stored PBX fingerprint means no baseline: the link predates them, or the read-back after
+      // a write failed. Nothing says the PBX side was edited, so the CRM wins as it always has, and
+      // a disagreement is written to the PBX rather than frozen in as the baseline.
+      const noBaseline = link.pbxFingerprint === '';
+      const pbxChanged = !noBaseline && link.pbxFingerprint !== rowPrint;
       const agree = printView(viewOfCrm(contact)) === rowPrint;
 
-      if (crmChanged) {
+      if (crmChanged || (noBaseline && !agree)) {
         plan.update.push({
           contact,
           pbxContactId: link.pbxContactId,
@@ -412,22 +421,36 @@ export async function ensurePhonebook(
   }
 }
 
+/** More pages than this is a PBX answering in circles, not a phonebook. */
+const MAX_PAGES = 1000;
+
 /**
  * Every page of the PBX's contacts.
  *
  * The API takes pages of up to 10 000, so for any real phonebook this is a single request, which is
  * what makes reading the whole PBX side every half minute affordable.
+ *
+ * Paged by the total the PBX reports, not by a short page. A PBX that quietly serves fewer rows
+ * per page than asked would make the first page look like the last, and every contact past it
+ * would look missing and be created again, on every poll. A read that cannot account for the
+ * total fails rather than answers short, for the same reason.
  */
 export async function fetchAllPbxContacts(
   client: Pick<YeastarClient, 'companyContactList'>,
   pageSize = 10_000,
 ): Promise<CompanyContactRow[]> {
   const all: CompanyContactRow[] = [];
-  for (let page = 1; page <= 50; page++) {
+  let total: number | undefined;
+  for (let page = 1; page <= MAX_PAGES; page++) {
     const res = await client.companyContactList({ page, page_size: pageSize });
     const rows = res.data ?? [];
+    total ??= res.total_number;
     all.push(...rows);
-    if (rows.length < pageSize) break;
+    if (rows.length === 0) break;
+    if (total !== undefined ? all.length >= total : rows.length < pageSize) break;
+  }
+  if (total !== undefined && all.length < total) {
+    throw new Error(`read ${String(all.length)} of the PBX's ${String(total)} contacts`);
   }
   return all;
 }

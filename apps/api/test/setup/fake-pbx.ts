@@ -22,6 +22,8 @@ export class FakePbx {
     { number: '1001' },
     { number: '1002' },
   ];
+  /** Rows per page the contact list will serve at most, whatever page_size asks for. */
+  contactPageCap: number | null = null;
   /** Company contacts, keyed by the id the PBX hands out. */
   contacts = new Map<number, Record<string, unknown>>();
   phonebooks: { id: number; name: string; member_select?: string }[] = [];
@@ -188,7 +190,8 @@ export class FakePbx {
     app.get('/openapi/v1.0/company_contact/list', async (request) => {
       if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
       const q = request.query as Record<string, string | undefined>;
-      const size = Number(q.page_size ?? '10000');
+      // A PBX may serve fewer rows per page than asked for, and say nothing about it.
+      const size = Math.min(Number(q.page_size ?? '10000'), this.contactPageCap ?? Infinity);
       const page = Number(q.page ?? '1');
       const all = [...this.contacts.values()];
       return {

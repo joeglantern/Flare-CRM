@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  fetchAllPbxContacts,
   fingerprint,
   pbxFingerprint,
   planSync,
@@ -261,17 +262,29 @@ describe('telling which side changed', () => {
     expect(plan.update).toEqual([expect.objectContaining({ conflict: null })]);
   });
 
-  it('takes a link with no PBX fingerprint as agreed, rather than guessing an edit', () => {
+  it('writes the CRM version when a link with no PBX fingerprint disagrees', () => {
+    // No baseline says nothing about who edited what, so the CRM wins as it always has, rather
+    // than the difference being recorded as the new normal and never resolved.
     const edited = pbxRow({ id: 5, contact_name: 'Jane Mwangi' });
     const plan = run(contact, edited, { ...agreed, pbxFingerprint: '' });
     expect(plan.pull).toHaveLength(0);
+    expect(plan.settle).toHaveLength(0);
+    expect(plan.update).toEqual([expect.objectContaining({ pbxContactId: 5, conflict: null })]);
+  });
+
+  it('only records the baseline when a link with no PBX fingerprint already agrees', () => {
+    const plan = run(contact, row, { ...agreed, pbxFingerprint: '' });
     expect(plan.update).toHaveLength(0);
     expect(plan.settle).toEqual([
-      expect.objectContaining({
-        contactId: contact.id,
-        pbxFingerprint: pbxFingerprint(edited, KE),
-      }),
+      expect.objectContaining({ contactId: contact.id, pbxFingerprint: pbxFingerprint(row, KE) }),
     ]);
+  });
+
+  it('takes a linked contact off the PBX once the CRM has removed all its numbers', () => {
+    const plan = run(crm({ numbers: [] }), row);
+    expect(plan.remove).toEqual([{ contactId: contact.id, pbxContactId: 5 }]);
+    // and does not then import the entry as somebody new
+    expect(plan.importToCrm).toHaveLength(0);
   });
 
   it('compares the name the way the PBX stores it, as one string', () => {
@@ -290,5 +303,32 @@ describe('telling which side changed', () => {
     const plan = run(contact, pbxRow({ id: 5, mobile: '0700000001' }));
     expect(plan.pull).toHaveLength(0);
     expect(plan.update).toHaveLength(0);
+  });
+});
+
+describe('reading every PBX contact', () => {
+  const rows = Array.from({ length: 5 }, (_, i) => pbxRow({ id: i + 1 }));
+  /** A PBX that serves `cap` rows a page whatever it is asked for, and reports `total`. */
+  const capped = (cap: number, total: number | null = rows.length) => ({
+    companyContactList: ({ page = 1 }: { page?: number; page_size?: number }) =>
+      Promise.resolve({
+        errcode: 0,
+        ...(total === null ? {} : { total_number: total }),
+        data: rows.slice((page - 1) * cap, page * cap),
+      }),
+  });
+
+  it('keeps reading past a page the PBX cut short, up to the total it reports', async () => {
+    const all = await fetchAllPbxContacts(capped(2));
+    expect(all.map((r) => r.id)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('fails rather than answer short when the pages run out before the total', async () => {
+    await expect(fetchAllPbxContacts(capped(2, 9))).rejects.toThrow(/5 of the PBX's 9/);
+  });
+
+  it('stops at a short page when the PBX reports no total', async () => {
+    const all = await fetchAllPbxContacts(capped(10, null), 10);
+    expect(all).toHaveLength(5);
   });
 });

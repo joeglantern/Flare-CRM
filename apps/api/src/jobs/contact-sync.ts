@@ -17,6 +17,7 @@
  * written when nothing changed. The ten-minute run stays as the backstop and also checks the
  * phonebook, which a poll does not need to.
  */
+import { emailSchema } from '@crm/shared';
 import type { FastifyInstance } from 'fastify';
 import type { CountryCode } from 'libphonenumber-js';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -106,7 +107,9 @@ export async function schedulePoll(app: FastifyInstance): Promise<void> {
   await queue.upsertJobScheduler(
     POLL_SCHEDULER,
     { every: pollSeconds * 1000 },
-    { name: 'poll', data: {}, opts: { removeOnComplete: true, removeOnFail: 100 } },
+    // One attempt: the next poll is seconds away and is the retry. The queue's default of five
+    // attempts with backoff would stack retries of one stuck contact on top of fresh polls.
+    { name: 'poll', data: {}, opts: { attempts: 1, removeOnComplete: true, removeOnFail: 100 } },
   );
 }
 
@@ -278,7 +281,7 @@ export async function runContactSync(app: FastifyInstance): Promise<SyncSummary 
   for (const { contact, row } of plan.pull) {
     if (!budgetLeft()) break;
     try {
-      const after = await pullIntoCrm(app, contact.id, row, country);
+      const after = await pullIntoCrm(app, contact.id, row, country, printView(viewOfCrm(contact)));
       if (after) {
         const rowPrint = pbxFingerprint(row, country);
         // What the CRM could not take, a number another contact already holds for instance, is
@@ -428,13 +431,15 @@ async function companyNamed(
  * Only what the PBX can hold is touched. A contact's eighth number, which the PBX never had, is not
  * removed because the PBX does not list it, and a number or an email that already belongs to
  * another contact is not taken from them. Answers the contact as it now stands, or null when it
- * has gone in the meantime.
+ * has gone in the meantime or was edited in the CRM since the run read it.
  */
 async function pullIntoCrm(
   app: FastifyInstance,
   contactId: string,
   row: CompanyContactRow,
   country: CountryCode,
+  /** The CRM side as the plan saw it. */
+  planned: string,
 ): Promise<CrmContact | null> {
   const target = viewOfRow(row, country);
   const now = new Date();
@@ -446,6 +451,10 @@ async function pullIntoCrm(
     });
     if (!current) return null;
     const before = viewOfCrm(toCrm(current));
+    // Somebody saved this contact in the CRM after the run read it. Pulling now would overwrite
+    // their edit with the PBX's; the next run sees both changed, and the CRM wins as it should.
+    if (printView(before) !== planned) return null;
+    let touched = false;
 
     // Name and company.
     const update: { firstName?: string; lastName?: string | null; displayName?: string } & {
@@ -466,10 +475,15 @@ async function pullIntoCrm(
       await tx.contact.update({ where: { id: contactId }, data: update });
     }
 
-    // Email: the PBX holds one, which is the CRM's primary.
-    if (target.email !== before.email) {
+    // Email: the PBX holds one, which is the CRM's primary. What a handset lets somebody type is
+    // not checked there, so it is held to the same rule as an email entered in the CRM.
+    const email = target.email === '' ? '' : emailSchema.safeParse(target.email).data;
+    if (email === undefined) {
+      app.log.warn({ contactId }, 'the email set on the PBX is not a valid address');
+    } else if (email !== before.email) {
+      touched = true;
       const primary = current.emails.find((e) => e.isPrimary) ?? null;
-      if (target.email === '') {
+      if (email === '') {
         if (primary) {
           await tx.contactEmail.update({
             where: { id: primary.id },
@@ -481,7 +495,7 @@ async function pullIntoCrm(
         }
       } else {
         const holder = await tx.contactEmail.findFirst({
-          where: { email: target.email, deletedAt: null },
+          where: { email, deletedAt: null },
           select: { id: true, contactId: true },
         });
         if (holder && holder.contactId !== contactId) {
@@ -493,11 +507,11 @@ async function pullIntoCrm(
         } else if (primary) {
           await tx.contactEmail.update({
             where: { id: primary.id },
-            data: { email: target.email },
+            data: { email },
           });
         } else {
           await tx.contactEmail.create({
-            data: { id: newId(), contactId, email: target.email, isPrimary: true },
+            data: { id: newId(), contactId, email, isPrimary: true },
           });
         }
       }
@@ -505,16 +519,14 @@ async function pullIntoCrm(
 
     // Numbers. A PBX entry with none left is not taken as "this person has no phone": the PBX
     // cannot hold such a contact, so it is more likely a half-finished edit, and it is written back.
+    //
+    // Adds come first, and nothing is removed unless every number the PBX lists was added. A
+    // handset that moves somebody from a number to one another contact holds is otherwise read as
+    // "remove the old number, add one that cannot be added", which leaves them with no phone at all
+    // and so off the phone system for good. Kept whole, they are written back to the PBX instead.
     if (target.numbers.length > 0 && target.numbers.join() !== before.numbers.join()) {
-      const onPbxSlots = current.phones.slice(0, PBX_NUMBER_SLOTS);
-      for (const phone of onPbxSlots) {
-        if (!target.numbers.includes(phone.e164)) {
-          await tx.contactPhone.update({
-            where: { id: phone.id },
-            data: { deletedAt: now, isPrimary: false },
-          });
-        }
-      }
+      touched = true;
+      let refused = false;
       for (const e164 of target.numbers) {
         if (current.phones.some((p) => p.e164 === e164)) continue;
         const holder = await tx.contactPhone.findFirst({
@@ -523,11 +535,23 @@ async function pullIntoCrm(
         });
         if (holder) {
           app.log.warn({ contactId }, 'a number set on the PBX belongs to another contact');
+          refused = true;
           continue;
         }
         await tx.contactPhone.create({
           data: { id: newId(), contactId, e164, raw: e164, type: 'other', isPrimary: false },
         });
+      }
+      if (!refused) {
+        const onPbxSlots = current.phones.slice(0, PBX_NUMBER_SLOTS);
+        for (const phone of onPbxSlots) {
+          if (!target.numbers.includes(phone.e164)) {
+            await tx.contactPhone.update({
+              where: { id: phone.id },
+              data: { deletedAt: now, isPrimary: false },
+            });
+          }
+        }
       }
       // The first slot is the primary on the PBX, so it is the primary here too.
       const livePhones = await tx.contactPhone.findMany({
@@ -546,6 +570,12 @@ async function pullIntoCrm(
         });
         await tx.contactPhone.update({ where: { id: wanted.id }, data: { isPrimary: true } });
       }
+    }
+
+    // The contact's own row is untouched by a phone or email change, but lists sorted by last
+    // change, and anything that caches by it, need to see this contact as changed.
+    if (touched && Object.keys(update).length === 0) {
+      await tx.contact.update({ where: { id: contactId }, data: { updatedAt: now } });
     }
 
     const after = await tx.contact.findFirstOrThrow({
@@ -604,92 +634,104 @@ async function importContact(
     typeof row.job_title === 'string' && row.job_title.trim() !== '' ? row.job_title.trim() : null;
   const contactId = newId();
 
-  return app.db.$transaction(async (tx) => {
-    // Another run, or a person, may have created this number in the meantime. The partial unique
-    // index on a live number would refuse the insert; checking first turns that into a no-op.
-    const clash = await tx.contactPhone.findFirst({
-      where: { e164: { in: numbers }, deletedAt: null },
-      select: { contactId: true },
-    });
-    if (clash) {
-      const existing = await tx.pbxContactLink.findUnique({
-        where: { contactId: clash.contactId },
-        select: { pbxContactId: true },
+  try {
+    return await importInTransaction();
+  } catch (err) {
+    // Another process linked this PBX row, or took this number, between the check and the insert.
+    // That is the duplicate case arriving by a race, and the next run sees it the ordinary way.
+    // Counted as a failure it would be retried on every poll, and fail every time.
+    if ((err as { code?: string }).code === 'P2002') return 'duplicate';
+    throw err;
+  }
+
+  function importInTransaction() {
+    return app.db.$transaction(async (tx) => {
+      // Another run, or a person, may have created this number in the meantime. The partial unique
+      // index on a live number would refuse the insert; checking first turns that into a no-op.
+      const clash = await tx.contactPhone.findFirst({
+        where: { e164: { in: numbers }, deletedAt: null },
+        select: { contactId: true },
       });
-      if (existing) {
-        if (existing.pbxContactId === row.id) return 'linked';
-        app.log.debug(
-          { pbxContactId: row.id, alreadyLinkedTo: existing.pbxContactId },
-          'the PBX holds this number twice; leaving the second entry alone',
-        );
-        return 'duplicate';
+      if (clash) {
+        const existing = await tx.pbxContactLink.findUnique({
+          where: { contactId: clash.contactId },
+          select: { pbxContactId: true },
+        });
+        if (existing) {
+          if (existing.pbxContactId === row.id) return 'linked';
+          app.log.debug(
+            { pbxContactId: row.id, alreadyLinkedTo: existing.pbxContactId },
+            'the PBX holds this number twice; leaving the second entry alone',
+          );
+          return 'duplicate';
+        }
+        // An existing CRM contact: the CRM's version is the record, so an empty fingerprint makes
+        // the next run write it over the PBX entry.
+        await tx.pbxContactLink.create({
+          data: {
+            contactId: clash.contactId,
+            pbxContactId: row.id,
+            fingerprint: '',
+            pbxFingerprint: '',
+            syncedAt: new Date(),
+          },
+        });
+        return 'linked';
       }
-      // An existing CRM contact: the CRM's version is the record, so an empty fingerprint makes
-      // the next run write it over the PBX entry.
-      await tx.pbxContactLink.create({
+
+      const emailTaken =
+        view.email !== '' &&
+        (await tx.contactEmail.count({ where: { email: view.email, deletedAt: null } })) > 0;
+      const email = view.email !== '' && !emailTaken ? view.email : null;
+      const company = view.company === '' ? null : await companyNamed(tx, view.company);
+
+      await tx.contact.create({
         data: {
-          contactId: clash.contactId,
-          pbxContactId: row.id,
-          fingerprint: '',
-          pbxFingerprint: '',
-          syncedAt: new Date(),
+          id: contactId,
+          firstName,
+          lastName,
+          displayName: displayNameOf(firstName, lastName),
+          jobTitle,
+          companyId: company?.id ?? null,
+          // An import, which is what it is. 'yeastar' was written here once and is not a contact
+          // source the API knows, so every read of such a contact failed its response schema.
+          source: 'import',
+          phones: {
+            create: numbers.map((e164, i) => ({
+              id: newId(),
+              e164,
+              raw: e164,
+              type: i === 0 ? 'mobile' : 'other',
+              isPrimary: i === 0,
+            })),
+          },
+          ...(email ? { emails: { create: [{ id: newId(), email, isPrimary: true }] } } : {}),
         },
       });
-      return 'linked';
-    }
 
-    const emailTaken =
-      view.email !== '' &&
-      (await tx.contactEmail.count({ where: { email: view.email, deletedAt: null } })) > 0;
-    const email = view.email !== '' && !emailTaken ? view.email : null;
-    const company = view.company === '' ? null : await companyNamed(tx, view.company);
-
-    await tx.contact.create({
-      data: {
+      // Both sides recorded as they now stand, so the new contact is not sent straight back to the
+      // PBX it came from. Unless the CRM could not take all of it, in which case it is.
+      const asCrm: CrmContact = {
         id: contactId,
         firstName,
         lastName,
-        displayName: displayNameOf(firstName, lastName),
         jobTitle,
-        companyId: company?.id ?? null,
-        // An import, which is what it is. 'yeastar' was written here once and is not a contact
-        // source the API knows, so every read of such a contact failed its response schema.
-        source: 'import',
-        phones: {
-          create: numbers.map((e164, i) => ({
-            id: newId(),
-            e164,
-            raw: e164,
-            type: i === 0 ? 'mobile' : 'other',
-            isPrimary: i === 0,
-          })),
+        companyName: company?.name ?? null,
+        email,
+        numbers,
+      };
+      const rowPrint = pbxFingerprint(row, country);
+      const complete = printView(viewOfCrm(asCrm)) === rowPrint;
+      await tx.pbxContactLink.create({
+        data: {
+          contactId,
+          pbxContactId: row.id,
+          fingerprint: complete ? fingerprint(toWrite(asCrm)) : '',
+          pbxFingerprint: rowPrint,
+          syncedAt: new Date(),
         },
-        ...(email ? { emails: { create: [{ id: newId(), email, isPrimary: true }] } } : {}),
-      },
+      });
+      return complete ? 'imported' : 'imported-partly';
     });
-
-    // Both sides recorded as they now stand, so the new contact is not sent straight back to the
-    // PBX it came from. Unless the CRM could not take all of it, in which case it is.
-    const asCrm: CrmContact = {
-      id: contactId,
-      firstName,
-      lastName,
-      jobTitle,
-      companyName: company?.name ?? null,
-      email,
-      numbers,
-    };
-    const rowPrint = pbxFingerprint(row, country);
-    const complete = printView(viewOfCrm(asCrm)) === rowPrint;
-    await tx.pbxContactLink.create({
-      data: {
-        contactId,
-        pbxContactId: row.id,
-        fingerprint: complete ? fingerprint(toWrite(asCrm)) : '',
-        pbxFingerprint: rowPrint,
-        syncedAt: new Date(),
-      },
-    });
-    return complete ? 'imported' : 'imported-partly';
-  });
+  }
 }

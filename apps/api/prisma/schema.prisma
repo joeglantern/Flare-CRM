@@ -228,14 +228,14 @@ model Contact {
  * the PBX was last given, so a run that changes nothing sends nothing.
  */
 model PbxContactLink {
-  contactId    String   @id @map("contact_id") @db.Uuid
+  contactId      String   @id @map("contact_id") @db.Uuid
   /// The PBX's own integer id for this contact.
-  pbxContactId Int      @unique @map("pbx_contact_id")
+  pbxContactId   Int      @unique @map("pbx_contact_id")
   /// A summary of the fields last written, so an unchanged contact costs no request.
-  fingerprint  String   @default("")
+  fingerprint    String   @default("")
   /// The PBX row as last read, so an edit made on the PBX can be told from one made in the CRM.
   pbxFingerprint String   @default("") @map("pbx_fingerprint")
-  syncedAt     DateTime @default(now()) @map("synced_at") @db.Timestamptz(3)
+  syncedAt       DateTime @default(now()) @map("synced_at") @db.Timestamptz(3)
 
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
