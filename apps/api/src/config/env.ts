@@ -57,6 +57,8 @@ const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
+    /** How often a live socket's session is re-validated (revocation, deactivation). */
+    SOCKET_SESSION_RECHECK_MS: z.coerce.number().int().min(200).max(600_000).default(30_000),
     DEV_ORIGINS: csv,
 
     AUTH_SECRET: z.string().min(32, 'AUTH_SECRET must be at least 32 characters'),

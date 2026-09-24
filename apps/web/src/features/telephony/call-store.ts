@@ -50,6 +50,13 @@ interface CallStore {
   cards: CallCard[];
   /** Last cancellation, for a short toast; cleared by the UI. */
   lastCancelled: CancelledEvent | null;
+  /**
+   * Calls already ended here, newest last. Events for one call come from two server processes
+   * (the dial answers from the API, a PBX refusal from the worker), so "cancelled" can land a few
+   * milliseconds before "dialing". Without this, the late opener put up a Dialing card for a call
+   * that was already over, and nothing would ever close it.
+   */
+  endedIds: string[];
   onRinging: (payload: RingingPayload, now?: number) => void;
   onDialing: (payload: ServerEventPayload<'call:dialing'>, now?: number) => void;
   onAnswered: (payload: ServerEventPayload<'call:answered'>, myUserId: string) => void;
@@ -71,9 +78,11 @@ function patch(cards: CallCard[], pbxCallId: string, fn: (c: CallCard) => CallCa
 export const useCallStore = create<CallStore>((set, get) => ({
   cards: [],
   lastCancelled: null,
+  endedIds: [],
 
   onRinging: (payload, now = Date.now()) => {
     if (get().cards.some((c) => c.pbxCallId === payload.pbxCallId)) return; // duplicate delivery
+    if (get().endedIds.includes(payload.pbxCallId)) return; // ended before it opened
     const card: CallCard = {
       pbxCallId: payload.pbxCallId,
       callId: payload.callId,
@@ -106,6 +115,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
   onDialing: (payload, now = Date.now()) => {
     if (get().cards.some((c) => c.pbxCallId === payload.pbxCallId)) return;
+    if (get().endedIds.includes(payload.pbxCallId)) return; // refused before it opened
     const card: CallCard = {
       pbxCallId: payload.pbxCallId,
       callId: payload.callId,
@@ -141,6 +151,9 @@ export const useCallStore = create<CallStore>((set, get) => ({
   onCancelled: (payload) => {
     const card = get().cards.find((c) => c.pbxCallId === payload.pbxCallId);
     set((s) => ({
+      endedIds: [...s.endedIds.filter((id) => id !== payload.pbxCallId), payload.pbxCallId].slice(
+        -50,
+      ),
       cards: s.cards.filter((c) => c.pbxCallId !== payload.pbxCallId),
       lastCancelled: {
         pbxCallId: payload.pbxCallId,
@@ -198,7 +211,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
     set({ lastCancelled: null });
   },
   reset: () => {
-    set({ cards: [], lastCancelled: null });
+    set({ cards: [], lastCancelled: null, endedIds: [] });
   },
 }));
 

@@ -36,7 +36,6 @@ type AppSocket = Socket<
 >;
 
 const MAX_SOCKETS_PER_USER = 3;
-const SESSION_RECHECK_MS = 30_000;
 const EVENTS_PER_SECOND = 20;
 
 export default fp(
@@ -135,22 +134,38 @@ export default fp(
       for (const r of ['admin', 'manager', 'agent'])
         if (hasRole(role, r)) void socket.join(rooms.role(r));
 
-      // periodic session re-validation (revocation, deactivation) — docs/10 §2.5
+      /*
+       * Periodic session re-validation (revocation, deactivation), docs/10 section 2.5.
+       *
+       * The session is asked of Better Auth, the same way the handshake asks it. It used to be
+       * looked up in the sessions table, but sessions live in Valkey (secondaryStorage) and that
+       * table stays empty, so every check failed and every browser was cut off thirty seconds
+       * after connecting, then sat disconnected until the client came back. Every call popup,
+       * dialing card and live-board update sent in those gaps was lost.
+       *
+       * A check that cannot run (Valkey or the database briefly unreachable) keeps the socket:
+       * a dropped connection loses events, while a revocation is caught on the next check.
+       */
       const recheck = setInterval(() => {
         void (async () => {
-          const session = await app.db.session.findFirst({
-            where: { token: socket.data.sessionToken, expiresAt: { gt: new Date() } },
-            select: { id: true },
-          });
-          const user = session
-            ? await app.db.user.findUnique({
-                where: { id: userId },
-                select: { isActive: true, banned: true },
-              })
-            : null;
-          if (!session || !user?.isActive || user.banned === true) socket.disconnect(true);
-        })().catch(() => undefined);
-      }, SESSION_RECHECK_MS);
+          let valid: boolean;
+          try {
+            const session = await app.getSession(socket.handshake.headers);
+            const user =
+              session?.user.id === userId
+                ? await app.db.user.findUnique({
+                    where: { id: userId },
+                    select: { isActive: true, banned: true },
+                  })
+                : null;
+            valid = user?.isActive === true && user.banned !== true;
+          } catch (err) {
+            app.log.warn({ err, userId }, 'could not re-check a socket session; keeping it');
+            return;
+          }
+          if (!valid) socket.disconnect(true);
+        })();
+      }, app.config.SOCKET_SESSION_RECHECK_MS);
       recheck.unref();
 
       // simple token bucket per socket for inbound events (docs/08 G2)
