@@ -312,7 +312,7 @@ describe('core CRM: contacts, companies, custom fields, visibility', () => {
           id: crypto.randomUUID(),
           firstName: 'Imported',
           displayName: 'Imported',
-          source: 'yeastar',
+          source: 'import',
           phones: {
             create: [
               {

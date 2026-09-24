@@ -129,9 +129,17 @@ describe('contact sync (fake PBX)', () => {
       where: { firstName: 'Wanjiru' },
       include: { phones: true, emails: true },
     });
-    expect(contact).toMatchObject({ lastName: 'Kamau', source: 'yeastar', ownerId: null });
+    expect(contact).toMatchObject({ lastName: 'Kamau', source: 'import', ownerId: null });
     expect(contact?.phones[0]?.e164).toBe('+254722000002');
     expect(contact?.emails[0]?.email).toBe('wanjiru@example.com');
+
+    // Read back through the API, which checks every field against the contact schema: an imported
+    // contact that could be stored but not read is what this used to produce.
+    const res = await ctx.as(admin, {
+      method: 'GET',
+      url: `/api/v1/contacts/${contact?.id ?? ''}`,
+    });
+    expect(res.statusCode, res.body).toBe(200);
   });
 
   it('ends with both sides holding the same people, whichever side they started on', async () => {

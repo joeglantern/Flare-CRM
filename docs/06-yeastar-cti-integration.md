@@ -275,7 +275,7 @@ them.
 **Who wins.** The CRM is the record of the business, so it wins on content. A contact only the PBX
 has is imported rather than deleted: somebody typed them into a phone, and deleting their work is
 not a sync. Imported contacts are unowned, so every agent can see them until an admin assigns them,
-and carry `source = 'yeastar'`.
+and carry `source = 'import'`.
 
 **Deleting is deliberately asymmetric.** Deleting in the CRM deletes on the PBX. Deleting on the
 PBX does not delete in the CRM; the contact is put back on the next run. A handset should not be

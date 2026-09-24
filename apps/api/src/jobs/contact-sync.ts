@@ -294,7 +294,9 @@ async function importContact(
         lastName,
         displayName,
         jobTitle: typeof row.job_title === 'string' && row.job_title !== '' ? row.job_title : null,
-        source: 'yeastar',
+        // An import, which is what it is. 'yeastar' was written here once and is not a contact
+        // source the API knows, so every read of such a contact failed its response schema.
+        source: 'import',
         phones: {
           create: numbers.map((e164, i) => ({
             id: newId(),
