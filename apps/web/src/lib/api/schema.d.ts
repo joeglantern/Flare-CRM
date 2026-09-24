@@ -6358,7 +6358,7 @@ export interface paths {
                                 readAt: string | null;
                                 title: string;
                                 /** @enum {string} */
-                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "deal_stage" | "mention" | "system";
+                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
                             }[];
                             page: {
                                 cursor: string | null;
@@ -6416,7 +6416,7 @@ export interface paths {
                                 readAt: string | null;
                                 title: string;
                                 /** @enum {string} */
-                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "deal_stage" | "mention" | "system";
+                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
                             };
                         };
                     };
@@ -6456,7 +6456,7 @@ export interface paths {
                                 email: boolean;
                                 inApp: boolean;
                                 /** @enum {string} */
-                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "deal_stage" | "mention" | "system";
+                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
                             }[];
                         };
                     };
@@ -6477,7 +6477,7 @@ export interface paths {
                             email: boolean;
                             inApp: boolean;
                             /** @enum {string} */
-                            type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "deal_stage" | "mention" | "system";
+                            type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
                         }[];
                     };
                 };
@@ -6494,7 +6494,7 @@ export interface paths {
                                 email: boolean;
                                 inApp: boolean;
                                 /** @enum {string} */
-                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "deal_stage" | "mention" | "system";
+                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
                             }[];
                         };
                     };
@@ -7886,6 +7886,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                assignedBy: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 assignee: {
                                     /** Format: uuid */
                                     id: string;
@@ -7920,6 +7925,16 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handedBack: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    by: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        name: string;
+                                    };
+                                    note: string;
+                                } | null;
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
@@ -7987,6 +8002,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                assignedBy: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 assignee: {
                                     /** Format: uuid */
                                     id: string;
@@ -8021,6 +8041,16 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handedBack: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    by: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        name: string;
+                                    };
+                                    note: string;
+                                } | null;
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
@@ -8073,6 +8103,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                assignedBy: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 assignee: {
                                     /** Format: uuid */
                                     id: string;
@@ -8107,6 +8142,16 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handedBack: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    by: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        name: string;
+                                    };
+                                    note: string;
+                                } | null;
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
@@ -8191,6 +8236,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                assignedBy: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 assignee: {
                                     /** Format: uuid */
                                     id: string;
@@ -8225,6 +8275,16 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handedBack: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    by: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        name: string;
+                                    };
+                                    note: string;
+                                } | null;
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
@@ -8275,6 +8335,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                assignedBy: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 assignee: {
                                     /** Format: uuid */
                                     id: string;
@@ -8309,6 +8374,16 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handedBack: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    by: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        name: string;
+                                    };
+                                    note: string;
+                                } | null;
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
@@ -8329,6 +8404,220 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        note: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                assignedBy: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                assignee: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                assigneeId: string | null;
+                                company: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                companyId: string | null;
+                                completedAt: string | null;
+                                contact: {
+                                    displayName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                } | null;
+                                contactId: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                createdBy: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                deal: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    title: string;
+                                } | null;
+                                dealId: string | null;
+                                description: string | null;
+                                dueAt: string | null;
+                                handedBack: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    by: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        name: string;
+                                    };
+                                    note: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                priority: "low" | "normal" | "high";
+                                remindAt: string | null;
+                                reminderSentAt: string | null;
+                                sourceCallId: string | null;
+                                /** @enum {string} */
+                                status: "open" | "in_progress" | "done" | "cancelled";
+                                title: string;
+                                /** @enum {string} */
+                                type: "call" | "meeting" | "follow_up" | "email" | "other";
+                                /** Format: date-time */
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                actor: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                /** Format: date-time */
+                                at: string;
+                                from: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "assigned" | "handed_back";
+                                note: string | null;
+                                to: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/assignees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                avatarUrl: string | null;
+                                extension: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8412,6 +8701,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
+                                assignedBy: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 assignee: {
                                     /** Format: uuid */
                                     id: string;
@@ -8446,6 +8740,16 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handedBack: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    by: {
+                                        /** Format: uuid */
+                                        id: string;
+                                        name: string;
+                                    };
+                                    note: string;
+                                } | null;
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
