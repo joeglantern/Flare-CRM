@@ -14,12 +14,15 @@ export interface ScopeShape {
   ownerRelation: string;
   /** Extra clauses that make a record visible to a specific user in `own` mode. */
   extraOwn?: (userId: string) => Record<string, unknown>[];
+  /** Part of the shared address book: visible to everyone when `sharedDirectory` is on. */
+  directory?: true;
 }
 
 export const SHAPES = {
   contact: {
     ownerField: 'ownerId',
     ownerRelation: 'owner',
+    directory: true,
     extraOwn: (userId: string) => [
       { calls: { some: { userId } } },
       { conversations: { some: { assigneeId: userId } } },
@@ -29,6 +32,7 @@ export const SHAPES = {
   company: {
     ownerField: 'ownerId',
     ownerRelation: 'owner',
+    directory: true,
     extraOwn: (userId: string) => [
       { createdById: userId },
       { contacts: { some: { ownerId: userId } } },
@@ -58,6 +62,8 @@ export const SHAPES = {
 export type ScopedEntity = keyof typeof SHAPES;
 
 export function scopeWhere(scope: VisibilityScope, shape: ScopeShape): Record<string, unknown> {
+  // Reading only: who may change a contact is still decided by assertCanWrite on its owner.
+  if (scope.kind !== 'all' && scope.sharedDirectory === true && shape.directory === true) return {};
   switch (scope.kind) {
     case 'all':
       return {};
@@ -79,7 +85,8 @@ export async function scopeOf(
 ): Promise<{ actor: Actor; scope: VisibilityScope }> {
   const actor = actorOf(request);
   const visibility = await app.settings.get('agentVisibility');
-  return { actor, scope: resolveScope(actor, visibility) };
+  const sharedDirectory = await app.settings.get('sharedDirectory');
+  return { actor, scope: resolveScope(actor, visibility, sharedDirectory) };
 }
 
 /**

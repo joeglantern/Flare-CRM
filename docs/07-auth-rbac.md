@@ -205,7 +205,14 @@ Route guard: `preHandler: [requireAuth, requirePermission('deal', 'change_stage'
 
 Implementation: `visibility.scope(actor, setting)` returns a descriptor `{ kind: 'all' } | { kind: 'team', userIds } | { kind: 'own', userId }`; every repository `findMany/findFirst` for scoped entities merges `scopeWhere(descriptor, entityOwnerField)` into the `where`. Direct `prisma.contact.findMany` in a service without the scope is a lint error (custom ESLint rule `no-unscoped-prisma`).
 
-Applies to: contacts, companies, leads, deals, tasks, notes, calls, conversations, activities, reports. Does **not** apply to: dispositions, pipelines, custom field definitions, settings (global config).
+**Shared address book.** `Setting.sharedDirectory` (default on) makes contacts and companies
+visible to every agent and manager, whatever `agentVisibility` says for the rest. A caller an agent
+never owned must still be findable, and a colleague's new contact or company should be seen rather
+than duplicated. It widens reading only: editing a contact still needs ownership, or `assign`, as
+above. With it off, contacts and companies follow `agentVisibility` like everything else. The popup
+is never `restricted` while it is on.
+
+Applies to: contacts, companies (unless shared, above), leads, deals, tasks, notes, calls, conversations, activities, reports. Does **not** apply to: dispositions, pipelines, custom field definitions, settings (global config).
 
 Unknown caller pop: the popup is shown to the ringing agent regardless of visibility (they are receiving the call); if a matched contact is outside their scope, the payload is reduced to `{ displayName, company }` with `restricted: true` (no history) unless `agentVisibility=all`.
 

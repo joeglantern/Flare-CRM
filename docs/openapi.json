@@ -3204,6 +3204,9 @@
                             "all"
                           ]
                         },
+                        "sharedDirectory": {
+                          "type": "boolean"
+                        },
                         "defaultCountry": {
                           "type": "string",
                           "minLength": 2,
@@ -3481,6 +3484,7 @@
                       },
                       "required": [
                         "agentVisibility",
+                        "sharedDirectory",
                         "defaultCountry",
                         "currency",
                         "dialRules",
@@ -3524,6 +3528,9 @@
                       "team",
                       "all"
                     ]
+                  },
+                  "sharedDirectory": {
+                    "type": "boolean"
                   },
                   "defaultCountry": {
                     "type": "string",
@@ -3813,6 +3820,9 @@
                             "all"
                           ]
                         },
+                        "sharedDirectory": {
+                          "type": "boolean"
+                        },
                         "defaultCountry": {
                           "type": "string",
                           "minLength": 2,
@@ -4090,6 +4100,7 @@
                       },
                       "required": [
                         "agentVisibility",
+                        "sharedDirectory",
                         "defaultCountry",
                         "currency",
                         "dialRules",

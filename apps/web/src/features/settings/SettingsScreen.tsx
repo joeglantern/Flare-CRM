@@ -344,6 +344,7 @@ function GeneralSection() {
   const country = useSettingsSection('defaultCountry');
   const currency = useSettingsSection('currency');
   const visibility = useSettingsSection('agentVisibility');
+  const directory = useSettingsSection('sharedDirectory');
   const [draftCountry, setDraftCountry] = useState<string | null>(null);
   const [draftCurrency, setDraftCurrency] = useState<string | null>(null);
 
@@ -406,7 +407,7 @@ function GeneralSection() {
 
       <Select
         label="What an agent can see"
-        description="Applies to contacts, companies, deals, leads and calls. Managers and admins always see everything in scope."
+        description="Applies to deals, leads, tasks and calls, and to contacts and companies unless they are shared below. Managers and admins always see everything in scope."
         disabled={!visibility.canManage}
         value={visibility.value ?? 'owned'}
         onChange={(v) => {
@@ -424,6 +425,21 @@ function GeneralSection() {
           { value: 'team', label: 'Their team’s records' },
           { value: 'all', label: 'Everything' },
         ]}
+      />
+
+      <Switch
+        checked={directory.value ?? true}
+        disabled={!directory.canManage}
+        onChange={(v) => {
+          directory.save(
+            v,
+            v
+              ? 'Every agent now sees every contact and company'
+              : 'Contacts and companies now follow what an agent can see',
+          );
+        }}
+        label="Share contacts and companies with every agent"
+        description="Everyone can find and open any contact or company, including ones a colleague just created. Editing stays with the owner, managers and admins."
       />
     </SectionShell>
   );

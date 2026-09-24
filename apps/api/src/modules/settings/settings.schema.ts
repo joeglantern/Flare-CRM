@@ -7,6 +7,8 @@ import { z } from 'zod';
 
 export const settingSchemas = {
   agentVisibility: z.enum(valuesOf(AgentVisibility)),
+  /** Contacts and companies visible to every agent, whatever agentVisibility says for the rest. */
+  sharedDirectory: z.boolean(),
   defaultCountry: z.string().length(2).toUpperCase(),
   currency: z.string().length(3).toUpperCase(),
   dialRules: z.object({
@@ -73,6 +75,9 @@ export type Settings = { [K in SettingKey]: SettingValue<K> };
 
 export const settingDefaults: Settings = {
   agentVisibility: 'owned',
+  // On: an agent who never owned a contact must still find them when they call, and see a
+  // colleague's new contact or company rather than creating a duplicate.
+  sharedDirectory: true,
   defaultCountry: 'KE',
   currency: 'KES',
   dialRules: {

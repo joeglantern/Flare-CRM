@@ -7542,6 +7542,7 @@ export interface paths {
                                     require2FAForPrivileged: boolean;
                                     sessionIdleMinutes: number;
                                 };
+                                sharedDirectory: boolean;
                             };
                         };
                     };
@@ -7621,6 +7622,7 @@ export interface paths {
                             require2FAForPrivileged: boolean;
                             sessionIdleMinutes: number;
                         };
+                        sharedDirectory?: boolean;
                     };
                 };
             };
@@ -7691,6 +7693,7 @@ export interface paths {
                                     require2FAForPrivileged: boolean;
                                     sessionIdleMinutes: number;
                                 };
+                                sharedDirectory: boolean;
                             };
                         };
                     };

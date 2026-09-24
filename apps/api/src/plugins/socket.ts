@@ -191,6 +191,7 @@ export default fp(
           const scope = resolveScope(
             { id: userId, role, teamId },
             await app.settings.get('agentVisibility'),
+            await app.settings.get('sharedDirectory'),
           );
           const conv = await app.db.conversation.findFirst({
             where: { id: parsed.data.conversationId, ...scopeWhere(scope, SHAPES.conversation) },

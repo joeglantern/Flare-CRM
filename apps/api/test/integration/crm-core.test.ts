@@ -86,7 +86,59 @@ describe('core CRM: contacts, companies, custom fields, visibility', () => {
     expect(byName.json<Envelope<unknown[]>>().data).toHaveLength(1);
   });
 
+  it('shares contacts and companies with every agent, and nothing else', async () => {
+    const agentB = await ctx.createUser({ role: 'agent' });
+    const colleague = await ctx.createUser({ role: 'agent' });
+    const company = (
+      await ctx.as(colleague, {
+        method: 'POST',
+        url: '/api/v1/companies',
+        payload: { name: 'Acme' },
+      })
+    ).json<Envelope<{ id: string }>>().data;
+    const contact = (
+      await ctx.as(colleague, {
+        method: 'POST',
+        url: '/api/v1/contacts',
+        payload: { firstName: 'New', phones: [{ number: '0722000009' }] },
+      })
+    ).json<Envelope<{ id: string }>>().data;
+    const task = (
+      await ctx.as(colleague, {
+        method: 'POST',
+        url: '/api/v1/tasks',
+        payload: { title: 'Private' },
+      })
+    ).json<Envelope<{ id: string }>>().data;
+
+    const contacts = await ctx.as(agentB, { method: 'GET', url: '/api/v1/contacts' });
+    expect(contacts.json<Envelope<{ id: string }[]>>().data.map((c) => c.id)).toContain(contact.id);
+    expect(
+      (await ctx.as(agentB, { method: 'GET', url: `/api/v1/contacts/${contact.id}` })).statusCode,
+    ).toBe(200);
+    const companies = await ctx.as(agentB, { method: 'GET', url: '/api/v1/companies' });
+    expect(companies.json<Envelope<{ id: string }[]>>().data.map((c) => c.id)).toContain(
+      company.id,
+    );
+    expect(
+      (await ctx.as(agentB, { method: 'GET', url: `/api/v1/companies/${company.id}` })).statusCode,
+    ).toBe(200);
+
+    // Seeing is not editing: the owner keeps the contact.
+    const edit = await ctx.as(agentB, {
+      method: 'PATCH',
+      url: `/api/v1/contacts/${contact.id}`,
+      payload: { jobTitle: 'Changed' },
+    });
+    expect(edit.statusCode).toBe(403);
+    // And the rest still follows agentVisibility.
+    const tasks = await ctx.as(agentB, { method: 'GET', url: '/api/v1/tasks' });
+    expect(tasks.json<Envelope<{ id: string }[]>>().data.map((t) => t.id)).not.toContain(task.id);
+  });
+
   it('enforces agent visibility (owned) and manager visibility (team)', async () => {
+    // With the shared address book switched off, contacts follow agentVisibility like the rest.
+    await ctx.app.settings.patch({ sharedDirectory: false }, null);
     const team = await ctx.as(admin, {
       method: 'POST',
       url: '/api/v1/teams',

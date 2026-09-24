@@ -10,24 +10,33 @@ export interface Actor {
   teamId: string | null;
 }
 
+/**
+ * `sharedDirectory`: contacts and companies are seen by everyone, whatever the scope says for the
+ * rest (deals, leads, tasks, calls, notes). The people and businesses the company deals with are a
+ * shared address book; a caller an agent has never owned must still be findable by that agent.
+ */
 export type VisibilityScope =
   | { kind: 'all' }
-  | { kind: 'team'; teamId: string; includeUnassigned: true }
-  | { kind: 'own'; userId: string; includeUnassigned: false };
+  | { kind: 'team'; teamId: string; includeUnassigned: true; sharedDirectory?: boolean }
+  | { kind: 'own'; userId: string; includeUnassigned: false; sharedDirectory?: boolean };
 
-export function resolveScope(actor: Actor, setting: AgentVisibility): VisibilityScope {
+export function resolveScope(
+  actor: Actor,
+  setting: AgentVisibility,
+  sharedDirectory = false,
+): VisibilityScope {
   const roles = actor.role.split(',').map((r) => r.trim());
   if (roles.includes('admin')) return { kind: 'all' };
   if (roles.includes('manager')) {
     if (setting === 'all' || actor.teamId === null) return { kind: 'all' };
-    return { kind: 'team', teamId: actor.teamId, includeUnassigned: true };
+    return { kind: 'team', teamId: actor.teamId, includeUnassigned: true, sharedDirectory };
   }
   // agent
   if (setting === 'all') return { kind: 'all' };
   if (setting === 'team' && actor.teamId !== null) {
-    return { kind: 'team', teamId: actor.teamId, includeUnassigned: true };
+    return { kind: 'team', teamId: actor.teamId, includeUnassigned: true, sharedDirectory };
   }
-  return { kind: 'own', userId: actor.id, includeUnassigned: false };
+  return { kind: 'own', userId: actor.id, includeUnassigned: false, sharedDirectory };
 }
 
 /** Can the actor write (update) a record owned by `ownerId` under this scope? */

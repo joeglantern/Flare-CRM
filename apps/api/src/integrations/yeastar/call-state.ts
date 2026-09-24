@@ -603,6 +603,7 @@ export class CallStateMachine {
         const isPrivileged = role.includes('admin') || role.includes('manager');
         restricted =
           !isPrivileged &&
+          !settings.sharedDirectory &&
           settings.agentVisibility === 'owned' &&
           summary.ownerId !== null &&
           summary.ownerId !== userId;
