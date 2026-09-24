@@ -1149,6 +1149,17 @@ function ExtensionLinksPanel({ canRun }: { canRun: boolean }) {
 
 /* ── contact sync ───────────────────────────────────────────────────────────────────────── */
 
+/** Choices rather than a free number, so a half-typed value is never saved and refused. */
+const POLL_CHOICES = [15, 30, 60, 120, 300];
+
+function pollLabel(seconds: number): string {
+  return seconds < 60
+    ? `${String(seconds)} seconds`
+    : seconds === 60
+      ? '1 minute'
+      : `${String(seconds / 60)} minutes`;
+}
+
 function ContactSyncSection() {
   const sync = useSettingsSection('contactSync');
   const value = sync.value;
@@ -1172,7 +1183,26 @@ function ContactSyncSection() {
               );
             }}
             label="Keep contacts in step with the PBX"
-            description="Every contact here is copied to the phone system, and anyone typed into a handset is brought back. Checked every ten minutes."
+            description="A change made here reaches the phone system within seconds. The phone system announces no contact changes, so it is read on the interval below, and edits made on a handset arrive then."
+          />
+          <Select
+            label="Read the phone system every"
+            description="How long an edit made on a handset takes to appear here. Each read is one request, and writes nothing when nothing changed."
+            disabled={!sync.canManage || !value.enabled}
+            value={String(value.pollSeconds)}
+            onChange={(v) => {
+              sync.save(
+                { ...value, pollSeconds: Number(v) },
+                `The phone system is now read every ${pollLabel(Number(v))}`,
+              );
+            }}
+            // A value set through the API that is not one of the choices is still shown as it is.
+            options={[...new Set([...POLL_CHOICES, value.pollSeconds])]
+              .sort((a, b) => a - b)
+              .map((seconds) => ({
+                value: String(seconds),
+                label: pollLabel(seconds),
+              }))}
           />
           <Input
             label="Phonebook name"
@@ -1184,10 +1214,11 @@ function ContactSyncSection() {
             }}
           />
           <p className="text-sm text-muted">
-            Deleting a contact here deletes it on the phone system. Deleting it on a handset does
-            not delete it here: it is put back at the next check, because a phone should not be able
-            to remove one of your records. A contact with no phone number is left out, since the
-            phone system cannot hold one.
+            When a contact is changed in both places between two reads, the version here is kept and
+            the one it replaced is recorded in the audit log. Deleting a contact here deletes it on
+            the phone system. Deleting it on a handset does not delete it here: it is put back at
+            the next check, because a phone should not be able to remove one of your records. A
+            contact with no phone number is left out, since the phone system cannot hold one.
           </p>
         </>
       )}

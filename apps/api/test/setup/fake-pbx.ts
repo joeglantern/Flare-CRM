@@ -213,8 +213,26 @@ export class FakePbx {
       if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
       const body = (request.body ?? {}) as Record<string, unknown>;
       const id = Number(body.id);
-      if (!this.contacts.has(id)) return { errcode: 40003, errmsg: 'The contact does not exist.' };
-      this.contacts.set(id, toRow(id, body));
+      const existing = this.contacts.get(id);
+      if (!existing) return { errcode: 40003, errmsg: 'The contact does not exist.' };
+      // Every field of an update is optional, so this treats one left out as unchanged, the
+      // stricter reading: a sync that relies on omission to clear a field fails here as it would
+      // on a PBX that behaves this way. A number_list that is sent replaces the numbers.
+      const next = toRow(id, body);
+      const names = (typeof existing.contact_name === 'string' ? existing.contact_name : '').split(
+        ' ',
+      );
+      const first = typeof body.first_name === 'string' ? body.first_name : (names[0] ?? '');
+      const last = typeof body.last_name === 'string' ? body.last_name : names.slice(1).join(' ');
+      const merged: Record<string, unknown> = {
+        ...existing,
+        contact_name: [first, last].filter(Boolean).join(' '),
+      };
+      for (const key of ['company', 'email', 'job_title'])
+        if (typeof body[key] === 'string') merged[key] = body[key];
+      if (Array.isArray(body.number_list))
+        for (const field of Object.values(slotField)) merged[field] = next[field];
+      this.contacts.set(id, merged);
       return { errcode: 0, errmsg: 'SUCCESS' };
     });
     app.get('/openapi/v1.0/company_contact/delete', async (request) => {

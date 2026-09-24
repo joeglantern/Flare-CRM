@@ -3348,11 +3348,18 @@
                               "type": "string",
                               "minLength": 1,
                               "maxLength": 64
+                            },
+                            "pollSeconds": {
+                              "default": 30,
+                              "type": "integer",
+                              "minimum": 15,
+                              "maximum": 300
                             }
                           },
                           "required": [
                             "enabled",
-                            "phonebookName"
+                            "phonebookName",
+                            "pollSeconds"
                           ],
                           "additionalProperties": false
                         },
@@ -3657,6 +3664,12 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 64
+                      },
+                      "pollSeconds": {
+                        "default": 30,
+                        "type": "integer",
+                        "minimum": 15,
+                        "maximum": 300
                       }
                     },
                     "required": [
@@ -3944,11 +3957,18 @@
                               "type": "string",
                               "minLength": 1,
                               "maxLength": 64
+                            },
+                            "pollSeconds": {
+                              "default": 30,
+                              "type": "integer",
+                              "minimum": 15,
+                              "maximum": 300
                             }
                           },
                           "required": [
                             "enabled",
-                            "phonebookName"
+                            "phonebookName",
+                            "pollSeconds"
                           ],
                           "additionalProperties": false
                         },

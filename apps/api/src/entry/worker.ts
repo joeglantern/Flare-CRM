@@ -10,7 +10,7 @@ import { ConsoleLink } from '../integrations/console/link.js';
 import { YeastarSubscriber } from '../integrations/yeastar/subscriber.js';
 import { reconcileCdrs } from '../integrations/yeastar/reconcile.js';
 import { QUEUES } from '../jobs/queues.js';
-import { nudgeContactSync } from '../jobs/contact-sync.js';
+import { nudgeContactSync, schedulePoll } from '../jobs/contact-sync.js';
 import { startProcessors } from '../jobs/processors.js';
 import { nowIso, rooms } from '../lib/realtime.js';
 
@@ -121,6 +121,7 @@ async function main(): Promise<void> {
   }
 
   let subscriber: YeastarSubscriber | null = null;
+  let settingsListener: ReturnType<typeof app.valkey.duplicate> | null = null;
   const telephonyPossible =
     app.cti.enabled &&
     app.cti.client !== null &&
@@ -186,9 +187,10 @@ async function main(): Promise<void> {
         { name: 'scheduled', data: {} },
       );
     /*
-     * Contact sync (docs/06 §17). Every ten minutes, like the CDR reconciliation and for the same
-     * reason: it is a reconciliation, so the interval is how stale a phonebook may be, not how
-     * reliable the sync is. It costs two requests when nothing has changed.
+     * Contact sync (docs/06 §17). A CRM write nudges a run within seconds. The PBX publishes no
+     * contact events, so its side is read on a short poll whose interval is a setting; a poll is one
+     * request and writes nothing when nothing changed. The ten-minute run is the backstop, and is
+     * where the phonebook gets checked.
      */
     await app.queues
       .get(QUEUES.contactSync)
@@ -197,6 +199,20 @@ async function main(): Promise<void> {
         { every: 10 * 60 * 1000 },
         { name: 'scheduled', data: {} },
       );
+    await schedulePoll(app);
+    // A changed interval, or the sync switched off, applies at once rather than at a restart.
+    // Every process hears settings writes on this channel; the settings cache clears on the same
+    // notice, so the read waits a moment to be sure it sees the new value.
+    settingsListener = app.valkey.duplicate();
+    await settingsListener.subscribe('settings:changed');
+    settingsListener.on('message', (_channel, key) => {
+      if (key !== 'contactSync') return;
+      setTimeout(() => {
+        schedulePoll(app).catch((err: unknown) => {
+          app.log.warn({ err }, 'could not reschedule the contact poll');
+        });
+      }, 500);
+    });
 
     /*
      * Extension sync (docs/06 §18): who is which extension, by email. Ten minutes means a new
@@ -250,6 +266,7 @@ async function main(): Promise<void> {
     timer.unref();
     (async () => {
       await subscriber?.stop();
+      await settingsListener?.quit().catch(() => undefined);
       await consoleLink?.stop();
       await processors.close();
       await app.cti.tokens?.revoke().catch(() => undefined);

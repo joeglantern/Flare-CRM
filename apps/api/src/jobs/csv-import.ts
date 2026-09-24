@@ -16,6 +16,7 @@ import { DuplicateError, ValidationError } from '../lib/errors.js';
 import { CompaniesService } from '../modules/companies/companies.service.js';
 import { ContactsService } from '../modules/contacts/contacts.service.js';
 import { LeadsService } from '../modules/leads/leads.service.js';
+import { nudgeContactSync } from './contact-sync.js';
 
 const MAX_ERRORS = 500;
 
@@ -223,6 +224,8 @@ export async function runCsvImport(app: FastifyInstance, importJobId: string): P
     },
   });
   await app.storage.delete(job.fileKey).catch(() => undefined);
+  // Once for the whole file rather than per row: the sync reconciles everything in one run.
+  if (job.entity === 'contact' && created + updated > 0) await nudgeContactSync(app);
   await app.notifications.notify({
     userId: job.createdById,
     type: 'system',

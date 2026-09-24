@@ -28,6 +28,7 @@ import { isoOrNull, jsonObject } from '../../lib/object.js';
 import { SHAPES, assertCanAssign, assertCanWrite, scopeWhere } from '../../lib/scope.js';
 import type { AuditContext } from '../audit/audit.service.js';
 import { displayNameOf } from '../contacts/contacts.mappers.js';
+import { nudgeContactSync } from '../../jobs/contact-sync.js';
 import { ContactsService } from '../contacts/contacts.service.js';
 
 export interface Actor {
@@ -490,6 +491,8 @@ export class LeadsService {
       });
     });
 
+    // A converted lead is a new contact, and new contacts belong on the phone system at once.
+    if (!body.existingContactId) await nudgeContactSync(this.app);
     const dto = await this.get(scope, id);
     this.app.events.emit('entity.changed', {
       type: 'lead',

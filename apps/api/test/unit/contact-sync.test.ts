@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   fingerprint,
+  pbxFingerprint,
   planSync,
   rowE164s,
   splitName,
@@ -64,6 +65,11 @@ describe('mapping a CRM contact to the PBX', () => {
     expect(write).not.toHaveProperty('company');
     expect(write).not.toHaveProperty('email');
     expect(write).not.toHaveProperty('job_title');
+  });
+
+  it('names every field in an update, so a field cleared in the CRM is cleared on the PBX', () => {
+    const write = toWrite(crm({ lastName: null }), 'update');
+    expect(write).toMatchObject({ last_name: '', company: '', email: '', job_title: '' });
   });
 
   it('changes its fingerprint only when something the PBX holds changes', () => {
@@ -136,20 +142,38 @@ describe('planning a sync', () => {
       contactId: contact.id,
       pbxContactId: 5,
       fingerprint: fingerprint(toWrite(contact)),
+      pbxFingerprint: pbxFingerprint(pbxRow({ id: 5 }), KE),
     };
     const plan = planSync({ ...empty, crm: [contact], pbx: [pbxRow({ id: 5 })], links: [link] });
-    expect(plan).toMatchObject({ create: [], update: [], remove: [], importToCrm: [] });
+    expect(plan).toMatchObject({
+      create: [],
+      update: [],
+      pull: [],
+      settle: [],
+      remove: [],
+      importToCrm: [],
+    });
   });
 
   it('updates the PBX when the CRM contact has changed since it was last sent', () => {
     const contact = crm({ email: 'new@example.com' });
-    const link: ContactLink = { contactId: contact.id, pbxContactId: 5, fingerprint: 'stale' };
+    const link: ContactLink = {
+      contactId: contact.id,
+      pbxContactId: 5,
+      fingerprint: 'stale',
+      pbxFingerprint: '',
+    };
     const plan = planSync({ ...empty, crm: [contact], pbx: [pbxRow({ id: 5 })], links: [link] });
     expect(plan.update).toEqual([expect.objectContaining({ pbxContactId: 5 })]);
   });
 
   it('deletes from the PBX what the CRM deleted', () => {
-    const link: ContactLink = { contactId: 'gone', pbxContactId: 5, fingerprint: 'x' };
+    const link: ContactLink = {
+      contactId: 'gone',
+      pbxContactId: 5,
+      fingerprint: 'x',
+      pbxFingerprint: '',
+    };
     const plan = planSync({
       ...empty,
       pbx: [pbxRow({ id: 5 })],
@@ -164,7 +188,12 @@ describe('planning a sync', () => {
   /** A handset must not be able to delete the business's own records. */
   it('puts back a contact deleted on the PBX rather than deleting it in the CRM', () => {
     const contact = crm();
-    const link: ContactLink = { contactId: contact.id, pbxContactId: 5, fingerprint: 'x' };
+    const link: ContactLink = {
+      contactId: contact.id,
+      pbxContactId: 5,
+      fingerprint: 'x',
+      pbxFingerprint: '',
+    };
     const plan = planSync({ ...empty, crm: [contact], pbx: [], links: [link] });
     expect(plan.create).toEqual([contact]);
   });
@@ -198,5 +227,68 @@ describe('planning a sync', () => {
     const claimed = [...plan.adopt, ...plan.update].map((x) => x.pbxContactId);
     expect(claimed).toEqual([5]);
     expect(plan.create).toHaveLength(1);
+  });
+});
+
+describe('telling which side changed', () => {
+  const contact = crm();
+  const row = pbxRow({ id: 5 });
+  const agreed: ContactLink = {
+    contactId: contact.id,
+    pbxContactId: 5,
+    fingerprint: fingerprint(toWrite(contact)),
+    pbxFingerprint: pbxFingerprint(row, KE),
+  };
+  const run = (c: CrmContact, r: CompanyContactRow, link: ContactLink = agreed) =>
+    planSync({ ...empty, crm: [c], pbx: [r], links: [link] });
+
+  it('brings in an edit made on the PBX when the CRM has not changed', () => {
+    const edited = pbxRow({ id: 5, contact_name: 'Jane Mwangi', company: 'Acme' });
+    const plan = run(contact, edited);
+    expect(plan.pull).toEqual([{ contact, row: edited }]);
+    expect(plan.update).toHaveLength(0);
+  });
+
+  it('writes the CRM over the PBX when both changed, and says it was a conflict', () => {
+    const edited = pbxRow({ id: 5, contact_name: 'Jane Mwangi' });
+    const plan = run(crm({ lastName: 'Otieno' }), edited);
+    expect(plan.pull).toHaveLength(0);
+    expect(plan.update).toEqual([expect.objectContaining({ pbxContactId: 5, conflict: edited })]);
+  });
+
+  it('is not a conflict when both sides were changed to the same thing', () => {
+    const plan = run(crm({ lastName: 'Mwangi' }), pbxRow({ id: 5, contact_name: 'Jane Mwangi' }));
+    expect(plan.update).toEqual([expect.objectContaining({ conflict: null })]);
+  });
+
+  it('takes a link with no PBX fingerprint as agreed, rather than guessing an edit', () => {
+    const edited = pbxRow({ id: 5, contact_name: 'Jane Mwangi' });
+    const plan = run(contact, edited, { ...agreed, pbxFingerprint: '' });
+    expect(plan.pull).toHaveLength(0);
+    expect(plan.update).toHaveLength(0);
+    expect(plan.settle).toEqual([
+      expect.objectContaining({
+        contactId: contact.id,
+        pbxFingerprint: pbxFingerprint(edited, KE),
+      }),
+    ]);
+  });
+
+  it('compares the name the way the PBX stores it, as one string', () => {
+    // Written as "Mary Ann" "Njeri" and read back as "Mary Ann Njeri", which splits differently.
+    const mary = crm({ firstName: 'Mary Ann', lastName: 'Njeri' });
+    const plan = planSync({
+      ...empty,
+      crm: [mary],
+      pbx: [pbxRow({ id: 5, contact_name: 'Mary  Ann Njeri' })],
+    });
+    expect(plan.adopt).toHaveLength(1);
+    expect(plan.update).toHaveLength(0);
+  });
+
+  it('ignores a number the PBX holds in local form when it is the same number', () => {
+    const plan = run(contact, pbxRow({ id: 5, mobile: '0700000001' }));
+    expect(plan.pull).toHaveLength(0);
+    expect(plan.update).toHaveLength(0);
   });
 });

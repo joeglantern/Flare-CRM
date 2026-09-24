@@ -47,6 +47,12 @@ export const settingSchemas = {
     enabled: z.boolean(),
     /** Created if missing, holding every company contact so it cannot drift. */
     phonebookName: z.string().trim().min(1).max(64),
+    /**
+     * How often the PBX side is read, in seconds. The PBX publishes no contact events, so this is
+     * how long an edit made on a handset takes to reach the CRM. Defaulted rather than required, so
+     * a setting saved before it existed still parses instead of falling back wholesale.
+     */
+    pollSeconds: z.number().int().min(15).max(300).default(30),
   }),
   matching: z.object({
     allowSuffixMatch: z.boolean(),
@@ -90,7 +96,7 @@ export const settingDefaults: Settings = {
   extensionSync: { enabled: true },
   // On: the phone system's phonebook is expected to hold the business's contacts, and a sync that
   // has to be found and switched on was left off in practice, with nothing to say it was.
-  contactSync: { enabled: true, phonebookName: 'Flare CRM' },
+  contactSync: { enabled: true, phonebookName: 'Flare CRM', pollSeconds: 30 },
   // On: a caller's number arrives as 07..., 2547... or +2547... depending on the trunk, and the
   // last nine digits are the one part that is always the same.
   matching: { allowSuffixMatch: true, suffixLength: 9 },

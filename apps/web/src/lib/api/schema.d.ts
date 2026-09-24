@@ -7502,6 +7502,8 @@ export interface paths {
                                 contactSync: {
                                     enabled: boolean;
                                     phonebookName: string;
+                                    /** @default 30 */
+                                    pollSeconds: number;
                                 };
                                 currency: string;
                                 defaultCountry: string;
@@ -7579,6 +7581,8 @@ export interface paths {
                         contactSync?: {
                             enabled: boolean;
                             phonebookName: string;
+                            /** @default 30 */
+                            pollSeconds?: number;
                         };
                         currency?: string;
                         defaultCountry?: string;
@@ -7647,6 +7651,8 @@ export interface paths {
                                 contactSync: {
                                     enabled: boolean;
                                     phonebookName: string;
+                                    /** @default 30 */
+                                    pollSeconds: number;
                                 };
                                 currency: string;
                                 defaultCountry: string;

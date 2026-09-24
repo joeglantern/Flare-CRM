@@ -282,11 +282,23 @@ directions. On by default: `contactSync.enabled` in settings, with `contactSync.
 naming the phonebook. Requires `telephony` in the plan. It started life off by default and was
 simply never switched on, so a phonebook that looked broken was a sync that had never run.
 
-**Reconciled, not hooked.** Every run reads both sides, plans the difference and applies it, the
-way `reconcile.ts` does for CDRs. A contact changes through a dozen paths, including the CSV
-import, a lead being converted, a merge and every phone endpoint, so a sync built from hooks on
-those paths is correct only until somebody adds the thirteenth. Scheduled every ten minutes from
-the worker; the interval is how stale a phonebook may be, not how reliable the sync is.
+**How fast each side follows the other.** CRM to PBX in seconds; PBX to CRM on the poll, because
+the PBX publishes no contact events. Yeastar P-Series has no API event for contacts or phonebooks
+at all, so the PBX side can only be read, never pushed.
+
+- CRM to PBX: every write path nudges a run a few seconds later (the contacts routes, the CSV
+  import, lead conversion, and the sync itself when an import or a pulled edit leaves something to
+  write back).
+- PBX to CRM: the worker reads the PBX every `contactSync.pollSeconds` (default 30, between 15 and
+  300, set in Settings). A poll is one `company_contact/list` request, since a page holds up to
+  10 000 contacts, and it writes nothing on either side when nothing changed.
+- The ten-minute run stays as the backstop, and is also where the phonebook is checked (at most
+  once every ten minutes, whichever run gets there first).
+
+**Reconciled, not hooked.** Every run, poll or not, reads both sides, plans the difference and
+applies it, the way `reconcile.ts` does for CDRs. A contact changes through a dozen paths, so a
+sync built only from hooks on those paths is correct until somebody adds the thirteenth. The
+nudges make a run happen sooner; they are not what makes it correct.
 
 **Matching is by phone number, never by name.** Numbers are compared as E.164, and the CRM's
 partial unique index guarantees one live contact per number, so a number identifies at most one
@@ -294,10 +306,41 @@ person on each side. This is what stops a second run creating a second copy of e
 lets a first run against a PBX that was already in use adopt its entries rather than duplicate
 them.
 
-**Who wins.** The CRM is the record of the business, so it wins on content. A contact only the PBX
-has is imported rather than deleted: somebody typed them into a phone, and deleting their work is
-not a sync. Imported contacts are unowned, so every agent can see them until an admin assigns them,
-and carry `source = 'import'`.
+**Who wins.** Each link in `pbx_contact_links` stores two fingerprints: `fingerprint`, the CRM side
+as last synced, and `pbx_fingerprint`, the PBX row as last read. Comparing each with what the side
+holds now says which side moved.
+
+| CRM changed | PBX changed | What happens                                                               |
+| ----------- | ----------- | -------------------------------------------------------------------------- |
+| no          | no          | nothing                                                                    |
+| yes         | no          | the CRM version is written to the PBX                                      |
+| no          | yes         | the PBX edit (name, company, email, numbers) is brought into the CRM       |
+| yes         | yes         | the CRM wins and is written to the PBX; `contact.sync.conflict` is audited |
+
+A pulled edit is audited as `contact.sync.pull` with the before and after. It never takes a number
+or an email from another contact that already holds it, and never removes numbers beyond the
+seven the PBX can hold; whatever the CRM could not take is written back so the two sides still
+converge. A link with no `pbx_fingerprint` yet (every link made before it existed) is taken as
+agreed and gets its baseline on the next run, rather than having whatever the PBX holds treated as
+an edit.
+
+A contact only the PBX has is imported rather than deleted: somebody typed them into a phone, and
+deleting their work is not a sync. Imported contacts are unowned, so every agent can see them until
+an admin assigns them, and carry `source = 'import'`. Their company is matched by name, ignoring
+case, or created.
+
+**Comparing the two sides.** Only what both can hold is compared: the name, the company, the email
+and the numbers in slot order as E.164. The name is compared as one string, the way the PBX lists
+it, because first and last are written apart but read back joined: "Mary Ann" "Njeri" comes back
+as "Mary Ann Njeri" and is split differently, which is not an edit. Whitespace runs and the case
+of an email do not count as changes.
+
+**Clearing a field.** An update sends every field, empty ones included, so a company, email, last
+name or job title cleared in the CRM is cleared on the PBX. Yeastar documents every update field as
+optional without saying whether one left out is kept or cleared, or whether `number_list`
+replaces the numbers or adds to them. So after writing, the run reads the PBX back once and stores
+what it actually holds as `pbx_fingerprint`, rather than assuming the write landed as sent. A PBX
+that kept something it was told to clear logs a warning and is not mistaken for a handset edit.
 
 **Deleting is deliberately asymmetric.** Deleting in the CRM deletes on the PBX. Deleting on the
 PBX does not delete in the CRM; the contact is put back on the next run. A handset should not be
@@ -325,19 +368,19 @@ PBX's own popup sends an agent to the contacts page with the caller's number as 
 (Custom Popup URL `/contacts/lookup?number={{.CallerNumber}}`): a saved caller opens straight on
 their contact page, and a number nobody has lands on the search, which offers to save it as a new
 contact already filled in. Numbers are matched on their last nine digits, because the PBX sends
-them in local form (`07...`) and they are stored as E.164. Any change to a contact nudges the sync to run
-within seconds rather than at its next tick, so the new person reaches the phone system's
-phonebook while the call is still fresh.
+them in local form (`07...`) and they are stored as E.164. Saving the new person nudges the sync,
+so they reach the phone system's phonebook while the call is still fresh.
 
-**Cost and failure.** A run that changes nothing costs two requests. `fingerprint` records what was
-last written, so an unchanged contact is never re-sent, and fields the PBX cannot hold (tags,
+**Cost and failure.** A run that changes nothing costs one request, plus the phonebook check once
+every ten minutes, and writes nothing. A run that writes costs one more read to record the result.
+The fingerprints mean an unchanged contact is never re-sent, and fields the PBX cannot hold (tags,
 owner) do not count as changes. Writes are capped at 300 per run so a first sync of a large CRM is
 spread over several runs. Each contact is applied on its own: one refusal is counted and retried
 next run rather than stopping the rest.
 
 | Endpoint                                        | Used for                                              |
 | ----------------------------------------------- | ----------------------------------------------------- |
-| `GET /company_contact/list`                     | reading the PBX side, 1 000 per page                  |
+| `GET /company_contact/list`                     | reading the PBX side, 10 000 per page                 |
 | `POST /company_contact/create`                  | a CRM contact the PBX does not have                   |
 | `POST /company_contact/update`                  | one the PBX has, out of date                          |
 | `GET /company_contact/delete`                   | one deleted in the CRM (single id only; no bulk form) |

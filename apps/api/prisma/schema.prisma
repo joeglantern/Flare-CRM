@@ -233,6 +233,8 @@ model PbxContactLink {
   pbxContactId Int      @unique @map("pbx_contact_id")
   /// A summary of the fields last written, so an unchanged contact costs no request.
   fingerprint  String   @default("")
+  /// The PBX row as last read, so an edit made on the PBX can be told from one made in the CRM.
+  pbxFingerprint String   @default("") @map("pbx_fingerprint")
   syncedAt     DateTime @default(now()) @map("synced_at") @db.Timestamptz(3)
 
   contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
