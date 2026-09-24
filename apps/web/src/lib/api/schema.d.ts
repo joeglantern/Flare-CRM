@@ -7925,6 +7925,11 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handBackTo: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 handedBack: {
                                     /** Format: date-time */
                                     at: string;
@@ -8041,6 +8046,11 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handBackTo: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 handedBack: {
                                     /** Format: date-time */
                                     at: string;
@@ -8142,6 +8152,11 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handBackTo: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 handedBack: {
                                     /** Format: date-time */
                                     at: string;
@@ -8275,6 +8290,11 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handBackTo: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 handedBack: {
                                     /** Format: date-time */
                                     at: string;
@@ -8374,6 +8394,11 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handBackTo: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 handedBack: {
                                     /** Format: date-time */
                                     at: string;
@@ -8483,6 +8508,11 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handBackTo: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 handedBack: {
                                     /** Format: date-time */
                                     at: string;
@@ -8740,6 +8770,11 @@ export interface paths {
                                 dealId: string | null;
                                 description: string | null;
                                 dueAt: string | null;
+                                handBackTo: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
                                 handedBack: {
                                     /** Format: date-time */
                                     at: string;
