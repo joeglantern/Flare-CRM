@@ -41,6 +41,7 @@ describe('contact sync (fake PBX)', () => {
     admin = await ctx.createUser({ role: 'admin', extension: '1000' });
     pbx.contacts.clear();
     pbx.contactPageCap = null;
+    pbx.keepOmittedSlots = true;
     pbx.phonebooks.length = 0;
     pbx.requests.length = 0;
     await ctx.app.settings.patch(
@@ -539,6 +540,67 @@ describe('contact sync (fake PBX)', () => {
       expect((await loaded(contact.id)).phones.map((p) => p.e164)).toEqual(['+254712000001']);
     });
   });
+  describe('removing a number', () => {
+    it('removes it from the PBX, which keeps any slot an update leaves out', async () => {
+      expect(pbx.keepOmittedSlots).toBe(true);
+      const res = await ctx.as(admin, {
+        method: 'POST',
+        url: '/api/v1/contacts',
+        payload: {
+          firstName: 'Jane',
+          phones: [{ number: '0712000001' }, { number: '0712000002' }],
+        },
+      });
+      const contact = res.json<Envelope<{ id: string }>>().data;
+      await runContactSync(ctx.app);
+      const [pbxId] = [...pbx.contacts.keys()];
+      expect(pbx.contacts.get(pbxId ?? 0)).toMatchObject({
+        mobile: '+254712000001',
+        business: '+254712000002',
+      });
+
+      await ctx.app.db.contactPhone.updateMany({
+        where: { contactId: contact.id, e164: '+254712000002' },
+        data: { deletedAt: new Date() },
+      });
+      expect(await runContactSync(ctx.app)).toMatchObject({ updated: 1, pulled: 0 });
+
+      expect(pbx.contacts.get(pbxId ?? 0)).toMatchObject({ mobile: '+254712000001', business: '' });
+      // Nothing was pulled back and nothing is left to do.
+      expect(await runContactSync(ctx.app)).toMatchObject({ updated: 0, pulled: 0 });
+    });
+
+    it('imports a handset entry holding one number in two slots, and tidies it on the next write', async () => {
+      // What the live PBX held for an imported contact: one number, typed under mobile and business.
+      pbx.contacts.set(90, {
+        id: 90,
+        contact_name: 'Shem Test',
+        mobile: '0722000002',
+        business: '0722000002',
+      });
+
+      expect(await runContactSync(ctx.app)).toMatchObject({ imported: 1, failed: 0 });
+      const shem = await ctx.app.db.contact.findFirstOrThrow({
+        where: { firstName: 'Shem' },
+        include: { phones: true },
+      });
+      expect(shem.phones.map((p) => p.e164)).toEqual(['+254722000002']);
+      expect(await runContactSync(ctx.app)).toMatchObject({ updated: 0, pulled: 0 });
+
+      await ctx.as(admin, {
+        method: 'PATCH',
+        url: `/api/v1/contacts/${shem.id}`,
+        payload: { lastName: 'Otieno' },
+      });
+      expect(await runContactSync(ctx.app)).toMatchObject({ updated: 1 });
+      expect(pbx.contacts.get(90)).toMatchObject({
+        contact_name: 'Shem Otieno',
+        mobile: '+254722000002',
+        business: '',
+      });
+    });
+  });
+
   describe('what a sync must never do', () => {
     const linkOf = (contactId: string) =>
       ctx.app.db.pbxContactLink.findUniqueOrThrow({ where: { contactId } });

@@ -336,11 +336,21 @@ as "Mary Ann Njeri" and is split differently, which is not an edit. Whitespace r
 of an email do not count as changes.
 
 **Clearing a field.** An update sends every field, empty ones included, so a company, email, last
-name or job title cleared in the CRM is cleared on the PBX. Yeastar documents every update field as
-optional without saying whether one left out is kept or cleared, or whether `number_list`
-replaces the numbers or adds to them. So after writing, the run reads the PBX back once and stores
-what it actually holds as `pbx_fingerprint`, rather than assuming the write landed as sent. A PBX
-that kept something it was told to clear logs a warning and is not mistaken for a handset edit.
+name or job title cleared in the CRM is cleared on the PBX. Checked on the live PBX: a job title
+sent as `""` arrives empty.
+
+Numbers work differently, also checked live. An update's `number_list` sets the slots it names and
+leaves every other slot as it was, so a slot the CRM no longer fills has to be named with an empty
+number or the old number stays for good. Each update is built against the PBX row the same run
+read, and empties every slot that row fills and the CRM does not.
+
+Yeastar documents none of this, so after writing, the run reads the PBX back once and stores what it
+actually holds as `pbx_fingerprint`, rather than assuming the write landed as sent. A PBX that kept
+something it was told to clear logs a warning and is not mistaken for a handset edit.
+
+The same number typed under two slots on a handset, as `07...` under mobile and business say, is
+read as one number. The CRM can hold a number only once, and the next write empties the second
+slot.
 
 **Deleting is deliberately asymmetric.** Deleting in the CRM deletes on the PBX. Deleting on the
 PBX does not delete in the CRM; the contact is put back on the next run. A handset should not be

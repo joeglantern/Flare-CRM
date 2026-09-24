@@ -73,6 +73,17 @@ const SLOTS: NumberSlot[] = [
   'other_number',
 ];
 
+/** The field each slot comes back in when the PBX lists a contact, in the same order. */
+const SLOT_FIELDS = [
+  'mobile',
+  'business',
+  'home',
+  'mobile2',
+  'business2',
+  'home2',
+  'other',
+] as const;
+
 /** How many of a contact's numbers the PBX can hold, and so how many the sync is responsible for. */
 export const PBX_NUMBER_SLOTS = SLOTS.length;
 
@@ -90,10 +101,16 @@ function firstNameFor(contact: CrmContact): string {
  * and a field left out of an update is one it has no reason to touch, so a company or an email
  * cleared in the CRM would otherwise stay on the phone system for good. A create has nothing to
  * clear and leaves them out.
+ *
+ * Numbers need the same care, and the PBX row to know which. On the live PBX an update's
+ * `number_list` sets the slots it names and leaves every other slot as it was, so a number removed
+ * in the CRM would stay on the phone system for good. Each slot `onPbx` holds a number in, and the
+ * CRM no longer fills, is therefore sent explicitly empty.
  */
 export function toWrite(
   contact: CrmContact,
   mode: 'create' | 'update' = 'create',
+  onPbx?: CompanyContactRow,
 ): CompanyContactWrite {
   const text = (key: 'last_name' | 'company' | 'email' | 'job_title', value: string | null) => {
     const v = value?.trim() ?? '';
@@ -111,7 +128,9 @@ export function toWrite(
     // dropped, rather than being written to a slot that does not exist.
     number_list: SLOTS.flatMap((num_type, i) => {
       const number = contact.numbers[i];
-      return number === undefined ? [] : [{ num_type, number }];
+      if (number !== undefined) return [{ num_type, number }];
+      const held = onPbx?.[SLOT_FIELDS[i] ?? 'other'];
+      return typeof held === 'string' && held.trim() !== '' ? [{ num_type, number: '' }] : [];
     }),
   };
 }
@@ -135,16 +154,21 @@ export function fingerprint(write: CompanyContactWrite): string {
 
 /** Every number a listed PBX contact holds, in slot order, as it came off the wire. */
 export function rowNumbers(row: CompanyContactRow): string[] {
-  return [row.mobile, row.business, row.home, row.mobile2, row.business2, row.home2, row.other]
+  return SLOT_FIELDS.map((field) => row[field])
     .map((n) => (typeof n === 'string' ? n.trim() : ''))
     .filter((n) => n !== '');
 }
 
-/** A PBX contact's numbers in E.164, for matching against the CRM. Unparseable ones are dropped. */
+/**
+ * A PBX contact's numbers in E.164, for matching against the CRM. Unparseable ones are dropped, and
+ * so is a number already listed in an earlier slot: a handset entry with the same number under
+ * mobile and business is one number, and the CRM can hold it only once.
+ */
 export function rowE164s(row: CompanyContactRow, country: CountryCode): string[] {
-  return rowNumbers(row)
+  const numbers = rowNumbers(row)
     .map((n) => toE164(n, country))
     .filter((n): n is string => n !== null);
+  return [...new Set(numbers)];
 }
 
 /** Runs of whitespace as one space, so a double space typed on a handset is not an edit. */
@@ -210,7 +234,13 @@ export interface SyncPlan {
    * On both, and the CRM changed since the last sync. `conflict` is the PBX row when the PBX
    * changed too, to something else: the CRM still wins, and the job audits what it overwrote.
    */
-  update: { contact: CrmContact; pbxContactId: number; conflict: CompanyContactRow | null }[];
+  update: {
+    contact: CrmContact;
+    pbxContactId: number;
+    /** The PBX row as this run read it, so the update can empty the slots the CRM left. */
+    row: CompanyContactRow;
+    conflict: CompanyContactRow | null;
+  }[];
   /** On both, and only the PBX changed: its edit is brought into the CRM. */
   pull: { contact: CrmContact; row: CompanyContactRow }[];
   /** Nothing to send either way, but the fingerprints stored on the link are out of date. */
@@ -306,6 +336,7 @@ export function planSync(input: {
         plan.update.push({
           contact,
           pbxContactId: link.pbxContactId,
+          row: linkedRow,
           conflict: pbxChanged && !agree ? linkedRow : null,
         });
       } else if (pbxChanged && !agree) {
@@ -340,7 +371,7 @@ export function planSync(input: {
           fingerprint: print,
           pbxFingerprint: rowPrint,
         });
-      else plan.update.push({ contact, pbxContactId: match.id, conflict: null });
+      else plan.update.push({ contact, pbxContactId: match.id, row: match, conflict: null });
       continue;
     }
 

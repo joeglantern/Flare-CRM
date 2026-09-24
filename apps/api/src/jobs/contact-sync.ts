@@ -252,10 +252,10 @@ export async function runContactSync(app: FastifyInstance): Promise<SyncSummary 
     writes++;
   }
 
-  for (const { contact, pbxContactId, conflict } of plan.update) {
+  for (const { contact, pbxContactId, row, conflict } of plan.update) {
     if (!budgetLeft()) break;
     try {
-      await client.companyContactUpdate({ ...toWrite(contact, 'update'), id: pbxContactId });
+      await client.companyContactUpdate({ ...toWrite(contact, 'update', row), id: pbxContactId });
       await linkContact(app, contact.id, pbxContactId, fingerprint(toWrite(contact)), '');
       written.set(pbxContactId, { contact });
       summary.updated++;

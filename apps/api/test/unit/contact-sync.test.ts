@@ -73,6 +73,19 @@ describe('mapping a CRM contact to the PBX', () => {
     expect(write).toMatchObject({ last_name: '', company: '', email: '', job_title: '' });
   });
 
+  it('empties in an update each slot the PBX fills and the CRM no longer does', () => {
+    // The live PBX keeps a slot an update leaves out, so a removed number has to be sent empty.
+    const onPbx = pbxRow({ mobile: '+254700000001', business: '+254700000002', other: '0700' });
+    const write = toWrite(crm({ numbers: ['+254700000001'] }), 'update', onPbx);
+    expect(write.number_list).toEqual([
+      { num_type: 'mobile_number', number: '+254700000001' },
+      { num_type: 'business_number', number: '' },
+      { num_type: 'other_number', number: '' },
+    ]);
+    // A create has nothing to empty, and a slot the PBX has empty is left out.
+    expect(toWrite(crm({ numbers: ['+254700000001'] })).number_list).toHaveLength(1);
+  });
+
   it('changes its fingerprint only when something the PBX holds changes', () => {
     const before = fingerprint(toWrite(crm()));
     // A tag or an owner is not a change the phone system can see.
@@ -86,6 +99,11 @@ describe('reading a contact off the PBX', () => {
   it('collects every number slot as E.164 and drops what cannot be read', () => {
     const row = pbxRow({ mobile: '0700000001', business: '020 000 0002', home: 'not a number' });
     expect(rowE164s(row, KE)).toEqual(['+254700000001', '+254200000002']);
+  });
+
+  it('reads the same number under two slots as one number', () => {
+    const row = pbxRow({ mobile: '0700000001', business: '+254700000001' });
+    expect(rowE164s(row, KE)).toEqual(['+254700000001']);
   });
 
   it('splits one name field into a first and last name', () => {

@@ -22,6 +22,11 @@ export class FakePbx {
     { number: '1001' },
     { number: '1002' },
   ];
+  /**
+   * How an update treats number slots its number_list leaves out. The live PBX keeps them, so a
+   * number is removed only by sending its slot empty; false replaces every slot instead.
+   */
+  keepOmittedSlots = true;
   /** Rows per page the contact list will serve at most, whatever page_size asks for. */
   contactPageCap: number | null = null;
   /** Company contacts, keyed by the id the PBX hands out. */
@@ -220,7 +225,7 @@ export class FakePbx {
       if (!existing) return { errcode: 40003, errmsg: 'The contact does not exist.' };
       // Every field of an update is optional, so this treats one left out as unchanged, the
       // stricter reading: a sync that relies on omission to clear a field fails here as it would
-      // on a PBX that behaves this way. A number_list that is sent replaces the numbers.
+      // on a PBX that behaves this way. Number slots follow keepOmittedSlots.
       const next = toRow(id, body);
       const names = (typeof existing.contact_name === 'string' ? existing.contact_name : '').split(
         ' ',
@@ -233,8 +238,16 @@ export class FakePbx {
       };
       for (const key of ['company', 'email', 'job_title'])
         if (typeof body[key] === 'string') merged[key] = body[key];
-      if (Array.isArray(body.number_list))
-        for (const field of Object.values(slotField)) merged[field] = next[field];
+      if (Array.isArray(body.number_list)) {
+        if (this.keepOmittedSlots) {
+          for (const n of body.number_list as { num_type: string; number: string }[]) {
+            const field = slotField[n.num_type];
+            if (field) merged[field] = n.number;
+          }
+        } else {
+          for (const field of Object.values(slotField)) merged[field] = next[field];
+        }
+      }
       this.contacts.set(id, merged);
       return { errcode: 0, errmsg: 'SUCCESS' };
     });
