@@ -35,6 +35,7 @@ import { Route as AppCompaniesIndexRouteImport } from './routes/_app/companies/i
 import { Route as AppCompaniesCompanyIdRouteImport } from './routes/_app/companies/$companyId'
 import { Route as AppContactsIndexRouteImport } from './routes/_app/contacts/index'
 import { Route as AppContactsContactIdRouteImport } from './routes/_app/contacts/$contactId'
+import { Route as AppContactsLookupRouteImport } from './routes/_app/contacts/lookup'
 import { Route as AppDealsIndexRouteImport } from './routes/_app/deals/index'
 import { Route as AppDealsDealIdRouteImport } from './routes/_app/deals/$dealId'
 import { Route as AppHelpIndexRouteImport } from './routes/_app/help/index'
@@ -173,6 +174,11 @@ const AppContactsContactIdRoute = AppContactsContactIdRouteImport.update({
   path: '/contacts/$contactId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppContactsLookupRoute = AppContactsLookupRouteImport.update({
+  id: '/contacts/lookup',
+  path: '/contacts/lookup',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDealsIndexRoute = AppDealsIndexRouteImport.update({
   id: '/deals/',
   path: '/deals/',
@@ -237,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/calls/missed': typeof AppCallsMissedRoute
   '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AppContactsContactIdRoute
+  '/contacts/lookup': typeof AppContactsLookupRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
   '/help/print': typeof AppHelpPrintRoute
   '/inbox/$conversationId': typeof AppInboxConversationIdRoute
@@ -272,6 +279,7 @@ export interface FileRoutesByTo {
   '/calls/missed': typeof AppCallsMissedRoute
   '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AppContactsContactIdRoute
+  '/contacts/lookup': typeof AppContactsLookupRoute
   '/deals/$dealId': typeof AppDealsDealIdRoute
   '/help/print': typeof AppHelpPrintRoute
   '/inbox/$conversationId': typeof AppInboxConversationIdRoute
@@ -309,6 +317,7 @@ export interface FileRoutesById {
   '/_app/calls/missed': typeof AppCallsMissedRoute
   '/_app/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/_app/contacts/$contactId': typeof AppContactsContactIdRoute
+  '/_app/contacts/lookup': typeof AppContactsLookupRoute
   '/_app/deals/$dealId': typeof AppDealsDealIdRoute
   '/_app/help/print': typeof AppHelpPrintRoute
   '/_app/inbox/$conversationId': typeof AppInboxConversationIdRoute
@@ -346,6 +355,7 @@ export interface FileRouteTypes {
     | '/calls/missed'
     | '/companies/$companyId'
     | '/contacts/$contactId'
+    | '/contacts/lookup'
     | '/deals/$dealId'
     | '/help/print'
     | '/inbox/$conversationId'
@@ -381,6 +391,7 @@ export interface FileRouteTypes {
     | '/calls/missed'
     | '/companies/$companyId'
     | '/contacts/$contactId'
+    | '/contacts/lookup'
     | '/deals/$dealId'
     | '/help/print'
     | '/inbox/$conversationId'
@@ -417,6 +428,7 @@ export interface FileRouteTypes {
     | '/_app/calls/missed'
     | '/_app/companies/$companyId'
     | '/_app/contacts/$contactId'
+    | '/_app/contacts/lookup'
     | '/_app/deals/$dealId'
     | '/_app/help/print'
     | '/_app/inbox/$conversationId'
@@ -627,6 +639,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContactsContactIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/contacts/lookup': {
+      id: '/_app/contacts/lookup'
+      path: '/contacts/lookup'
+      fullPath: '/contacts/lookup'
+      preLoaderRoute: typeof AppContactsLookupRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/deals/': {
       id: '/_app/deals/'
       path: '/deals'
@@ -700,6 +719,7 @@ interface AppRouteChildren {
   AppCallsMissedRoute: typeof AppCallsMissedRoute
   AppCompaniesCompanyIdRoute: typeof AppCompaniesCompanyIdRoute
   AppContactsContactIdRoute: typeof AppContactsContactIdRoute
+  AppContactsLookupRoute: typeof AppContactsLookupRoute
   AppDealsDealIdRoute: typeof AppDealsDealIdRoute
   AppHelpPrintRoute: typeof AppHelpPrintRoute
   AppInboxConversationIdRoute: typeof AppInboxConversationIdRoute
@@ -727,6 +747,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCallsMissedRoute: AppCallsMissedRoute,
   AppCompaniesCompanyIdRoute: AppCompaniesCompanyIdRoute,
   AppContactsContactIdRoute: AppContactsContactIdRoute,
+  AppContactsLookupRoute: AppContactsLookupRoute,
   AppDealsDealIdRoute: AppDealsDealIdRoute,
   AppHelpPrintRoute: AppHelpPrintRoute,
   AppInboxConversationIdRoute: AppInboxConversationIdRoute,

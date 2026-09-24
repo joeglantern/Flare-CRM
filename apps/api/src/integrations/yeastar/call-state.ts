@@ -267,13 +267,33 @@ export class CallStateMachine {
     ownerId: string | null;
   } | null> {
     if (!e164) return null;
+    const select = {
+      contact: { select: { id: true, displayName: true, companyId: true, ownerId: true } },
+    };
     const phone = await this.app.db.contactPhone.findFirst({
       where: { e164, deletedAt: null, contact: { deletedAt: null } },
-      select: {
-        contact: { select: { id: true, displayName: true, companyId: true, ownerId: true } },
-      },
+      select,
     });
-    return phone?.contact ?? null;
+    if (phone) return phone.contact;
+
+    /*
+     * The same person reaches the PBX in more than one shape: with or without the country code,
+     * through a trunk that adds a prefix, or saved here with a typo in the leading digits. The
+     * last nine digits of a Kenyan number are the subscriber number itself, so they identify the
+     * caller where the whole string does not. Only a single match is taken: two contacts ending in
+     * the same digits is a question for a person, which the popup puts to them as candidates.
+     */
+    const { matching } = await this.app.settings.getAll();
+    if (!matching.allowSuffixMatch) return null;
+    const suffix = e164.replace(/\D/g, '').slice(-matching.suffixLength);
+    if (suffix.length < matching.suffixLength) return null;
+    const rows = await this.app.db.contactPhone.findMany({
+      where: { e164: { endsWith: suffix }, deletedAt: null, contact: { deletedAt: null } },
+      select,
+      take: 2,
+    });
+    const [only, second] = rows;
+    return only !== undefined && second === undefined ? only.contact : null;
   }
 
   // ── 30011 / 30016 ────────────────────────────────────────────────────────────────────

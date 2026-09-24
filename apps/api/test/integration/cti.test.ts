@@ -599,6 +599,43 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
    * The failure this replaces reported success every ten minutes while importing nothing, because a
    * row it could not read was skipped without a word. A row it cannot read must show up in the count.
    */
+  it('knows a caller by the last nine digits, and leaves two candidates to a person', async () => {
+    // Saved in a shape the caller's number never arrives in; only the last nine digits agree.
+    const save = async (name: string, e164: string) =>
+      ctx.app.db.contact.create({
+        data: {
+          id: crypto.randomUUID(),
+          firstName: name,
+          displayName: name,
+          phones: { create: [{ id: crypto.randomUUID(), e164, raw: e164, isPrimary: true }] },
+        },
+        select: { id: true },
+      });
+    const known = await save('Suffix Sam', '+255712000077');
+    await save('Twin One', '+255712000088');
+    await save('Twin Two', '+256712000088');
+    const a = nextCallId();
+    const b = nextCallId();
+    pbx.cdrs = [
+      cdrRow(a, { from: '0712000077', to: '1001', type: 'Inbound', status: 'ANSWERED', talk: 5 }),
+      cdrRow(b, { from: '0712000088', to: '1001', type: 'Inbound', status: 'ANSWERED', talk: 5 }),
+    ];
+    await reconcileCdrs({
+      client: ctx.app.cti.client!,
+      machine: ctx.app.cti.machine,
+      valkey: ctx.app.valkey,
+      pbxTimeZone: 'Africa/Nairobi',
+      log: ctx.app.log,
+    });
+    expect((await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: a } })).contactId).toBe(
+      known.id,
+    );
+    expect(
+      (await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: b } })).contactId,
+    ).toBeNull();
+    pbx.cdrs = [];
+  });
+
   it('counts a row it cannot read instead of passing over it', async () => {
     const id = nextCallId();
     pbx.cdrs = [

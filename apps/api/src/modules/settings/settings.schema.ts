@@ -91,7 +91,9 @@ export const settingDefaults: Settings = {
   // On: the phone system's phonebook is expected to hold the business's contacts, and a sync that
   // has to be found and switched on was left off in practice, with nothing to say it was.
   contactSync: { enabled: true, phonebookName: 'Flare CRM' },
-  matching: { allowSuffixMatch: false, suffixLength: 9 },
+  // On: a caller's number arrives as 07..., 2547... or +2547... depending on the trunk, and the
+  // last nine digits are the one part that is always the same.
+  matching: { allowSuffixMatch: true, suffixLength: 9 },
   branding: brandingDefaults,
   security: { require2FAForPrivileged: true, require2FAForAll: false, sessionIdleMinutes: 60 },
 };

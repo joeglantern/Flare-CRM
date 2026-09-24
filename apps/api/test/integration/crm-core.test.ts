@@ -141,6 +141,22 @@ describe('core CRM: contacts, companies, custom fields, visibility', () => {
     expect(open.json<Envelope<unknown[]>>().data).toHaveLength(2);
   });
 
+  it('finds a contact by a number typed the way the phone system sends it', async () => {
+    const res = await ctx.as(agent, {
+      method: 'POST',
+      url: '/api/v1/contacts',
+      payload: { firstName: 'Local', phones: [{ number: '+254 712 345 678' }] },
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    for (const q of ['0712345678', '254712345678', '712345678']) {
+      const found = await ctx.as(agent, { method: 'GET', url: `/api/v1/contacts?q=${q}` });
+      expect(
+        found.json<Envelope<{ displayName: string }[]>>().data.map((c) => c.displayName),
+        q,
+      ).toEqual(['Local']);
+    }
+  });
+
   it('validates configurable custom fields', async () => {
     const def = await ctx.as(admin, {
       method: 'POST',

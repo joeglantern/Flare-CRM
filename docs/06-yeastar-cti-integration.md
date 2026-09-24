@@ -300,8 +300,10 @@ linked by hand is never moved.
 **From the call popup.** A caller nobody has heard of can be saved as a contact from the popup
 itself, prefilled with the number; the call is linked to them at once. The same holds when the
 PBX's own popup sends an agent to the contacts page with the caller's number as the search
-(Custom Popup URL `/contacts?q={{.CallerNumber}}`): when nobody matches, the page offers to save
-the number as a new contact, already filled in. Any change to a contact nudges the sync to run
+(Custom Popup URL `/contacts/lookup?number={{.CallerNumber}}`): a saved caller opens straight on
+their contact page, and a number nobody has lands on the search, which offers to save it as a new
+contact already filled in. Numbers are matched on their last nine digits, because the PBX sends
+them in local form (`07...`) and they are stored as E.164. Any change to a contact nudges the sync to run
 within seconds rather than at its next tick, so the new person reaches the phone system's
 phonebook while the call is still fresh.
 

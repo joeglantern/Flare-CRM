@@ -156,6 +156,13 @@ export class ContactsService {
     ];
     if (digits.length >= 3)
       or.push({ phones: { some: { e164: { contains: digits }, deletedAt: null } } });
+    // "0712 345 678" is stored as +254712345678, so the digits as typed never appear in it: the
+    // leading 0 is not there. The last nine are, whichever way the number was written, and this
+    // is what the phone system's popup searches with.
+    if (digits.length >= 9)
+      or.push({
+        phones: { some: { e164: { endsWith: digits.slice(-9) }, deletedAt: null } },
+      });
     return { OR: or };
   }
 
