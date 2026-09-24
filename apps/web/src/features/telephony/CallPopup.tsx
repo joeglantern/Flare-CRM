@@ -6,7 +6,7 @@
  *  - rendered within 300 ms of call:ringing on any route (the payload carries the context, so
  *    there is no second request before it can appear)
  *  - aria-live assertive while ringing, focus-trapped only in that state
- *  - Enter answers and Esc declines while ringing
+ *  - no answer or decline here: the call is picked up on the phone itself
  *  - buttons the PBX cannot do are hidden, not disabled (capabilities)
  *  - the timer runs from the server's answeredAt so every tab agrees
  *  - the recording consent text from Settings is in front of the agent
@@ -35,7 +35,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button, IconButton } from '@/components/ui/Button';
-import { Kbd } from '@/components/ui/Kbd';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { toast } from '@/components/ui/toast';
 import { DateTime } from '@/components/data/formatters';
@@ -229,7 +228,7 @@ function CallCardView({
     payload?.callerDisplay ?? (number !== null ? formatPhone(number) : 'Unknown number');
 
   const act = useCallback(
-    (action: 'answer' | 'decline' | 'hangup' | 'hold' | 'unhold' | 'mute' | 'unmute') => {
+    (action: 'hangup' | 'hold' | 'unhold' | 'mute' | 'unmute') => {
       if (card.callId === null) return;
       control.mutate(
         { action, transferType: 'blind' },
@@ -243,27 +242,15 @@ function CallCardView({
     [card.callId, control],
   );
 
-  // Focus trap and Enter/Esc only while ringing, so the popup never steals typing later.
+  // Focus only while ringing, so the popup never steals typing later.
   useEffect(() => {
     if (!ringing) return;
-    const el = panel.current;
     const previous = document.activeElement as HTMLElement | null;
-    el?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && caps.answer !== 'none') {
-        e.preventDefault();
-        act('answer');
-      } else if (e.key === 'Escape' && caps.decline) {
-        e.preventDefault();
-        act('decline');
-      }
-    };
-    document.addEventListener('keydown', onKey);
+    panel.current?.focus();
     return () => {
-      document.removeEventListener('keydown', onKey);
       previous?.focus();
     };
-  }, [ringing, caps.answer, caps.decline, act]);
+  }, [ringing]);
 
   const header = ringing
     ? 'Incoming call'
@@ -482,31 +469,6 @@ function CallCardView({
           <>
             {ringing && (
               <div className="flex flex-wrap gap-2">
-                {caps.decline && (
-                  <Button
-                    variant="secondary"
-                    icon={PhoneOff}
-                    onClick={() => {
-                      act('decline');
-                    }}
-                    kbd="Esc"
-                  >
-                    Decline
-                  </Button>
-                )}
-                {caps.answer !== 'none' && (
-                  <Button
-                    variant="primary"
-                    icon={Phone}
-                    className="flex-1"
-                    onClick={() => {
-                      act('answer');
-                    }}
-                    kbd="↵"
-                  >
-                    Answer
-                  </Button>
-                )}
                 {caps.answer === 'none' && (
                   <p className="text-sm text-muted">
                     Pick up your desk phone to answer. This PBX does not allow answering over the
@@ -625,18 +587,13 @@ function CallCardView({
         )}
       </div>
 
-      {ringing && (
+      {ringing && (unknown || restricted) && (
         <div className="border-t border-border bg-surface px-3.5 py-2 text-xs text-faint">
           {unknown ? (
             'Answering will log the call to this number. Create the contact to link it.'
-          ) : restricted ? (
-            <>
-              Answer is available; opening the contact requires{' '}
-              <span className="mono">contact:read</span> in this scope.
-            </>
           ) : (
             <>
-              <Kbd>↵</Kbd> answers · <Kbd>Esc</Kbd> declines
+              Opening the contact requires <span className="mono">contact:read</span> in this scope.
             </>
           )}
         </div>
