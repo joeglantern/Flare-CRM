@@ -85,6 +85,25 @@ describe('contact sync (fake PBX)', () => {
     expect(pbx.phonebooks).toHaveLength(1);
   });
 
+  it('uses the all-contacts phonebook a PBX already has, rather than failing on a second', async () => {
+    // What the live PBX had: its own all-contacts book, and one from Yeastar's CRM integration.
+    pbx.phonebooks.push(
+      { id: 3, name: 'All Company Contacts_Phonebook', member_select: 'sel_all' },
+      { id: 4, name: 'CRM_Synchronization', member_select: 'sel_specific' },
+    );
+    await addContact('Jane', '0712000001');
+
+    const summary = await runContactSync(ctx.app);
+
+    expect(summary?.created).toBe(1);
+    expect(pbx.phonebooks).toHaveLength(2);
+    const audit = await ctx.app.db.auditLog.findFirst({
+      where: { action: 'contact.sync' },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect((audit?.after as { phonebookId?: number } | null)?.phonebookId).toBe(3);
+  });
+
   it('copies a CRM contact onto the PBX, with its number in a slot', async () => {
     await addContact('Jane', '0712000001');
 

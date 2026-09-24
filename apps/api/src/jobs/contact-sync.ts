@@ -81,7 +81,15 @@ export async function runContactSync(app: FastifyInstance): Promise<SyncSummary 
 
   // The phonebook is made to exist before anything is written into it, so the contacts a run
   // creates are reachable from a handset in the same run rather than the one after.
-  const phonebookId = await ensurePhonebook(client, settings.contactSync.phonebookName);
+  //
+  // A phonebook the PBX will not give us is no reason to leave the contacts unsynced: the caller's
+  // name on an incoming call comes from the company contacts, not from the phonebook.
+  let phonebookId: number | null = null;
+  try {
+    phonebookId = await ensurePhonebook(client, settings.contactSync.phonebookName);
+  } catch (err) {
+    app.log.warn({ err }, 'could not find or create the phonebook; syncing the contacts anyway');
+  }
 
   const [rows, links, pbx] = await Promise.all([
     app.db.contact.findMany({

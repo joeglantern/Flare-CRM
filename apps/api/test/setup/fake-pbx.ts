@@ -221,6 +221,13 @@ export class FakePbx {
     app.post('/openapi/v1.0/phonebook/create', async (request) => {
       if (!authed(request)) return { errcode: 10004, errmsg: 'Invalid token' };
       const body = (request.body ?? {}) as Record<string, unknown>;
+      // The real PBX allows one "all company contacts" phonebook, and refuses a second.
+      if (
+        body.member_select === 'sel_all' &&
+        this.phonebooks.some((p) => p.member_select === 'sel_all')
+      ) {
+        return { errcode: 40003, errmsg: 'DUPLICATE KEY VALUE' };
+      }
       const id = ++this.phonebookSeq;
       this.phonebooks.push({
         id,

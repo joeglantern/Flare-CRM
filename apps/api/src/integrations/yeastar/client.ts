@@ -360,7 +360,15 @@ export class YeastarClient {
       schema: z
         .object({
           data: z
-            .array(z.object({ id: z.coerce.number(), name: z.string().optional() }).loose())
+            .array(
+              z
+                .object({
+                  id: z.coerce.number(),
+                  name: z.string().optional(),
+                  member_select: z.string().optional(),
+                })
+                .loose(),
+            )
             .optional(),
         })
         .loose(),

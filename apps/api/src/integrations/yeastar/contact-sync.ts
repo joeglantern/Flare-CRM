@@ -23,11 +23,12 @@
  */
 import { toE164 } from '@crm/shared';
 import type { CountryCode } from 'libphonenumber-js';
-import type {
-  CompanyContactRow,
-  CompanyContactWrite,
-  NumberSlot,
-  YeastarClient,
+import {
+  YeastarApiError,
+  type CompanyContactRow,
+  type CompanyContactWrite,
+  type NumberSlot,
+  type YeastarClient,
 } from './client.js';
 
 /** The CRM side of one person, flattened to what the PBX can hold. */
@@ -256,22 +257,41 @@ export interface SyncSummary {
   failed: number;
 }
 
+/** The PBX's code for a unique value that already exists. */
+const DUPLICATE_KEY = 40003;
+
 /**
- * Makes sure the phonebook exists, and says which one it is.
+ * Makes sure there is a phonebook holding every company contact, and says which one it is.
  *
- * It is created with "all company contacts" rather than a list of members, so membership cannot
- * drift from the contacts themselves. Once the two sides hold the same people, the phonebook holds
- * them too, by construction rather than by bookkeeping.
+ * "All company contacts" rather than a list of members, so membership cannot drift from the
+ * contacts themselves: once the two sides hold the same people, the phonebook holds them too.
+ *
+ * The PBX allows only one such phonebook, and a PBX in use usually has one already ("All Company
+ * Contacts_Phonebook" on a fresh P-Series). Asking for a second is refused as a duplicate, and that
+ * refusal used to stop every run before a single contact was written. So a phonebook with the
+ * configured name is used if there is one, then any phonebook that already holds everybody, and
+ * only then is one created. It does the same job whatever it is called.
  */
 export async function ensurePhonebook(
   client: Pick<YeastarClient, 'phonebookList' | 'phonebookCreate'>,
   name: string,
 ): Promise<number | null> {
-  const existing = await client.phonebookList();
-  const found = (existing.data ?? []).find((p) => p.name === name);
+  const pick = async () => {
+    const books = (await client.phonebookList()).data ?? [];
+    return books.find((p) => p.name === name) ?? books.find((p) => p.member_select === 'sel_all');
+  };
+  const found = await pick();
   if (found) return found.id;
-  const created = await client.phonebookCreate({ name, member_select: 'sel_all' });
-  return created.id ?? null;
+  try {
+    const created = await client.phonebookCreate({ name, member_select: 'sel_all' });
+    return created.id ?? null;
+  } catch (err) {
+    // Somebody made one between the list and the create, or the list hid it: look once more.
+    if (err instanceof YeastarApiError && err.errcode === DUPLICATE_KEY) {
+      return (await pick())?.id ?? null;
+    }
+    throw err;
+  }
 }
 
 /** Every page of the PBX's contacts. */
