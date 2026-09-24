@@ -1,8 +1,10 @@
 /**
  * Task create and edit dialog (Tasks · Create / Edit).
  * Validation from the shared schema; a 422 lands on the field the server named.
+ * Editing a task someone gave you also offers to hand it back, and shows the task's history.
  */
 import { createTaskBody, updateTaskBody, type TaskDto } from '@crm/shared';
+import { Undo2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useResetWhen } from '@/lib/hooks';
 import { Button } from '@/components/ui/Button';
@@ -14,7 +16,9 @@ import { ContactPicker, OwnerPicker } from '@/components/entity/pickers';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { useMe } from '@/lib/auth/me';
 import { usePermissions } from '@/providers/permissions';
-import { useCreateTask, useUpdateTask } from './api';
+import { useCreateTask, useTaskAssignees, useUpdateTask } from './api';
+import { HandBackDialog, HandedBackNotice, TaskHistory } from './HandBack';
+import { handBackTarget } from './hand-back';
 
 export interface TaskDefaults {
   contactId?: string | null;
@@ -56,7 +60,11 @@ export function TaskFormDialog({
   const perms = usePermissions();
   const create = useCreateTask();
   const update = useUpdateTask();
+  const canAssign = perms.has('task:assign');
+  const assignees = useTaskAssignees(open && canAssign);
   const editing = task !== undefined;
+  const returnTo = task === undefined ? null : handBackTarget(task, me.id);
+  const [handingBack, setHandingBack] = useState(false);
 
   const initial = useMemo<TaskFormState>(
     () => ({
@@ -83,6 +91,7 @@ export function TaskFormDialog({
     if (!open) return;
     setForm(initial);
     setErrors({});
+    setHandingBack(false);
   });
 
   const pending = create.isPending || update.isPending;
@@ -135,6 +144,25 @@ export function TaskFormDialog({
     else create.mutate(parsed.data, { onSuccess, onError });
   };
 
+  // The hand-back replaces the edit dialog rather than stacking on it, so focus has one home.
+  if (handingBack && task !== undefined && returnTo !== null) {
+    return (
+      <HandBackDialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) setHandingBack(false);
+        }}
+        task={task}
+        to={returnTo}
+        onDone={(t) => {
+          setHandingBack(false);
+          onOpenChange(false);
+          onSaved?.(t);
+        }}
+      />
+    );
+  }
+
   return (
     <Dialog
       open={open}
@@ -144,6 +172,19 @@ export function TaskFormDialog({
       dismissable={!pending}
       footer={
         <>
+          {returnTo !== null && (
+            <Button
+              variant="ghost"
+              icon={Undo2}
+              className="mr-auto"
+              disabled={pending}
+              onClick={() => {
+                setHandingBack(true);
+              }}
+            >
+              Hand back
+            </Button>
+          )}
           <Button
             variant="ghost"
             disabled={pending}
@@ -167,6 +208,7 @@ export function TaskFormDialog({
         }}
         noValidate
       >
+        {task !== undefined && <HandedBackNotice task={task} />}
         <Input
           autoFocus
           name="title"
@@ -221,7 +263,8 @@ export function TaskFormDialog({
             label="Assignee"
             value={form.assigneeId}
             allowClear={false}
-            disabled={!perms.has('task:assign')}
+            disabled={!canAssign}
+            people={canAssign ? assignees : undefined}
             error={errors.assigneeId}
             onChange={(v) => {
               setForm((f) => ({ ...f, assigneeId: v ?? me.id }));
@@ -259,6 +302,7 @@ export function TaskFormDialog({
             setForm((f) => ({ ...f, description: e.target.value }));
           }}
         />
+        {task !== undefined && <TaskHistory taskId={task.id} />}
       </form>
     </Dialog>
   );

@@ -3,6 +3,14 @@ import { TaskPriority, TaskStatus, TaskType, valuesOf } from '../enums.js';
 import { isoDateTime, paginationOffset, sortParam, uuid } from './common.js';
 import { companyRef, userRef } from './company.js';
 
+/** The latest hand-back while the task is still with the person it was returned to. */
+export const taskHandBack = z.object({
+  note: z.string(),
+  by: userRef,
+  at: isoDateTime,
+});
+export type TaskHandBack = z.infer<typeof taskHandBack>;
+
 export const taskDto = z.object({
   id: uuid,
   title: z.string(),
@@ -24,6 +32,9 @@ export const taskDto = z.object({
   sourceCallId: uuid.nullable(),
   completedAt: isoDateTime.nullable(),
   createdBy: userRef.nullable(),
+  /** Who gave the task to its current assignee, when that was somebody else. */
+  assignedBy: userRef.nullable(),
+  handedBack: taskHandBack.nullable(),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,
 });
@@ -63,6 +74,34 @@ export const updateTaskBody = z
   })
   .strict();
 export type UpdateTaskBody = z.infer<typeof updateTaskBody>;
+
+export const declineTaskBody = z
+  .object({ note: z.string().trim().min(1, 'Say why you are handing it back').max(2000) })
+  .strict();
+export type DeclineTaskBody = z.infer<typeof declineTaskBody>;
+
+export const TaskEventKind = { assigned: 'assigned', handed_back: 'handed_back' } as const;
+export type TaskEventKind = (typeof TaskEventKind)[keyof typeof TaskEventKind];
+
+export const taskEventDto = z.object({
+  id: uuid,
+  kind: z.enum(['assigned', 'handed_back']),
+  actor: userRef.nullable(),
+  from: userRef.nullable(),
+  to: userRef.nullable(),
+  note: z.string().nullable(),
+  at: isoDateTime,
+});
+export type TaskEventDto = z.infer<typeof taskEventDto>;
+
+/** Active people a task can be given to. Deliberately no email or role: agents see this list. */
+export const taskAssigneeDto = z.object({
+  id: uuid,
+  name: z.string(),
+  avatarUrl: z.string().nullable(),
+  extension: z.string().nullable(),
+});
+export type TaskAssigneeDto = z.infer<typeof taskAssigneeDto>;
 
 export const bulkTasksBody = z
   .object({

@@ -5,16 +5,19 @@
 import type { NotificationType } from '@crm/shared';
 import { newId } from '../../lib/ids.js';
 import type { EventBus } from '../../plugins/event-bus.js';
+import type { MailMessage } from '../../plugins/mailer.js';
 import type { Db } from '../../plugins/prisma.js';
 import type { Queues } from '../../plugins/queues.js';
 import { QUEUES } from '../../jobs/queues.js';
+import { readInstallation, type Installation } from './templates/auth.js';
 
 export const DEFAULT_PREFERENCES: Record<NotificationType, { inApp: boolean; email: boolean }> = {
   call_incoming: { inApp: true, email: false },
   call_missed: { inApp: true, email: false },
   message_new: { inApp: true, email: false },
   task_due: { inApp: true, email: true },
-  task_assigned: { inApp: true, email: false },
+  task_assigned: { inApp: true, email: true },
+  task_declined: { inApp: true, email: true },
   deal_stage: { inApp: true, email: false },
   mention: { inApp: true, email: true },
   system: { inApp: true, email: false },
@@ -26,6 +29,14 @@ export interface NotifyInput {
   title: string;
   body?: string | null;
   data?: Record<string, unknown>;
+  /**
+   * The branded message for this notification, built for the recipient once we know they want
+   * one. Without it the email is the title, the body and a link.
+   */
+  email?: (
+    recipient: { email: string; name: string; timezone: string | null },
+    installation: Installation,
+  ) => MailMessage;
 }
 
 export class NotificationsService {
@@ -75,17 +86,22 @@ export class NotificationsService {
     if (prefs.email) {
       const user = await this.db.user.findUnique({
         where: { id: input.userId },
-        select: { email: true, name: true, isActive: true },
+        select: { email: true, name: true, isActive: true, timezone: true },
       });
       if (user?.isActive) {
-        const link =
-          typeof input.data?.url === 'string' ? `${this.appUrl}${input.data.url}` : this.appUrl;
-        await this.queues.add(QUEUES.email, input.type, {
-          to: user.email,
-          subject: input.title,
-          text: `${input.body ?? input.title}\n\n${link}`,
-          html: `<p>${escapeHtml(input.body ?? input.title)}</p><p><a href="${escapeHtml(link)}">Open in CRM</a></p>`,
-        });
+        if (input.email) {
+          const installation = await readInstallation(this.db, this.appUrl);
+          await this.queues.add(QUEUES.email, input.type, input.email(user, installation));
+        } else {
+          const link =
+            typeof input.data?.url === 'string' ? `${this.appUrl}${input.data.url}` : this.appUrl;
+          await this.queues.add(QUEUES.email, input.type, {
+            to: user.email,
+            subject: input.title,
+            text: `${input.body ?? input.title}\n\n${link}`,
+            html: `<p>${escapeHtml(input.body ?? input.title)}</p><p><a href="${escapeHtml(link)}">Open in CRM</a></p>`,
+          });
+        }
       }
     }
     return id;

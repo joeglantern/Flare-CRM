@@ -13,6 +13,7 @@ import {
   MessageCircle,
   PhoneMissed,
   SquareCheck,
+  Undo2,
   type LucideIcon,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -36,6 +37,7 @@ const TYPE_META: Record<string, { icon: LucideIcon; color: string; label: string
   message_new: { icon: MessageCircle, color: 'text-success', label: 'Message' },
   task_due: { icon: Clock, color: 'text-warning', label: 'Task due' },
   task_assigned: { icon: SquareCheck, color: 'text-muted', label: 'Task' },
+  task_declined: { icon: Undo2, color: 'text-warning', label: 'Handed back' },
   deal_stage: { icon: Kanban, color: 'text-muted', label: 'Deal' },
   mention: { icon: AtSign, color: 'text-muted', label: 'Mention' },
   system: { icon: Info, color: 'text-muted', label: 'System' },

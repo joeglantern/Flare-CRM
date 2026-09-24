@@ -296,19 +296,22 @@ describe('sales: pipelines, deals, leads, tasks, notes, notifications', () => {
       agent.id,
     );
 
-    // an agent has no task:assign, so a reassign attempt no-ops rather than partially applying
-    const deniedAssign = await ctx.as(agent, {
+    // an agent can hand their own task to someone else, but not one they cannot see or change
+    const agentAssign = await ctx.as(agent, {
       method: 'POST',
       url: '/api/v1/tasks/bulk',
-      payload: { action: 'assign', ids: [idOwn], assigneeId: manager.id },
+      payload: { action: 'assign', ids: [idOwn, idA], assigneeId: manager.id },
     });
-    expect(deniedAssign.statusCode, deniedAssign.body).toBe(200);
-    expect(deniedAssign.json<Envelope<{ affected: number; skipped: string[] }>>().data).toEqual({
-      affected: 0,
-      skipped: [idOwn],
+    expect(agentAssign.statusCode, agentAssign.body).toBe(200);
+    expect(agentAssign.json<Envelope<{ affected: number; skipped: string[] }>>().data).toEqual({
+      affected: 1,
+      skipped: [idA],
     });
     expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idOwn } })).assigneeId).toBe(
-      agent.id,
+      manager.id,
+    );
+    expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idA } })).assigneeId).toBe(
+      admin.id,
     );
 
     // a mix of two real tasks and one id that does not exist: the real ones complete, the bogus
@@ -326,18 +329,18 @@ describe('sales: pipelines, deals, leads, tasks, notes, notifications', () => {
     expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idA } })).status).toBe('done');
     expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idB } })).status).toBe('done');
 
-    // an admin does have task:assign, and the manager exists, so this one actually applies
+    // an admin can reassign anyone's task
     const bulkAssign = await ctx.as(admin, {
       method: 'POST',
       url: '/api/v1/tasks/bulk',
-      payload: { action: 'assign', ids: [idOwn], assigneeId: manager.id },
+      payload: { action: 'assign', ids: [idOwn], assigneeId: agent.id },
     });
     expect(bulkAssign.json<Envelope<{ affected: number; skipped: string[] }>>().data).toEqual({
       affected: 1,
       skipped: [],
     });
     expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: idOwn } })).assigneeId).toBe(
-      manager.id,
+      agent.id,
     );
   });
 

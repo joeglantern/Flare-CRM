@@ -96,7 +96,7 @@ Session on every request: `plugins/auth.ts` decorates `request.session` (via `au
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `admin`   | Full system access; user/role management; settings; PBX config; audit; all data                                                                                                                     |
 | `manager` | Everything agents can do + all records of their **team** (or all records if `agentVisibility=all`), reports across the team, reassignment, pipeline/disposition configuration, listen to recordings |
-| `agent`   | Own records (per `agentVisibility`), own calls/chats/tasks, create contacts/leads/deals/notes                                                                                                       |
+| `agent`   | Own records (per `agentVisibility`), own calls/chats/tasks, create contacts/leads/deals/notes, give tasks to anyone and hand back tasks given to them (§4.1)                                        |
 
 Only `admin` can grant `admin`. Role changes revoke all sessions of the affected user.
 
@@ -151,7 +151,7 @@ export const roles = {
     company: ['create', 'read', 'update'],
     lead: ['create', 'read', 'update', 'convert'],
     deal: ['create', 'read', 'update', 'change_stage'],
-    task: ['create', 'read', 'update', 'delete'],
+    task: ['create', 'read', 'update', 'delete', 'assign'], // agents pass tasks to each other (§4.1)
     note: ['create', 'read', 'update', 'delete'],
     call: ['read', 'dial', 'control', 'set_disposition', 'listen_recording'], // listen gated by Setting.recording.allowAgentPlayback
     chat: ['read', 'send', 'close'],
@@ -208,6 +208,17 @@ Implementation: `visibility.scope(actor, setting)` returns a descriptor `{ kind:
 Applies to: contacts, companies, leads, deals, tasks, notes, calls, conversations, activities, reports. Does **not** apply to: dispositions, pipelines, custom field definitions, settings (global config).
 
 Unknown caller pop: the popup is shown to the ringing agent regardless of visibility (they are receiving the call); if a matched contact is outside their scope, the payload is reduced to `{ displayName, company }` with `restricted: true` (no history) unless `agentVisibility=all`.
+
+### 4.1 Assigning and handing back tasks
+
+Every role holds `task:assign`, so an agent can give a task to any active user. The assignee list comes from `GET /api/v1/tasks/assignees` (id, name, avatar only), because agents do not hold `user:list`.
+
+- The task records who gave it (`tasks.assigned_by_id`) and keeps its own history in `task_events` (`assigned`, `handed_back`).
+- Whoever passed a task on can still see it in `own` scope (`assigned_by_id = me`), but only the assignee can change it; the usual write guard applies.
+- `POST /api/v1/tasks/:id/decline { note }` hands the task back. Only the current assignee may call it, the reason is required (1 to 2000 characters), and the task must be open or in progress. It returns to `assigned_by_id`, or to `created_by_id` for tasks from before assigners were recorded. A task nobody else gave you (self-created) cannot be handed back (409), nor can one whose assigner has been deactivated (409; a manager reassigns it).
+- The task stays open with the returnee, whose own assigner is restored from the history, so a second hand-back unwinds one more step rather than bouncing the task back.
+- The hand-back and its reason are written to `task_events` (shown as the task's history) and to the audit log as `task.hand_back`.
+- The assignee is told of a new task with `task_assigned`, and the assigner of a hand-back with `task_declined`. Both default to in-app and email; the email names the task, the due date, who and why, and links to `/tasks?taskId=…`.
 
 ## 5. Session & cookie policy
 

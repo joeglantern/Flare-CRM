@@ -102,6 +102,7 @@ export function OwnerPicker({
   required,
   disabled,
   className,
+  people,
 }: {
   value: string | null;
   onChange: (id: string | null) => void;
@@ -111,8 +112,16 @@ export function OwnerPicker({
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  /** A narrower list to choose from, for callers whose users cannot list every user. */
+  people?: {
+    data:
+      | { id: string; name: string; avatarUrl: string | null; extension: string | null }[]
+      | undefined;
+    isPending: boolean;
+  };
 }) {
-  const users = useAssignableUsers();
+  const everyone = useAssignableUsers(people === undefined);
+  const users = people ?? everyone;
   const [q, setQ] = useState('');
   const selected = (users.data ?? []).find((u) => u.id === value) ?? null;
   const shown = useMemo(() => {

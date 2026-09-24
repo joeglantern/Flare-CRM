@@ -47,7 +47,8 @@ export const SHAPES = {
   task: {
     ownerField: 'assigneeId',
     ownerRelation: 'assignee',
-    extraOwn: (userId: string) => [{ createdById: userId }],
+    // Whoever passed a task on can still follow it, though only the assignee can change it.
+    extraOwn: (userId: string) => [{ createdById: userId }, { assignedById: userId }],
   },
   note: { ownerField: 'authorId', ownerRelation: 'author' },
   call: { ownerField: 'userId', ownerRelation: 'user' },

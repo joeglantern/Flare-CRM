@@ -97,6 +97,9 @@ export function notificationHref(n: NotificationDto): string | null {
     return typeof v === 'string' ? v : null;
   };
   const url = str('url');
+  // Task notifications from before the fix pointed at /tasks/:id, a page that never existed.
+  const legacyTask = url === null ? null : /^\/tasks\/([0-9a-f-]{36})$/i.exec(url);
+  if (legacyTask?.[1] !== undefined) return `/tasks?taskId=${legacyTask[1]}`;
   if (url?.startsWith('/') === true) return url;
   const conv = str('conversationId');
   if (conv !== null) return `/inbox/${conv}`;

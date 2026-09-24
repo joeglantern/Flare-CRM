@@ -442,11 +442,14 @@ model Task {
   sourceCallId   String?   @map("source_call_id") @db.Uuid
   completedAt    DateTime? @map("completed_at") @db.Timestamptz(3)
   createdById    String?   @map("created_by_id") @db.Uuid
+  /// Who last gave the task to its current assignee. A hand-back returns it to this person.
+  assignedById   String?   @map("assigned_by_id") @db.Uuid
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   assignee   User?    @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  events     TaskEvent[]
   contact    Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   deal       Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
   company    Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
@@ -458,6 +461,24 @@ model Task {
   @@index([dealId])
   @@index([deletedAt])
   @@map("tasks")
+}
+
+/// A task's own history: who gave it to whom, and every hand-back with the reason given.
+model TaskEvent {
+  id         String   @id @db.Uuid
+  taskId     String   @map("task_id") @db.Uuid
+  /// assigned | handed_back
+  kind       String
+  actorId    String?  @map("actor_id") @db.Uuid
+  fromUserId String?  @map("from_user_id") @db.Uuid
+  toUserId   String?  @map("to_user_id") @db.Uuid
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("task_events")
 }
 
 model Note {

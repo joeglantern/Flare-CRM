@@ -4,11 +4,14 @@ import {
   calendarQuery,
   createTaskBody,
   dataResponse,
+  declineTaskBody,
   idParams,
   listTasksQuery,
   offsetListResponse,
   roleHasPermission,
+  taskAssigneeDto,
   taskDto,
+  taskEventDto,
   updateTaskBody,
 } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -81,6 +84,50 @@ const tasksRoutes: FastifyPluginAsyncZod = async (app) => {
         data: await service.bulk(
           scope,
           actorFor(actor.role, actor.id),
+          request.body,
+          auditContext(request),
+        ),
+      };
+    },
+  });
+
+  app.get('/tasks/assignees', {
+    config: { auth: { permission: 'task:assign' } },
+    schema: { tags: ['tasks'], response: { 200: dataResponse(z.array(taskAssigneeDto)) } },
+    handler: async () => ({
+      data: await service.assignees((key) =>
+        key ? `/api/v1/files/${encodeURIComponent(key)}` : null,
+      ),
+    }),
+  });
+
+  app.get('/tasks/:id/history', {
+    config: { auth: { permission: 'task:read' } },
+    schema: {
+      tags: ['tasks'],
+      params: idParams,
+      response: { 200: dataResponse(z.array(taskEventDto)) },
+    },
+    handler: async (request) => ({
+      data: await service.history((await scopeOf(app, request)).scope, request.params.id),
+    }),
+  });
+
+  app.post('/tasks/:id/decline', {
+    config: { auth: { permission: 'task:update' } },
+    schema: {
+      tags: ['tasks'],
+      params: idParams,
+      body: declineTaskBody,
+      response: { 200: dataResponse(taskDto) },
+    },
+    handler: async (request) => {
+      const { actor, scope } = await scopeOf(app, request);
+      return {
+        data: await service.decline(
+          scope,
+          actorFor(actor.role, actor.id),
+          request.params.id,
           request.body,
           auditContext(request),
         ),

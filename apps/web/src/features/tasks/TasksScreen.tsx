@@ -8,8 +8,8 @@
  */
 import type { TaskDto } from '@crm/shared';
 import { useNavigate } from '@tanstack/react-router';
-import { CalendarDays, Check, LayoutList, Plus, UserPlus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { CalendarDays, Check, LayoutList, Plus, Undo2, UserPlus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button, IconButton } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -31,13 +31,14 @@ import { linkTo } from '@/lib/links';
 import { useListState, useSearchParam } from '@/lib/list-state';
 import { cn } from '@/lib/utils';
 import { errorInfo, viewStateOf } from '@/lib/view-state';
-import { useAssignableUsers } from '@/features/users/api';
 import { usePermissions } from '@/providers/permissions';
 import { useSocketState } from '@/providers/socket';
 import {
   useBulkTaskAction,
   useCompleteTask,
   useDeleteTask,
+  useTask,
+  useTaskAssignees,
   useTaskCalendar,
   useTasks,
   type TaskFilters,
@@ -58,6 +59,19 @@ export function TasksScreen() {
   const calendar = view === 'calendar';
   const perms = usePermissions();
   const [createParam, setCreateParam] = useSearchParam('create');
+  // Notifications and emails link here with ?taskId=, so the task opens on arrival.
+  const [taskParam, setTaskParam] = useSearchParam('taskId');
+  const linked = useTask(taskParam ?? null);
+
+  useEffect(() => {
+    if (taskParam === undefined || !linked.isError) return;
+    toast({
+      tone: 'warning',
+      title: 'That task is not available',
+      description: errorMessage(linked.error),
+    });
+    setTaskParam(undefined);
+  }, [taskParam, linked.isError, linked.error, setTaskParam]);
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -116,6 +130,16 @@ export function TasksScreen() {
           setCreateParam(v ? 'true' : undefined);
         }}
       />
+
+      {taskParam !== undefined && linked.data !== undefined && (
+        <TaskFormDialog
+          open
+          onOpenChange={(v) => {
+            if (!v) setTaskParam(undefined);
+          }}
+          task={linked.data}
+        />
+      )}
     </div>
   );
 }
@@ -137,7 +161,7 @@ function TaskList() {
   const navigate = useNavigate();
   const { online } = useSocketState();
   const list = useListState<TaskFilters>();
-  const users = useAssignableUsers();
+  const users = useTaskAssignees(perms.has('task:assign'));
   const complete = useCompleteTask();
   const remove = useDeleteTask();
   const bulk = useBulkTaskAction();
@@ -202,6 +226,15 @@ function TaskList() {
           >
             {t.title}
           </span>
+          {t.handedBack !== null && (
+            <span
+              className="flex shrink-0 items-center gap-1 text-sm text-warning"
+              title={`${t.handedBack.by.name}: ${t.handedBack.note}`}
+            >
+              <Undo2 size={12} aria-hidden />
+              Handed back
+            </span>
+          )}
         </span>
       ),
     },
@@ -519,7 +552,7 @@ function TaskList() {
           </>
         }
       >
-        <OwnerPicker value={assignTo} onChange={setAssignTo} label="New assignee" />
+        <OwnerPicker value={assignTo} onChange={setAssignTo} label="New assignee" people={users} />
       </Dialog>
 
       <ConfirmDialog
@@ -561,7 +594,7 @@ function startOfMonthGrid(month: Date): Date {
 function TaskCalendar() {
   const perms = usePermissions();
   const settings = useSettings();
-  const users = useAssignableUsers();
+  const users = useTaskAssignees(perms.has('task:assign'));
   const [monthOffset, setMonthOffset] = useState(0);
   const [assigneeId, setAssigneeId] = useSearchParam('assignee');
   const [editing, setEditing] = useState<TaskDto | null>(null);

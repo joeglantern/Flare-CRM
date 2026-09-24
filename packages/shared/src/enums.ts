@@ -177,6 +177,7 @@ export const NotificationType = {
   message_new: 'message_new',
   task_due: 'task_due',
   task_assigned: 'task_assigned',
+  task_declined: 'task_declined',
   deal_stage: 'deal_stage',
   mention: 'mention',
   system: 'system',

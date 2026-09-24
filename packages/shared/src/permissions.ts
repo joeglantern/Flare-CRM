@@ -59,7 +59,8 @@ const agent = ac.newRole({
   company: ['create', 'read', 'update'],
   lead: ['create', 'read', 'update', 'convert'],
   deal: ['create', 'read', 'update', 'change_stage'],
-  task: ['create', 'read', 'update', 'delete'],
+  // Agents pass work to each other; the assignee can hand it back with a reason.
+  task: ['create', 'read', 'update', 'delete', 'assign'],
   note: ['create', 'read', 'update', 'delete'],
   call: ['read', 'dial', 'control', 'set_disposition', 'listen_recording'],
   chat: ['read', 'send', 'close'],

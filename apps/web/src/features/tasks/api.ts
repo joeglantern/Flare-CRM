@@ -1,7 +1,14 @@
 /**
  * Tasks (docs/09 · Tasks).
  */
-import type { CreateTaskBody, TaskDto, UpdateTaskBody } from '@crm/shared';
+import type {
+  CreateTaskBody,
+  DeclineTaskBody,
+  TaskAssigneeDto,
+  TaskDto,
+  TaskEventDto,
+  UpdateTaskBody,
+} from '@crm/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/components/ui/toast';
 import { http, type OffsetList, type Query } from '@/lib/api/client';
@@ -59,11 +66,47 @@ export function useTask(id: string | null) {
   });
 }
 
+/**
+ * Everyone a task can be given to. Its own endpoint, because agents may assign tasks but may not
+ * list users.
+ */
+export function useTaskAssignees(enabled = true) {
+  return useQuery({
+    queryKey: qk.list('task-assignees'),
+    enabled,
+    queryFn: () => http.get<TaskAssigneeDto[]>('/api/v1/tasks/assignees'),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useTaskHistory(id: string | null) {
+  return useQuery({
+    queryKey: qk.entity('task-history', id ?? ''),
+    enabled: id !== null,
+    queryFn: () => http.get<TaskEventDto[]>(`/api/v1/tasks/${id ?? ''}/history`),
+  });
+}
+
+export function useHandBackTask() {
+  const invalidate = useTaskInvalidation();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: DeclineTaskBody }) =>
+      http.post<TaskDto>(`/api/v1/tasks/${id}/decline`, body),
+    onSuccess: (t) => {
+      invalidate(t);
+    },
+  });
+}
+
 function useTaskInvalidation() {
   const qc = useQueryClient();
   return (task?: TaskDto) => {
     void qc.invalidateQueries({ queryKey: qk.list('tasks') });
     void qc.invalidateQueries({ queryKey: qk.list('tasks-calendar') });
+    if (task !== undefined) {
+      void qc.invalidateQueries({ queryKey: qk.entity('task', task.id) });
+      void qc.invalidateQueries({ queryKey: qk.entity('task-history', task.id) });
+    }
     if (task?.contact != null)
       void qc.invalidateQueries({ queryKey: qk.timeline('contact', task.contact.id) });
     if (task?.deal != null)

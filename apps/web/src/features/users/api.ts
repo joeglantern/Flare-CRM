@@ -25,10 +25,11 @@ export function useUsers(filters: UserFilters = {}) {
   });
 }
 
-/** Every active user, for owner and assignee pickers. */
-export function useAssignableUsers() {
+/** Every active user, for owner and assignee pickers. Needs user:list. */
+export function useAssignableUsers(enabled = true) {
   return useQuery({
     queryKey: qk.list('users', { assignable: true }),
+    enabled,
     queryFn: () =>
       http.list<UserDto>('/api/v1/users', { pageSize: MAX_PAGE_SIZE, isActive: 'true' }),
     staleTime: 5 * 60_000,

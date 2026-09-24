@@ -19,6 +19,7 @@ import {
   PhoneIncoming,
   PhoneMissed,
   SquareCheck,
+  Undo2,
   UserPlus,
   type LucideIcon,
 } from 'lucide-react';
@@ -51,6 +52,7 @@ const ICONS: Record<string, LucideIcon> = {
   message_new: MessageCircle,
   task_due: SquareCheck,
   task_assigned: UserPlus,
+  task_declined: Undo2,
   deal_stage: Kanban,
   mention: AtSign,
   system: Info,
@@ -62,6 +64,7 @@ const TYPE_LABELS: Record<string, string> = {
   message_new: 'New message',
   task_due: 'Task due',
   task_assigned: 'Task assigned to me',
+  task_declined: 'A task I gave was handed back',
   deal_stage: 'Deal stage changed',
   mention: 'Someone mentioned me',
   system: 'System notices',
