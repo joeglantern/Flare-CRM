@@ -141,7 +141,7 @@ function factsTable(facts: EmailFact[]): string {
   const rows = facts
     .map(
       (f) =>
-        `<tr><td class="fl-quiet fl-fact-k" valign="top" style="padding:10px 16px 10px 0;width:150px;font-family:${FONT};font-size:14px;line-height:22px;color:${QUIET};border-bottom:1px solid ${RULE};">${escapeEmailHtml(f.label)}</td><td class="fl-ink" valign="top" style="padding:10px 0;font-family:${FONT};font-size:14px;line-height:22px;color:${INK};border-bottom:1px solid ${RULE};">${escapeEmailHtml(f.value)}</td></tr>`,
+        `<tr><td class="fl-quiet fl-fact-k" valign="top" style="padding:10px 16px 10px 0;width:150px;font-family:${FONT};font-size:14px;line-height:22px;color:${QUIET};border-bottom:1px solid ${RULE};">${escapeEmailHtml(f.label)}</td><td class="fl-ink" valign="top" style="padding:10px 0;font-family:${FONT};font-size:14px;line-height:22px;color:${INK};border-bottom:1px solid ${RULE};">${escapeEmailHtml(f.value).replace(/\r?\n/g, '<br>')}</td></tr>`,
     )
     .join('');
   return `<tr><td class="fl-pad" style="padding:8px 40px 24px 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="fl-fact" style="width:100%;border-top:1px solid ${RULE};">${rows}</table></td></tr>`;

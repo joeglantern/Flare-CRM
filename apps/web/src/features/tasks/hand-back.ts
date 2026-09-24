@@ -4,6 +4,6 @@ import type { TaskDto } from '@crm/shared';
 export function handBackTarget(task: TaskDto, meId: string): { id: string; name: string } | null {
   if (task.assigneeId !== meId) return null;
   if (task.status === 'done' || task.status === 'cancelled') return null;
-  const to = task.assignedBy ?? task.createdBy;
+  const to = task.handBackTo;
   return to === null || to.id === meId ? null : to;
 }

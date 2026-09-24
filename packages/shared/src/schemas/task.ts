@@ -34,6 +34,8 @@ export const taskDto = z.object({
   createdBy: userRef.nullable(),
   /** Who gave the task to its current assignee, when that was somebody else. */
   assignedBy: userRef.nullable(),
+  /** Who a hand-back would return the task to. Null when nobody gave it, or they are inactive. */
+  handBackTo: userRef.nullable(),
   handedBack: taskHandBack.nullable(),
   createdAt: isoDateTime,
   updatedAt: isoDateTime,

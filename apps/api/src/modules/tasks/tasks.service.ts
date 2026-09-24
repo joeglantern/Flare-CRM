@@ -41,6 +41,11 @@ import {
 export interface Actor {
   id: string;
   canAssign: boolean;
+  /**
+   * Admins and managers pass on any task they can see. Agents only pass on tasks they hold, made,
+   * or that nobody holds, so a wider visibility setting does not let them move a colleague's work.
+   */
+  reassignAny: boolean;
 }
 
 export const taskSelect = {
@@ -72,6 +77,9 @@ export const taskSelect = {
     take: 1,
     select: { kind: true, actorId: true, toUserId: true, note: true, createdAt: true },
   },
+  // Rows from before assigners were recorded have no assignment events, and only those fall back
+  // to the creator when handed back.
+  _count: { select: { events: { where: { kind: 'assigned' } } } },
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.TaskSelect;
@@ -83,6 +91,18 @@ export function taskPath(id: string): string {
 
 type TaskRow = Prisma.TaskGetPayload<{ select: typeof taskSelect }>;
 
+type People = Map<string, { name: string; active: boolean }>;
+
+/**
+ * Who a hand-back returns the task to. Whoever gave it; failing that, its creator, but only on a
+ * row with no assignment history at all, because otherwise a person who took an unassigned task
+ * for themselves could hand it to a creator who never gave it to them.
+ */
+function giverOf(r: Pick<TaskRow, 'assignedById' | 'createdById' | '_count'>): string | null {
+  if (r.assignedById !== null) return r.assignedById;
+  return r._count.events === 0 ? r.createdById : null;
+}
+
 export class TasksService {
   constructor(private readonly app: FastifyInstance) {}
 
@@ -90,24 +110,30 @@ export class TasksService {
     return this.app.db;
   }
 
-  private async creatorNames(rows: TaskRow[]): Promise<Map<string, string>> {
-    return this.userNames(
-      rows.flatMap((r) => [r.createdById, r.assignedById, r.events[0]?.actorId ?? null]),
+  private async creatorNames(rows: TaskRow[]): Promise<People> {
+    return this.people(
+      rows.flatMap((r) => [
+        r.createdById,
+        r.assignedById,
+        giverOf(r),
+        r.events[0]?.actorId ?? null,
+      ]),
     );
   }
 
-  private async userNames(candidates: (string | null)[]): Promise<Map<string, string>> {
+  private async people(candidates: (string | null)[]): Promise<People> {
     const ids = [...new Set(candidates.filter((v): v is string => v !== null))];
     if (ids.length === 0) return new Map();
     const users = await this.db.user.findMany({
       where: { id: { in: ids } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, isActive: true },
     });
-    return new Map(users.map((u) => [u.id, u.name]));
+    return new Map(users.map((u) => [u.id, { name: u.name, active: u.isActive }]));
   }
 
-  toDto(r: TaskRow, names: Map<string, string>): TaskDto {
-    const ref = (id: string) => ({ id, name: names.get(id) ?? 'Unknown' });
+  toDto(r: TaskRow, names: People): TaskDto {
+    const ref = (id: string) => ({ id, name: names.get(id)?.name ?? 'Unknown' });
+    const giver = giverOf(r);
     const latest = r.events[0];
     const handedBack =
       latest?.kind === 'handed_back' &&
@@ -139,6 +165,10 @@ export class TasksService {
       createdBy: r.createdById ? ref(r.createdById) : null,
       assignedBy:
         r.assignedById !== null && r.assignedById !== r.assigneeId ? ref(r.assignedById) : null,
+      handBackTo:
+        giver !== null && giver !== r.assigneeId && names.get(giver)?.active === true
+          ? ref(giver)
+          : null,
       handedBack,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
@@ -384,7 +414,7 @@ export class TasksService {
   }
 
   private async nameOf(userId: string): Promise<string> {
-    return (await this.userNames([userId])).get(userId) ?? 'Someone';
+    return (await this.people([userId])).get(userId)?.name ?? 'Someone';
   }
 
   private async notifyAssigned(row: TaskRow, assigneeId: string, byUserId: string): Promise<void> {
@@ -431,6 +461,7 @@ export class TasksService {
           : null;
     const reminderChanged = body.remindAt !== undefined || completing;
     const reassigning = body.assigneeId !== undefined && body.assigneeId !== before.assigneeId;
+    if (reassigning && !actor.reassignAny) this.assertAgentMayReassign(before, actor, body);
 
     await this.db.$transaction(async (tx) => {
       await tx.task.update({
@@ -496,7 +527,12 @@ export class TasksService {
         : await this.scheduleReminder(id, remindAt, before.reminderJobId);
       await this.db.task.update({ where: { id }, data: { reminderJobId: jobId } });
     }
-    const after = await this.get(scope, id);
+    // The task may now be outside the caller's scope (unassigned, or given to another team), so
+    // everything after the write reads without it: the change is saved and the caller was allowed.
+    if (reassigning && body.assigneeId && body.assigneeId !== actor.id) {
+      await this.notifyAssigned(await this.getRow(id), body.assigneeId, actor.id);
+    }
+    const after = await this.dtoOf(await this.getRow(id));
     if (completing)
       this.app.events.emit('task.completed', {
         taskId: id,
@@ -510,10 +546,20 @@ export class TasksService {
         remindAt: after.remindAt,
         status: after.status,
       });
-    if (reassigning && body.assigneeId && body.assigneeId !== actor.id) {
-      await this.notifyAssigned(await this.getRow(id), body.assigneeId, actor.id);
-    }
     return after;
+  }
+
+  private assertAgentMayReassign(before: TaskRow, actor: Actor, body: UpdateTaskBody): void {
+    const holds = before.assigneeId === actor.id;
+    if (!holds && before.createdById !== actor.id && before.assigneeId !== null) {
+      throw new ForbiddenError('You can only pass on tasks you hold or made');
+    }
+    const giver = giverOf(before);
+    if (holds && body.assigneeId === null && giver !== null && giver !== actor.id) {
+      throw new ConflictError(
+        'Someone gave you this task. Hand it back with a reason instead of unassigning it.',
+      );
+    }
   }
 
   async complete(
@@ -576,7 +622,7 @@ export class TasksService {
     if (before.status === 'done' || before.status === 'cancelled') {
       throw new ConflictError('This task is closed, so there is nothing to hand back');
     }
-    const returnTo = before.assignedById ?? before.createdById;
+    const returnTo = giverOf(before);
     if (returnTo === null || returnTo === actor.id) {
       throw new ConflictError(
         'Nobody else gave you this task, so there is nobody to hand it back to',
@@ -592,7 +638,14 @@ export class TasksService {
       );
     }
     const theirAssigner = await this.db.taskEvent.findFirst({
-      where: { taskId: id, kind: 'assigned', toUserId: returnTo, actorId: { not: returnTo } },
+      // Never the person handing back now: they would get it straight back on the next hand-back,
+      // and two people could pass it between them forever.
+      where: {
+        taskId: id,
+        kind: 'assigned',
+        toUserId: returnTo,
+        actorId: { notIn: [returnTo, actor.id] },
+      },
       orderBy: { createdAt: 'desc' },
       select: { actorId: true },
     });
@@ -602,7 +655,12 @@ export class TasksService {
       // The assignee check is repeated in the write so two hand-backs, or a hand-back racing a
       // reassignment, cannot both land.
       const moved = await tx.task.updateMany({
-        where: { id, assigneeId: actor.id, deletedAt: null },
+        where: {
+          id,
+          assigneeId: actor.id,
+          deletedAt: null,
+          status: { in: ['open', 'in_progress'] },
+        },
         data: {
           assigneeId: returnTo,
           assignedById: theirAssigner?.actorId ?? null,
@@ -652,17 +710,19 @@ export class TasksService {
     return this.dtoOf(row);
   }
 
-  /** Who gave the task to whom, and every hand-back with its reason, oldest first. */
+  /** Who gave the task to whom, and every hand-back with its reason: the latest 200, oldest first. */
   async history(scope: VisibilityScope, id: string): Promise<TaskEventDto[]> {
     await this.getVisible(scope, id);
-    const rows = await this.db.taskEvent.findMany({
-      where: { taskId: id },
-      orderBy: { createdAt: 'asc' },
-      take: 200,
-    });
-    const names = await this.userNames(rows.flatMap((r) => [r.actorId, r.fromUserId, r.toUserId]));
+    const rows = (
+      await this.db.taskEvent.findMany({
+        where: { taskId: id },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+      })
+    ).reverse();
+    const names = await this.people(rows.flatMap((r) => [r.actorId, r.fromUserId, r.toUserId]));
     const ref = (userId: string | null) =>
-      userId === null ? null : { id: userId, name: names.get(userId) ?? 'Unknown' };
+      userId === null ? null : { id: userId, name: names.get(userId)?.name ?? 'Unknown' };
     return rows.map((r) => ({
       id: r.id,
       kind: r.kind as TaskEventDto['kind'],

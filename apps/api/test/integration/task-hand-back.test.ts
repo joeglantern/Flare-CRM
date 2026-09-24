@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TestContext, type TestUser } from '../setup/test-app.js';
 
@@ -10,6 +11,7 @@ interface Task {
   status: string;
   assigneeId: string | null;
   assignedBy: { id: string; name: string } | null;
+  handBackTo: { id: string } | null;
   handedBack: { note: string; by: { id: string }; at: string } | null;
 }
 
@@ -23,6 +25,7 @@ interface TaskEvent {
 
 describe('tasks: agents assign to each other, and the assignee can hand a task back', () => {
   let ctx: TestContext;
+  let admin: TestUser;
   let manager: TestUser;
   let alice: TestUser;
   let bob: TestUser;
@@ -32,6 +35,7 @@ describe('tasks: agents assign to each other, and the assignee can hand a task b
   });
   beforeEach(async () => {
     await ctx.reset();
+    admin = await ctx.createUser({ role: 'admin' });
     manager = await ctx.createUser({ role: 'manager' });
     alice = await ctx.createUser({ role: 'agent' });
     bob = await ctx.createUser({ role: 'agent' });
@@ -42,6 +46,30 @@ describe('tasks: agents assign to each other, and the assignee can hand a task b
 
   const emails = async () =>
     (await ctx.app.queues.get('email').getJobs(['waiting', 'delayed'])).map((j) => j.data);
+
+  const visibility = async (agentVisibility: 'own' | 'team' | 'all') => {
+    const res = await ctx.as(admin, {
+      method: 'PATCH',
+      url: '/api/v1/settings',
+      payload: { agentVisibility },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+  };
+
+  const team = async (name: string, ...members: TestUser[]) => {
+    const id = randomUUID();
+    await ctx.app.db.team.create({ data: { id, name } });
+    await ctx.app.db.user.updateMany({
+      where: { id: { in: members.map((m) => m.id) } },
+      data: { teamId: id },
+    });
+  };
+
+  const handBack = (by: TestUser, id: string, note = 'Not mine') =>
+    ctx.as(by, { method: 'POST', url: `/api/v1/tasks/${id}/decline`, payload: { note } });
+
+  const holder = async (id: string) =>
+    (await ctx.app.db.task.findUniqueOrThrow({ where: { id } })).assigneeId;
 
   const createFor = async (by: TestUser, assigneeId: string, extra: object = {}) => {
     const res = await ctx.as(by, {
@@ -209,9 +237,125 @@ describe('tasks: agents assign to each other, and the assignee can hand a task b
       payload: { note: 'Not mine' },
     });
     expect(closed.statusCode).toBe(409);
+    expect((await ctx.app.db.task.findUniqueOrThrow({ where: { id: task.id } })).status).toBe(
+      'done',
+    );
 
     expect(
       await ctx.app.db.notification.count({ where: { userId: alice.id, type: 'task_declined' } }),
     ).toBe(0);
+  });
+
+  it('an agent cannot drop a task someone gave them; they hand it back instead', async () => {
+    const task = await createFor(alice, bob.id);
+    const dropped = await ctx.as(bob, {
+      method: 'PATCH',
+      url: `/api/v1/tasks/${task.id}`,
+      payload: { assigneeId: null },
+    });
+    expect(dropped.statusCode, dropped.body).toBe(409);
+    expect(await holder(task.id)).toBe(bob.id);
+  });
+
+  it('passing a task outside your own view still saves, answers, and tells the new assignee', async () => {
+    const carol = await ctx.createUser({ role: 'agent' });
+    await team('Nairobi desk', alice, bob);
+    await team('Nakuru desk', carol);
+    await visibility('team');
+
+    const task = await createFor(alice, bob.id);
+    const passed = await ctx.as(bob, {
+      method: 'PATCH',
+      url: `/api/v1/tasks/${task.id}`,
+      payload: { assigneeId: carol.id },
+    });
+    expect(passed.statusCode, passed.body).toBe(200);
+    expect(passed.json<Envelope<Task>>().data.assigneeId).toBe(carol.id);
+    expect(
+      await ctx.app.db.notification.count({ where: { userId: carol.id, type: 'task_assigned' } }),
+    ).toBe(1);
+  });
+
+  it("an agent who can see a teammate's task still cannot pass it on", async () => {
+    const dave = await ctx.createUser({ role: 'agent' });
+    await team('Nairobi desk', alice, bob, dave);
+    await visibility('team');
+
+    const task = await createFor(alice, bob.id);
+    const seen = await ctx.as(dave, { method: 'GET', url: `/api/v1/tasks/${task.id}` });
+    expect(seen.statusCode).toBe(200);
+
+    const moved = await ctx.as(dave, {
+      method: 'PATCH',
+      url: `/api/v1/tasks/${task.id}`,
+      payload: { assigneeId: dave.id },
+    });
+    expect(moved.statusCode).toBe(403);
+    const bulk = await ctx.as(dave, {
+      method: 'POST',
+      url: '/api/v1/tasks/bulk',
+      payload: { action: 'assign', ids: [task.id], assigneeId: dave.id },
+    });
+    expect(bulk.json<Envelope<{ affected: number; skipped: string[] }>>().data).toEqual({
+      affected: 0,
+      skipped: [task.id],
+    });
+    expect(await holder(task.id)).toBe(bob.id);
+
+    // a manager can move it
+    const byManager = await ctx.as(manager, {
+      method: 'PATCH',
+      url: `/api/v1/tasks/${task.id}`,
+      payload: { assigneeId: dave.id },
+    });
+    expect(byManager.statusCode, byManager.body).toBe(200);
+  });
+
+  it('two people cannot bounce a task between them with hand-backs', async () => {
+    const task = await createFor(alice, bob.id);
+    const passedBack = await ctx.as(bob, {
+      method: 'PATCH',
+      url: `/api/v1/tasks/${task.id}`,
+      payload: { assigneeId: alice.id },
+    });
+    expect(passedBack.statusCode, passedBack.body).toBe(200);
+
+    expect((await handBack(alice, task.id)).statusCode).toBe(200);
+    expect(await holder(task.id)).toBe(bob.id);
+
+    // bob was given it by alice first, but alice has just handed it back, so it stops here
+    expect((await handBack(bob, task.id)).statusCode).toBe(409);
+    expect(await holder(task.id)).toBe(bob.id);
+    expect(await ctx.app.db.notification.count({ where: { type: 'task_declined' } })).toBe(1);
+  });
+
+  it('a task you took for yourself cannot be handed to its creator', async () => {
+    await visibility('all');
+    const made = await ctx.as(manager, {
+      method: 'POST',
+      url: '/api/v1/tasks',
+      payload: { title: 'Anyone free?', assigneeId: null },
+    });
+    const id = made.json<Envelope<Task>>().data.id;
+    const taken = await ctx.as(alice, {
+      method: 'PATCH',
+      url: `/api/v1/tasks/${id}`,
+      payload: { assigneeId: alice.id },
+    });
+    expect(taken.statusCode, taken.body).toBe(200);
+    expect(taken.json<Envelope<Task>>().data.handBackTo).toBeNull();
+    expect((await handBack(alice, id)).statusCode).toBe(409);
+    expect(await holder(id)).toBe(alice.id);
+  });
+
+  it('offers no hand-back once the person who gave the task has left', async () => {
+    const task = await createFor(alice, bob.id);
+    const before = await ctx.as(bob, { method: 'GET', url: `/api/v1/tasks/${task.id}` });
+    expect(before.json<Envelope<Task>>().data.handBackTo?.id).toBe(alice.id);
+
+    await ctx.app.db.user.update({ where: { id: alice.id }, data: { isActive: false } });
+    const after = await ctx.as(bob, { method: 'GET', url: `/api/v1/tasks/${task.id}` });
+    expect(after.json<Envelope<Task>>().data.handBackTo).toBeNull();
+    expect((await handBack(bob, task.id)).statusCode).toBe(409);
   });
 });

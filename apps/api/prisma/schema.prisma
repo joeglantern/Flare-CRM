@@ -460,6 +460,8 @@ model Task {
   @@index([contactId])
   @@index([dealId])
   @@index([deletedAt])
+  @@index([assignedById])
+  @@index([createdById])
   @@map("tasks")
 }
 

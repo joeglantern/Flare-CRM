@@ -25,6 +25,7 @@ const tasksRoutes: FastifyPluginAsyncZod = async (app) => {
   const actorFor = (role: string, id: string) => ({
     id,
     canAssign: roleHasPermission(role, 'task:assign'),
+    reassignAny: role.split(',').some((r) => ['admin', 'manager'].includes(r.trim())),
   });
 
   app.get('/tasks', {
