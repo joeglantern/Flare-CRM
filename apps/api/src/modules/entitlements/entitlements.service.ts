@@ -9,6 +9,7 @@
  *
  * Cached for ten seconds in-process like settings, invalidated across processes over Valkey.
  */
+import { CONSOLE_CONFIG_CHANNEL, readConsoleConfig } from '../console-link/config.js';
 import { readFile } from 'node:fs/promises';
 import {
   DEFAULT_ENTITLEMENTS,
@@ -78,7 +79,7 @@ const DEFAULT_STATE: EntitlementsState = {
 export class EntitlementsService {
   private cache: { value: EntitlementsState; expiresAt: number } | null = null;
   private subscriber: Redis | null = null;
-  private readonly keys: TrustedKey[];
+  private keys: TrustedKey[];
 
   constructor(
     private readonly deps: {
@@ -93,13 +94,45 @@ export class EntitlementsService {
     },
   ) {
     this.keys = deps.config.CONSOLE_PUBLIC_KEY.map(parsePublicKey);
+    this.stackId = deps.config.CONSOLE_STACK_ID;
+    this.linkConfigured = deps.config.CONSOLE_URL !== undefined;
+  }
+
+  /** Stack id and whether a link is set; an admin can enter them in the CRM (docs/21 section 4). */
+  private stackId: string | undefined;
+  private linkConfigured: boolean;
+
+  /**
+   * Re-reads the trusted keys and the stack id from where the link is configured. Run at start and
+   * whenever an admin changes the link, in every process, so the api verifies with the same keys
+   * the worker's link is using.
+   */
+  async refreshConsoleConfig(): Promise<void> {
+    const effective = await readConsoleConfig(this.deps.db, this.deps.config);
+    this.keys = effective.publicKeys.flatMap((k) => {
+      try {
+        return [parsePublicKey(k)];
+      } catch {
+        this.deps.log.error({ key: k.slice(0, 16) }, 'a trusted console key could not be read');
+        return [];
+      }
+    });
+    this.stackId = effective.credentials?.CONSOLE_STACK_ID;
+    this.linkConfigured = effective.credentials !== null;
+    this.cache = null;
   }
 
   async start(): Promise<void> {
+    await this.refreshConsoleConfig();
     this.subscriber = this.deps.valkey.duplicate();
-    await this.subscriber.subscribe(CHANNEL);
+    await this.subscriber.subscribe(CHANNEL, CONSOLE_CONFIG_CHANNEL);
     this.subscriber.on('message', (channel) => {
       if (channel === CHANNEL) this.cache = null;
+      if (channel === CONSOLE_CONFIG_CHANNEL) {
+        this.refreshConsoleConfig().catch((err: unknown) => {
+          this.deps.log.error({ err }, 'could not re-read the console link');
+        });
+      }
     });
     if (this.deps.config.ENTITLEMENTS_FILE !== undefined) {
       const outcome = await this.reloadFromFile(SYSTEM_AUDIT);
@@ -222,7 +255,7 @@ export class EntitlementsService {
     const verified = verifyEnvelope(envelope.data, this.keys);
     if (!verified.ok) return this.reject(verified.reason, opts, envelope.data);
     const doc = verified.document;
-    const stackId = this.deps.config.CONSOLE_STACK_ID;
+    const stackId = this.stackId;
     if (doc.audience !== undefined && doc.audience !== stackId) {
       return this.reject('document is addressed to a different stack', opts, envelope.data);
     }
@@ -337,7 +370,7 @@ export class EntitlementsService {
 
   /** Written by the worker's console link; read here so the api can report it. */
   async linkStatus(): Promise<LinkStatus> {
-    const configured = this.deps.config.CONSOLE_URL !== undefined;
+    const configured = this.linkConfigured;
     if (!configured) return { configured, connected: false, lastHeartbeatAt: null };
     const raw = await this.deps.valkey.get(STATUS_KEY);
     if (!raw) return { configured, connected: false, lastHeartbeatAt: null };

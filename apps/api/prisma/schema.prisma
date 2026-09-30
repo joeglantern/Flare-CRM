@@ -792,6 +792,23 @@ model ImportJob {
   @@map("import_jobs")
 }
 
+/// The owner console link as an admin entered it (docs/21 section 4). One row at most. Values set in
+/// the server's environment take precedence, so an operator always has the last word.
+model ConsoleLinkConfig {
+  id              Int      @id @default(1)
+  consoleUrl      String   @map("console_url")
+  stackId         String   @map("stack_id")
+  /// AES-256-GCM under SECRETS_KEY (lib/crypto.ts). Never returned by any route.
+  secretEncrypted Bytes    @map("secret_encrypted")
+  /// Base64 SPKI Ed25519 keys this stack trusts. Only ever added to, never replaced from the GUI.
+  publicKeys      String[] @map("public_keys")
+  updatedById     String?  @map("updated_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("console_link_config")
+}
+
 model Setting {
   key         String   @id
   value       Json

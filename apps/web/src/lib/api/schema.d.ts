@@ -1672,6 +1672,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/console-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                connected: boolean;
+                                consoleUrl: string | null;
+                                lastHeartbeatAt: string | null;
+                                managedBy: ("server" | "admin") | null;
+                                secretSet: boolean;
+                                stackId: string | null;
+                                trustedKeyIds: string[];
+                                updatedAt: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uri */
+                        consoleUrl: string;
+                        publicKey: string;
+                        stackId: string;
+                        stackSecret: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                connected: boolean;
+                                consoleUrl: string | null;
+                                lastHeartbeatAt: string | null;
+                                managedBy: ("server" | "admin") | null;
+                                secretSet: boolean;
+                                stackId: string | null;
+                                trustedKeyIds: string[];
+                                updatedAt: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contacts": {
         parameters: {
             query?: never;

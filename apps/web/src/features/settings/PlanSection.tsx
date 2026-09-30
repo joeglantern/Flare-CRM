@@ -20,6 +20,7 @@ import { qk } from '@/lib/query';
 import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
 import { cn } from '@/lib/utils';
+import { ConsoleLinkCard } from './ConsoleLinkCard';
 
 const SOURCE_NOTE: Record<string, string> = {
   console: 'Managed by your provider. Changes arrive here automatically.',
@@ -166,6 +167,8 @@ export function PlanSection() {
           </p>
         )}
       </Panel>
+
+      {perms.has('settings:manage') && <ConsoleLinkCard />}
     </>
   );
 }

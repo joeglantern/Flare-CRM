@@ -10,6 +10,7 @@ import contactsRoutes from './contacts/contacts.routes.js';
 import customFieldsRoutes from './custom-fields/custom-fields.routes.js';
 import dealsRoutes from './deals/deals.routes.js';
 import entitlementsRoutes from './entitlements/entitlements.routes.js';
+import consoleLinkRoutes from './console-link/console-link.routes.js';
 import filesRoutes from './files/files.routes.js';
 import importExportRoutes from './import-export/import-export.routes.js';
 import leadsRoutes from './leads/leads.routes.js';
@@ -34,6 +35,7 @@ const modules: FastifyPluginAsync = async (app) => {
   await app.register(teamsRoutes);
   await app.register(settingsRoutes);
   await app.register(entitlementsRoutes);
+  await app.register(consoleLinkRoutes);
   await app.register(auditRoutes);
   await app.register(customFieldsRoutes);
   await app.register(companiesRoutes);

@@ -92,6 +92,21 @@ The secret is stored only as a hash. Rotating issues a new secret for the same i
 live connection; revoking refuses the stack altogether. Neither touches the customer's data: a
 revoked stack keeps running on whatever document it last applied.
 
+**Entering them in the CRM instead of the server.** An admin of the stack can paste the four lines
+into Settings, Your plan, Owner console link (`PUT /api/v1/console-link`, `settings:manage`,
+two-factor, five a minute). Nothing is stored until the console itself accepts the stack id and
+secret, and any plan it has waiting is verified against the key given. The secret is encrypted with
+AES-256-GCM under `SECRETS_KEY` (`console_link_config.secret_encrypted`), redacted from logs, left
+out of the audit row, and never returned by any route. The worker and the api pick the change up
+over Valkey (`console:config-changed`) without a restart.
+
+Values in the server's `.env` always take precedence, and the CRM shows them read-only. The public
+key is what makes a plan tamper-proof, so the CRM accepts a new one only on a stack that trusts none
+yet; such a stack runs standalone with everything on, so trusting a first key takes nothing away.
+After that it accepts only a key already trusted, which is what a secret rotation needs. There is no
+unlink: going back to standalone would lift every limit. Replacing a trusted key is done on the
+server.
+
 ## 5. Suspension, and what it actually does
 
 A status column tells the provider something. It tells the customer's own server nothing, and the

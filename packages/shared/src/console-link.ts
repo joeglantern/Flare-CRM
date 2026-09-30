@@ -276,3 +276,34 @@ export type ConsoleToOwner = {
 
 export const stackIdSchema = stackId;
 export const issueIdSchema = issueId;
+
+// ── admin-entered link credentials (docs/21 section 4) ──────────────────────────────────────
+
+/** What an admin pastes from the console's "new stack" screen. The secret is write-only. */
+export const consoleLinkEnrollBody = z
+  .object({
+    consoleUrl: z.url().max(300),
+    stackId: z
+      .string()
+      .trim()
+      .regex(/^stk_[a-z2-7]{20}$/, 'This is not a stack id the console issued'),
+    stackSecret: z.string().trim().min(32, 'The stack secret is at least 32 characters').max(256),
+    publicKey: z.string().trim().min(40, 'This is not a console public key').max(400),
+  })
+  .strict();
+export type ConsoleLinkEnrollBody = z.infer<typeof consoleLinkEnrollBody>;
+
+export const consoleLinkStatusDto = z.object({
+  /** Who set the link: the server's environment (read-only here), an admin, or nobody yet. */
+  managedBy: z.enum(['server', 'admin']).nullable(),
+  consoleUrl: z.string().nullable(),
+  stackId: z.string().nullable(),
+  /** Whether a secret is held. The secret itself never leaves the server. */
+  secretSet: z.boolean(),
+  /** Key ids (first 16 hex of SHA-256 of the key) of the console keys this stack trusts. */
+  trustedKeyIds: z.array(z.string()),
+  connected: z.boolean(),
+  lastHeartbeatAt: isoDateTime.nullable(),
+  updatedAt: isoDateTime.nullable(),
+});
+export type ConsoleLinkStatusDto = z.infer<typeof consoleLinkStatusDto>;

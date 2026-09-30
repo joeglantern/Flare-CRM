@@ -27,7 +27,7 @@ const csv = z
  * that never leaves the host is the one case where there is nothing to intercept, and it is how a
  * console shares a machine with its first customer stack (docs/21 §11).
  */
-function isOnThisMachine(url: string): boolean {
+export function isOnThisMachine(url: string): boolean {
   let host: string;
   try {
     host = new URL(url).hostname;

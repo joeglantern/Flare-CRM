@@ -7,6 +7,11 @@ import { buildApp } from '../app.js';
 import { loadEnv } from '../config/env.js';
 import { catchUp } from '../integrations/console/catch-up.js';
 import { ConsoleLink } from '../integrations/console/link.js';
+import {
+  CONSOLE_CONFIG_CHANNEL,
+  readConsoleConfig,
+  type ConsoleCredentials,
+} from '../modules/console-link/config.js';
 import { YeastarSubscriber } from '../integrations/yeastar/subscriber.js';
 import { reconcileCdrs } from '../integrations/yeastar/reconcile.js';
 import { QUEUES } from '../jobs/queues.js';
@@ -36,18 +41,8 @@ async function main(): Promise<void> {
    * exactly how it ran before any of this existed.
    */
   let consoleLink: ConsoleLink | null = null;
-  if (
-    env.CONSOLE_URL !== undefined &&
-    env.CONSOLE_STACK_ID !== undefined &&
-    env.CONSOLE_STACK_SECRET !== undefined
-  ) {
-    const consoleConfig = {
-      CONSOLE_URL: env.CONSOLE_URL,
-      CONSOLE_STACK_ID: env.CONSOLE_STACK_ID,
-      CONSOLE_STACK_SECRET: env.CONSOLE_STACK_SECRET,
-      APP_URL: env.APP_URL,
-      APP_VERSION: env.APP_VERSION,
-    };
+  const startConsoleLink = async (credentials: ConsoleCredentials): Promise<void> => {
+    const consoleConfig = { ...credentials, APP_URL: env.APP_URL, APP_VERSION: env.APP_VERSION };
 
     // Before the socket: whatever was issued while this stack was down is applied first, so it
     // starts on the current plan rather than on the one it had when it stopped.
@@ -113,12 +108,44 @@ async function main(): Promise<void> {
       },
     });
     consoleLink.start();
-    app.readiness.register('console', () =>
-      Promise.resolve({ configured: true, connected: consoleLink?.connected === true }),
-    );
-  } else {
-    app.log.info('no owner console configured; running standalone');
-  }
+  };
+
+  // Set in the server's .env, or entered by an admin in the CRM (docs/21 section 4).
+  const initialConsole = await readConsoleConfig(app.db, env);
+  if (initialConsole.credentials) await startConsoleLink(initialConsole.credentials);
+  else app.log.info('no owner console configured; running standalone');
+  app.readiness.register('console', () =>
+    Promise.resolve({
+      configured: consoleLink !== null,
+      connected: consoleLink?.connected === true,
+    }),
+  );
+
+  /*
+   * An admin entering or replacing the link must not need a restart. The old connection is closed
+   * before the new one opens, one change at a time, so two links never run side by side.
+   */
+  const consoleConfigListener = app.valkey.duplicate();
+  await consoleConfigListener.subscribe(CONSOLE_CONFIG_CHANNEL);
+  let relinking = Promise.resolve();
+  consoleConfigListener.on('message', (channel) => {
+    if (channel !== CONSOLE_CONFIG_CHANNEL) return;
+    relinking = relinking
+      .then(async () => {
+        const next = await readConsoleConfig(app.db, env);
+        // The keys first, so the catch-up below verifies with the ones that came with the link.
+        await app.entitlements.refreshConsoleConfig();
+        await consoleLink?.stop();
+        consoleLink = null;
+        if (next.credentials) {
+          await startConsoleLink(next.credentials);
+          app.log.info({ console: next.credentials.CONSOLE_URL }, 'console link reconfigured');
+        }
+      })
+      .catch((err: unknown) => {
+        app.log.error({ err }, 'could not apply the new console link');
+      });
+  });
 
   let subscriber: YeastarSubscriber | null = null;
   let settingsListener: ReturnType<typeof app.valkey.duplicate> | null = null;
@@ -277,6 +304,7 @@ async function main(): Promise<void> {
     (async () => {
       await subscriber?.stop();
       await settingsListener?.quit().catch(() => undefined);
+      await consoleConfigListener.quit().catch(() => undefined);
       await consoleLink?.stop();
       await processors.close();
       await app.cti.tokens?.revoke().catch(() => undefined);

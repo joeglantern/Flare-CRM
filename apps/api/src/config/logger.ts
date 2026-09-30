@@ -17,6 +17,8 @@ export const REDACT_PATHS = [
   '*.access_token',
   '*.refresh_token',
   '*.secret',
+  '*.stackSecret',
+  '*.CONSOLE_STACK_SECRET',
   '*.clientSecret',
   '*.client_secret',
   '*.apiKey',
