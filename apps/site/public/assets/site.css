@@ -2909,8 +2909,13 @@ body:has(.legal-main[data-theme='light']) .site-header {
     grid-template-columns: 56px minmax(0, 1fr);
   }
 
+  /*
+   * The text goes beside the number too. Left to auto-place, it fell into the 56px number column
+   * on its own row, one word to a line, which is what the setup page looked like on a phone.
+   */
   .step-when,
-  .step-note {
+  .step-note,
+  .step > div {
     grid-column: 2;
   }
 
@@ -3227,6 +3232,20 @@ body:has(.legal-main[data-theme='light']) .site-header {
 
   .footer-feet nav {
     gap: 14px;
+  }
+
+  /*
+   * On a phone the objects landed on the footer links and hid them. Here they are smaller and the
+   * floor they settle on stops above the links, so the toy stays and the links stay readable and
+   * tappable. The script reads each object's size and the yard's height from the layout.
+   */
+  .footer-play {
+    inset: 40px 0 72px;
+  }
+
+  .footer-play img {
+    width: 72px;
+    height: 72px;
   }
 
   .menu nav {
