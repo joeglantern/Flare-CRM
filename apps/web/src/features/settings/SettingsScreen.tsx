@@ -16,26 +16,27 @@ import type {
   WebFormDto,
 } from '@crm/shared';
 import {
-  BadgeCheck,
   Activity,
+  BadgeCheck,
   Building2,
   Check,
   ClipboardCopy,
   Cog,
   Database,
+  HardDriveDownload,
   KeyRound,
+  Link2,
+  Palette,
+  Pencil,
   Phone,
   Plus,
   ScrollText,
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
+  Upload,
   Users,
   Workflow,
-  HardDriveDownload,
-  Palette,
-  Pencil,
-  Upload,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
@@ -54,6 +55,7 @@ import { EmptyState, ErrorState, ForbiddenState } from '@/components/data/states
 import { DetailList, Panel } from '@/components/entity/EntityHeader';
 import { OwnerPicker } from '@/components/entity/pickers';
 import { PageHeader } from '@/app/shell/TopBar';
+import { ConsoleLinkCard } from './ConsoleLinkCard';
 import { PlanSection } from './PlanSection';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { errorMessage } from '@/lib/api/errors';
@@ -131,6 +133,8 @@ const SECTIONS: Section[] = [
   { id: 'general', label: 'General', icon: Cog, requires: 'settings:read' },
   { id: 'branding', label: 'Branding', icon: Palette, requires: 'settings:read' },
   { id: 'plan', label: 'Your plan', icon: BadgeCheck, requires: 'settings:read' },
+  // Its own entry: at the foot of Your plan it sat below four panels and went unseen.
+  { id: 'console', label: 'Console link', icon: Link2, requires: 'settings:manage' },
   {
     id: 'telephony',
     label: 'Telephony',
@@ -249,6 +253,7 @@ export function SettingsScreen() {
           {active === 'general' && <GeneralSection />}
           {active === 'branding' && <BrandingSection />}
           {active === 'plan' && <PlanSection />}
+          {active === 'console' && <ConsoleLinkCard />}
           {active === 'telephony' && (
             <>
               <TelephonySection />

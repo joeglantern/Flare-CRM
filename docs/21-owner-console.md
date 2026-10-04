@@ -93,7 +93,7 @@ live connection; revoking refuses the stack altogether. Neither touches the cust
 revoked stack keeps running on whatever document it last applied.
 
 **Entering them in the CRM instead of the server.** An admin of the stack can paste the four lines
-into Settings, Your plan, Owner console link (`PUT /api/v1/console-link`, `settings:manage`,
+into Settings, Console link (`PUT /api/v1/console-link`, `settings:manage`,
 two-factor, five a minute). Nothing is stored until the console itself accepts the stack id and
 secret, and any plan it has waiting is verified against the key given. The secret is encrypted with
 AES-256-GCM under `SECRETS_KEY` (`console_link_config.secret_encrypted`), redacted from logs, left

@@ -6,7 +6,7 @@
  * own Answer and End buttons, so the whole call can be walked through from wherever it was started.
  * Nothing is recorded and no phone rings.
  */
-import { PhoneIncoming } from 'lucide-react';
+import { ExternalLink, PhoneIncoming } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -73,6 +73,25 @@ export function TestCallButton({ variant = 'secondary' }: { variant?: 'primary' 
             >
               Cancel
             </Button>
+            {/*
+              What the phone system's own popup does when a call comes in: it opens this address
+              in a new tab with the caller's number. Opening it from here rehearses that hand-off
+              without a call, the same way the button beside it rehearses the popup.
+            */}
+            <Button
+              variant="secondary"
+              icon={ExternalLink}
+              disabled={trimmed.length < 3}
+              onClick={() => {
+                window.open(
+                  `/contacts/lookup?number=${encodeURIComponent(trimmed)}`,
+                  '_blank',
+                  'noopener',
+                );
+              }}
+            >
+              Open caller page
+            </Button>
             <Button
               variant="primary"
               icon={PhoneIncoming}
@@ -97,7 +116,7 @@ export function TestCallButton({ variant = 'secondary' }: { variant?: 'primary' 
             label="Caller number"
             mono
             placeholder="0712 345 678"
-            description="A saved contact's number shows their details. Any other number shows the unknown caller popup."
+            description="A saved contact's number shows their details. Any other number shows the unknown caller popup. Open caller page does what the phone system's own popup does: it opens that caller in a new tab."
             value={number}
             onChange={(e) => {
               setNumber(e.target.value);
