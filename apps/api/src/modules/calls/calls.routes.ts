@@ -21,6 +21,7 @@ import {
   reconcileResult,
   recordingHistoryEntryDto,
   updateDispositionBody,
+  popupPreviewBody,
 } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -432,6 +433,44 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
     config: { auth: { permission: 'pbx:view_status', feature: 'telephony' } },
     schema: { tags: ['cti'], response: { 200: dataResponse(extensionLinkReportDto.nullable()) } },
     handler: async () => ({ data: await lastExtensionSyncReport(app.valkey) }),
+  });
+
+  /*
+   * A rehearsal of the call popup, for checking it without a real call. It reaches only the person
+   * who asked, over the same socket a real call uses, and records nothing.
+   */
+  app.post('/cti/popup-preview', {
+    config: {
+      auth: { permission: 'call:read', feature: 'telephony' },
+      rateLimit: { max: 30, timeWindow: '1 minute' },
+    },
+    schema: {
+      tags: ['cti'],
+      body: popupPreviewBody,
+      response: { 200: dataResponse(z.object({ pbxCallId: z.string() })) },
+    },
+    handler: async (request) => {
+      const me = actorOf(request);
+      const body = request.body;
+      if (body.stage === 'ringing') {
+        return { data: await app.cti.machine.previewRinging(me.id, body.number) };
+      }
+      const at = new Date().toISOString();
+      const room = app.realtime.to(`user:${me.id}`);
+      if (body.stage === 'answered') {
+        room.emit('call:answered', {
+          at,
+          callId: null,
+          pbxCallId: body.pbxCallId,
+          answeredByUserId: me.id,
+          answeredByExtension: '',
+          answeredAt: at,
+        });
+      } else {
+        room.emit('call:ended', { at, callId: null, pbxCallId: body.pbxCallId, endedAt: at });
+      }
+      return { data: { pbxCallId: body.pbxCallId } };
+    },
   });
 
   app.post('/cti/extension-links/sync', {

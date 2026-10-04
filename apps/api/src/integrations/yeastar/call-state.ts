@@ -2,7 +2,7 @@
  * CTI state machine (docs/06 §8). Live state per PBX call lives in Valkey; every transition is
  * processed sequentially per call_id and produces socket events + database writes.
  */
-import type { CallStatus, ServerEventPayload } from '@crm/shared';
+import { POPUP_PREVIEW_PREFIX, type CallStatus, type ServerEventPayload } from '@crm/shared';
 import type { FastifyInstance } from 'fastify';
 import type { CountryCode } from 'libphonenumber-js';
 import { z } from 'zod';
@@ -583,7 +583,50 @@ export class CallStateMachine {
   }
 
   /** Build and send the screen-pop payload (R-4.1). */
-  private async emitRinging(state: LiveCallState, userId: string, receivedAt: Date): Promise<void> {
+  /**
+   * Sends one person the popup a real call from this number would give them, without a call.
+   *
+   * It goes through emitRinging itself, so the contact match, what the person is allowed to see,
+   * the recent activity and the socket delivery are the real ones; that is the point of a
+   * rehearsal. Nothing is stored: no call row, no live state, no notification, and the live board
+   * never hears of it. The id is marked so no PBX event can ever be taken for this call.
+   */
+  async previewRinging(userId: string, rawNumber: string): Promise<{ pbxCallId: string }> {
+    const normalized = normalizePhoneSafe(rawNumber, await this.normalizeOptions());
+    const e164 = normalized?.kind === 'e164' ? normalized.e164 : null;
+    const contact = await this.matchContact(e164);
+    const state: LiveCallState = {
+      pbxCallId: `${POPUP_PREVIEW_PREFIX}${newId()}`,
+      crmCallId: newId(),
+      direction: 'inbound',
+      externalRaw: rawNumber,
+      externalE164: e164,
+      externalDisplay: displayFor(normalized, rawNumber),
+      contactId: contact?.id ?? null,
+      contactName: contact?.displayName ?? null,
+      didNumber: null,
+      trunkName: null,
+      callPath: null,
+      trunkChannelId: null,
+      members: {},
+      poppedUsers: [userId],
+      ringingExtensions: [],
+      answeredExtension: null,
+      answeredUserId: null,
+      answeredAt: null,
+      firstEventAt: nowIso(),
+      ended: false,
+    };
+    await this.emitRinging(state, userId, new Date(), true);
+    return { pbxCallId: state.pbxCallId };
+  }
+
+  private async emitRinging(
+    state: LiveCallState,
+    userId: string,
+    receivedAt: Date,
+    preview = false,
+  ): Promise<void> {
     const settings = await this.app.settings.getAll();
     let contact: ServerEventPayload<'call:ringing'>['contact'] = null;
     let recentActivity: ServerEventPayload<'call:ringing'>['recentActivity'] = [];
@@ -640,7 +683,8 @@ export class CallStateMachine {
     const capabilities = await this.deps.capabilities();
     const payload: ServerEventPayload<'call:ringing'> = {
       at: nowIso(),
-      callId: state.crmCallId,
+      // A preview has no call behind it, so nothing on the popup can try to write one up.
+      callId: preview ? null : state.crmCallId,
       pbxCallId: state.pbxCallId,
       direction: state.direction,
       callerNumber: state.externalE164,
@@ -659,6 +703,7 @@ export class CallStateMachine {
       },
     };
     this.app.realtime.to(rooms.user(userId)).emit('call:ringing', payload);
+    if (preview) return;
     this.deps.onPopLatency?.(Date.now() - receivedAt.getTime());
     if (state.direction === 'inbound') {
       await this.app.notifications.notify({

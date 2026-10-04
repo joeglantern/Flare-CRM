@@ -4153,6 +4153,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/cti/popup-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        number: string;
+                        /** @enum {string} */
+                        stage: "ringing";
+                    } | {
+                        pbxCallId: string;
+                        /** @enum {string} */
+                        stage: "answered" | "ended";
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                pbxCallId: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cti/reconcile": {
         parameters: {
             query?: never;

@@ -11,7 +11,7 @@
  *  - the timer runs from the server's answeredAt so every tab agrees
  *  - the recording consent text from Settings is in front of the agent
  */
-import type { ServerToClientEvents } from '@crm/shared';
+import { POPUP_PREVIEW_PREFIX, type ServerToClientEvents } from '@crm/shared';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   Ban,
@@ -285,6 +285,8 @@ function CallCardView({
         >
           {header}
         </span>
+        {/* A rehearsal started from Settings: said plainly, so it is never taken for a real call. */}
+        {card.pbxCallId.startsWith(POPUP_PREVIEW_PREFIX) && <Badge tone="neutral">Preview</Badge>}
         {payload?.direction === 'outbound' || card.direction === 'outbound' ? (
           <PhoneOutgoing size={13} className="text-muted" aria-hidden />
         ) : (

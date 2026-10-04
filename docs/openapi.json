@@ -26884,6 +26884,96 @@
         }
       }
     },
+    "/api/v1/cti/popup-preview": {
+      "post": {
+        "tags": [
+          "cti"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "stage": {
+                        "type": "string",
+                        "enum": [
+                          "ringing"
+                        ]
+                      },
+                      "number": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 32
+                      }
+                    },
+                    "required": [
+                      "stage",
+                      "number"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "stage": {
+                        "type": "string",
+                        "enum": [
+                          "answered",
+                          "ended"
+                        ]
+                      },
+                      "pbxCallId": {
+                        "type": "string",
+                        "pattern": "^preview-[0-9a-f-]{36}$"
+                      }
+                    },
+                    "required": [
+                      "stage",
+                      "pbxCallId"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "pbxCallId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "pbxCallId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/cti/extension-links/sync": {
       "post": {
         "tags": [

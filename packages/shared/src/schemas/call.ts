@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { CallDirection, CallStatus, RecordingStatus, valuesOf } from '../enums.js';
 import { isoDateTime, paginationOffset, phoneInput, sortParam, uuid } from './common.js';
 import { userRef } from './company.js';
@@ -204,3 +205,21 @@ export const linkusSignDto = z.object({
   pbxUrl: z.string(),
   expiresInSec: z.number().int(),
 });
+
+/** Every preview call id starts with this, so no real PBX call can be mistaken for one. */
+export const POPUP_PREVIEW_PREFIX = 'preview-';
+
+/**
+ * A rehearsal of the call popup for the person asking (docs/06 section 8). `ringing` starts one
+ * for a number; `answered` and `ended` move that same preview along.
+ */
+export const popupPreviewBody = z.discriminatedUnion('stage', [
+  z.object({ stage: z.literal('ringing'), number: z.string().trim().min(3).max(32) }).strict(),
+  z
+    .object({
+      stage: z.enum(['answered', 'ended']),
+      pbxCallId: z.string().regex(/^preview-[0-9a-f-]{36}$/, 'Not a preview call'),
+    })
+    .strict(),
+]);
+export type PopupPreviewBody = z.infer<typeof popupPreviewBody>;

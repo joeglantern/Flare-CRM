@@ -289,6 +289,45 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     socket.disconnect();
   });
 
+  it('rehearses the popup for a saved number without a call, and records nothing', async () => {
+    const contact = (
+      await ctx.as(admin, {
+        method: 'POST',
+        url: '/api/v1/contacts',
+        payload: { firstName: 'Preview', lastName: 'Person', phones: [{ number: '0712000071' }] },
+      })
+    ).json<Envelope<{ id: string }>>().data;
+    const socket = await agentSocket(agent);
+    const preview = (payload: unknown) =>
+      ctx.as(agent, { method: 'POST', url: '/api/v1/cti/popup-preview', payload });
+
+    const ringing = waitFor<{
+      callId: string | null;
+      pbxCallId: string;
+      contact: { id: string } | null;
+      callerNumber: string;
+    }>(socket, 'call:ringing');
+    const started = await preview({ stage: 'ringing', number: '0712 000 071' });
+    expect(started.statusCode, started.body).toBe(200);
+    const pop = await ringing;
+    expect(pop.pbxCallId).toMatch(/^preview-/);
+    expect(pop.callId).toBeNull();
+    // The real lookup: the agent does not own this contact and still sees who it is.
+    expect(pop.contact?.id).toBe(contact.id);
+    expect(pop.callerNumber).toBe('+254712000071');
+
+    const ended = waitFor<{ pbxCallId: string }>(socket, 'call:ended');
+    expect((await preview({ stage: 'ended', pbxCallId: pop.pbxCallId })).statusCode).toBe(200);
+    expect((await ended).pbxCallId).toBe(pop.pbxCallId);
+
+    expect(await ctx.app.db.call.count()).toBe(0);
+    expect(await ctx.app.db.notification.count({ where: { type: 'call_incoming' } })).toBe(0);
+    expect(await ctx.app.cti.machine.liveCalls()).toHaveLength(0);
+    // Only a preview id can be moved along, so the route cannot touch a real call's card.
+    expect((await preview({ stage: 'ended', pbxCallId: '1790000000.1' })).statusCode).toBe(422);
+    socket.disconnect();
+  });
+
   it('missed inbound call from an unknown number → unknown-caller pop, missed status, notification, then linking a new contact', async () => {
     const socket = await agentSocket(agent);
     const ringing = waitFor<{ callId: string; contact: unknown; callerDisplay: string }>(

@@ -70,6 +70,7 @@ import {
   type AccentCandidate,
 } from '@crm/shared';
 import { useDispositions } from '@/features/telephony/api';
+import { PopupPreviewPanel } from '@/features/telephony/PopupPreviewPanel';
 import { useCtiStatus, useExtensionLinks, useMatchExtensions } from '@/features/telephony/api';
 import { MAX_PAGE_SIZE } from '@crm/shared';
 import { usePipelines } from '@/features/deals/api';
@@ -805,6 +806,8 @@ function TelephonySection() {
       )}
 
       {perms.has('pbx:view_status') && <ExtensionLinksPanel canRun={perms.has('pbx:reconcile')} />}
+
+      {perms.has('call:read') && <PopupPreviewPanel />}
 
       <SectionShell
         title="Dial rules"
