@@ -376,8 +376,10 @@ linked by hand is never moved.
 itself, prefilled with the number; the call is linked to them at once. The same holds when the
 PBX's own popup sends an agent to the contacts page with the caller's number as the search
 (Custom Popup URL `/contacts/lookup?number={{.CallerNumber}}`): a saved caller opens straight on
-their contact page, and a number nobody has lands on the search, which offers to save it as a new
-contact already filled in. Numbers are matched on their last nine digits, because the PBX sends
+their contact page, and a number nobody has opens a caller page showing the number, its past calls
+and one button to save it, already filled in. The route's loader decides which, once, before
+anything renders: deciding in an effect on the page let the "no number" fallback fire over the
+redirect it had just made, and every lookup ended on the bare contacts list. Numbers are matched on their last nine digits, because the PBX sends
 them in local form (`07...`) and they are stored as E.164. Saving the new person nudges the sync,
 so they reach the phone system's phonebook while the call is still fresh.
 
