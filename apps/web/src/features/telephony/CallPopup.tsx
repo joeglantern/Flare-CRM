@@ -6,8 +6,8 @@
  *  - rendered within 300 ms of call:ringing on any route (the payload carries the context, so
  *    there is no second request before it can appear)
  *  - aria-live assertive while ringing, focus-trapped only in that state
- *  - no answer or decline here: the call is picked up on the phone itself
- *  - buttons the PBX cannot do are hidden, not disabled (capabilities)
+ *  - no call controls here (answer, decline, hold, mute, transfer, hang up): the call is
+ *    handled on the phone itself, and the popup is for knowing who it is and writing it up
  *  - the timer runs from the server's answeredAt so every tab agrees
  *  - the recording consent text from Settings is in front of the agent
  */
@@ -17,16 +17,10 @@ import {
   Ban,
   CircleDot,
   History,
-  Mic,
-  MicOff,
   Minimize2,
-  Pause,
   Phone,
-  PhoneForwarded,
   PhoneIncoming,
-  PhoneOff,
   PhoneOutgoing,
-  Play,
   ShieldAlert,
   UserPlus,
   Users,
@@ -47,10 +41,9 @@ import { useSettings } from '@/providers/settings';
 import { cn } from '@/lib/utils';
 import { ContactFormDrawer } from '@/features/contacts/ContactForm';
 import { cancelledCopy, DIAL_SILENCE_SEC } from './cancel-copy';
-import { useCallControl, useCapabilities, useLinkCallContact } from './api';
+import { useCapabilities, useLinkCallContact } from './api';
 import { activeCall, talkSeconds, useCallStore, type CallCard } from './call-store';
 import { DispositionForm } from './DispositionForm';
-import { TransferPicker } from './TransferPicker';
 
 /** Ticks once a second while a call is up; the value itself comes from server timestamps. */
 /** The wall clock, re-read once a second while a call is live, so timers stay honest. */
@@ -203,12 +196,10 @@ function CallCardView({
   const perms = usePermissions();
   const navigate = useNavigate();
   const close = useCallStore((s) => s.close);
-  const control = useCallControl(card.callId ?? '');
   const panel = useRef<HTMLDivElement | null>(null);
   const now = useTick(
     card.status === 'answered' || card.status === 'ringing' || card.status === 'dialing',
   );
-  const [transferOpen, setTransferOpen] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
   const linkContact = useLinkCallContact();
   const onContactLinked = useCallStore((s) => s.onContactLinked);
@@ -224,21 +215,6 @@ function CallCardView({
   const number = payload?.callerNumber ?? card.callee ?? null;
   const display =
     payload?.callerDisplay ?? (number !== null ? formatPhone(number) : 'Unknown number');
-
-  const act = useCallback(
-    (action: 'hangup' | 'hold' | 'unhold' | 'mute' | 'unmute') => {
-      if (card.callId === null) return;
-      control.mutate(
-        { action, transferType: 'blind' },
-        {
-          onError: (e) => {
-            toast({ tone: 'danger', title: 'The PBX rejected that', description: errorMessage(e) });
-          },
-        },
-      );
-    },
-    [card.callId, control],
-  );
 
   // Focus only while ringing, so the popup never steals typing later.
   useEffect(() => {
@@ -476,58 +452,6 @@ function CallCardView({
               </div>
             )}
 
-            {(inCall || card.status === 'dialing') && (
-              <div className="flex flex-wrap gap-2">
-                {caps.hold && inCall && (
-                  <Button
-                    variant="secondary"
-                    icon={card.hold ? Play : Pause}
-                    onClick={() => {
-                      act(card.hold ? 'unhold' : 'hold');
-                    }}
-                    className={card.hold ? 'border-warning bg-[var(--warning-subtle)]' : ''}
-                  >
-                    {card.hold ? 'Resume' : 'Hold'}
-                  </Button>
-                )}
-                {caps.mute && inCall && (
-                  <Button
-                    variant="secondary"
-                    icon={card.muted ? Mic : MicOff}
-                    onClick={() => {
-                      act(card.muted ? 'unmute' : 'mute');
-                    }}
-                    className={card.muted ? 'border-warning bg-[var(--warning-subtle)]' : ''}
-                  >
-                    {card.muted ? 'Unmute' : 'Mute'}
-                  </Button>
-                )}
-                {caps.transfer && inCall && (
-                  <Button
-                    variant="secondary"
-                    icon={PhoneForwarded}
-                    onClick={() => {
-                      setTransferOpen(true);
-                    }}
-                  >
-                    Transfer
-                  </Button>
-                )}
-                {caps.hangup && (
-                  <Button
-                    variant="danger"
-                    icon={PhoneOff}
-                    className="ml-auto"
-                    onClick={() => {
-                      act('hangup');
-                    }}
-                  >
-                    Hang up
-                  </Button>
-                )}
-              </div>
-            )}
-
             {/*
               The server ends every dial in a truthful state within seconds (a refusal, or the
               PBX saying the call does not exist). This is the last line: if even that never
@@ -617,10 +541,6 @@ function CallCardView({
             </>
           )}
         </div>
-      )}
-
-      {transferOpen && card.callId !== null && (
-        <TransferPicker callId={card.callId} open={transferOpen} onOpenChange={setTransferOpen} />
       )}
     </div>
   );
