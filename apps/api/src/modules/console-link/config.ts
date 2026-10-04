@@ -1,9 +1,11 @@
 /**
  * Where this stack's owner console link comes from (docs/21 section 4).
  *
- * The server's environment wins when it sets the link, so an operator can always pin or recover a
- * stack from the box itself. Otherwise the link an admin entered in the CRM is used. The trusted
- * console keys follow the same rule: the environment's list if it has one, else the stored list.
+ * A link an admin saved in the CRM is used when there is one; otherwise the server's environment;
+ * otherwise the stack runs standalone. The admin's link takes precedence because it is the newer
+ * decision, and it can be dropped again to fall back to the server's. An operator who wants the
+ * environment to be the only word sets CONSOLE_LINK_LOCKED, which ignores the saved link and makes
+ * the CRM screen read-only.
  */
 import type { Env } from '../../config/env.js';
 import { decryptJson } from '../../lib/crypto.js';
@@ -23,43 +25,63 @@ export interface EffectiveConsole {
   credentials: ConsoleCredentials | null;
   publicKeys: string[];
   updatedAt: Date | null;
+  /** The environment pins the link; nothing saved in the CRM is used or accepted. */
+  locked: boolean;
+  /** The environment carries a complete link of its own, to fall back to. */
+  serverLinkAvailable: boolean;
 }
 
 type ConfigEnv = Pick<
   Env,
-  'CONSOLE_URL' | 'CONSOLE_STACK_ID' | 'CONSOLE_STACK_SECRET' | 'CONSOLE_PUBLIC_KEY' | 'SECRETS_KEY'
+  | 'CONSOLE_URL'
+  | 'CONSOLE_STACK_ID'
+  | 'CONSOLE_STACK_SECRET'
+  | 'CONSOLE_PUBLIC_KEY'
+  | 'CONSOLE_LINK_LOCKED'
+  | 'SECRETS_KEY'
 >;
 
-export async function readConsoleConfig(db: Db, env: ConfigEnv): Promise<EffectiveConsole> {
+function fromEnv(env: ConfigEnv): ConsoleCredentials | null {
   if (
-    env.CONSOLE_URL !== undefined &&
-    env.CONSOLE_STACK_ID !== undefined &&
-    env.CONSOLE_STACK_SECRET !== undefined
+    env.CONSOLE_URL === undefined ||
+    env.CONSOLE_STACK_ID === undefined ||
+    env.CONSOLE_STACK_SECRET === undefined
   ) {
+    return null;
+  }
+  return {
+    CONSOLE_URL: env.CONSOLE_URL,
+    CONSOLE_STACK_ID: env.CONSOLE_STACK_ID,
+    CONSOLE_STACK_SECRET: env.CONSOLE_STACK_SECRET,
+  };
+}
+
+export async function readConsoleConfig(db: Db, env: ConfigEnv): Promise<EffectiveConsole> {
+  const server = fromEnv(env);
+  const locked = env.CONSOLE_LINK_LOCKED;
+  const serverLinkAvailable = server !== null;
+  const row = locked ? null : await db.consoleLinkConfig.findUnique({ where: { id: 1 } });
+  if (row) {
+    const { secret } = decryptJson(row.secretEncrypted, env.SECRETS_KEY) as { secret: string };
     return {
-      managedBy: 'server',
+      managedBy: 'admin',
       credentials: {
-        CONSOLE_URL: env.CONSOLE_URL,
-        CONSOLE_STACK_ID: env.CONSOLE_STACK_ID,
-        CONSOLE_STACK_SECRET: env.CONSOLE_STACK_SECRET,
+        CONSOLE_URL: row.consoleUrl,
+        CONSOLE_STACK_ID: row.stackId,
+        CONSOLE_STACK_SECRET: secret,
       },
-      publicKeys: env.CONSOLE_PUBLIC_KEY,
-      updatedAt: null,
+      publicKeys: row.publicKeys.length > 0 ? row.publicKeys : env.CONSOLE_PUBLIC_KEY,
+      updatedAt: row.updatedAt,
+      locked,
+      serverLinkAvailable,
     };
   }
-  const row = await db.consoleLinkConfig.findUnique({ where: { id: 1 } });
-  const publicKeys =
-    env.CONSOLE_PUBLIC_KEY.length > 0 ? env.CONSOLE_PUBLIC_KEY : (row?.publicKeys ?? []);
-  if (!row) return { managedBy: null, credentials: null, publicKeys, updatedAt: null };
-  const { secret } = decryptJson(row.secretEncrypted, env.SECRETS_KEY) as { secret: string };
   return {
-    managedBy: 'admin',
-    credentials: {
-      CONSOLE_URL: row.consoleUrl,
-      CONSOLE_STACK_ID: row.stackId,
-      CONSOLE_STACK_SECRET: secret,
-    },
-    publicKeys,
-    updatedAt: row.updatedAt,
+    managedBy: server ? 'server' : null,
+    credentials: server,
+    publicKeys: env.CONSOLE_PUBLIC_KEY,
+    updatedAt: null,
+    locked,
+    serverLinkAvailable,
   };
 }

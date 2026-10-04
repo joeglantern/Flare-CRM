@@ -133,6 +133,12 @@ const envSchema = z
       .optional(),
     CONSOLE_STACK_SECRET: z.string().min(32).optional(),
     CONSOLE_PUBLIC_KEY: csv,
+    /**
+     * An admin may change the console link in the CRM, and a link saved there is used ahead of
+     * the one above. Set this to pin the stack to the values above: the saved link is ignored and
+     * the CRM screen becomes read-only.
+     */
+    CONSOLE_LINK_LOCKED: bool,
     ENTITLEMENTS_FILE: z.string().min(1).optional(),
     /** Customer-owned domains besides APP_URL, joined into trusted origins and CORS. */
     APP_EXTRA_ORIGINS: csv,

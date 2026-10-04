@@ -279,31 +279,64 @@ export const issueIdSchema = issueId;
 
 // ── admin-entered link credentials (docs/21 section 4) ──────────────────────────────────────
 
-/** What an admin pastes from the console's "new stack" screen. The secret is write-only. */
+/**
+ * What an admin enters for the console link. The secret and the address are write-only: neither is
+ * ever sent back, so on an existing link a blank one means "keep the one in use". `confirmChange`
+ * says the admin was warned that the address, stack id or public key is changing, which points the
+ * workspace at a different console; the server refuses such a change without it.
+ */
 export const consoleLinkEnrollBody = z
   .object({
-    consoleUrl: z.url().max(300),
+    consoleUrl: z
+      .string()
+      .trim()
+      .max(300)
+      .refine(
+        (v) => v === '' || (/^https?:\/\//i.test(v) && z.url().safeParse(v).success),
+        'Enter the full console address, starting with https://',
+      )
+      .optional(),
     stackId: z
       .string()
       .trim()
       .regex(/^stk_[a-z2-7]{20}$/, 'This is not a stack id the console issued'),
-    stackSecret: z.string().trim().min(32, 'The stack secret is at least 32 characters').max(256),
+    stackSecret: z
+      .string()
+      .trim()
+      .max(256)
+      .refine((v) => v === '' || v.length >= 32, 'The stack secret is at least 32 characters')
+      .optional(),
     publicKey: z.string().trim().min(40, 'This is not a console public key').max(400),
+    confirmChange: z.boolean().optional(),
   })
   .strict();
 export type ConsoleLinkEnrollBody = z.infer<typeof consoleLinkEnrollBody>;
 
 export const consoleLinkStatusDto = z.object({
-  /** Who set the link: the server's environment (read-only here), an admin, or nobody yet. */
+  /** Where the link in use comes from: the server's environment, an admin, or nowhere yet. */
   managedBy: z.enum(['server', 'admin']).nullable(),
-  consoleUrl: z.string().nullable(),
   stackId: z.string().nullable(),
   /** Whether a secret is held. The secret itself never leaves the server. */
   secretSet: z.boolean(),
+  /** The console keys this stack trusts. Public by nature; shown so an edit can start from them. */
+  publicKeys: z.array(z.string()),
   /** Key ids (first 16 hex of SHA-256 of the key) of the console keys this stack trusts. */
   trustedKeyIds: z.array(z.string()),
+  /** The server pins the link (CONSOLE_LINK_LOCKED), so it cannot be changed here. */
+  locked: z.boolean(),
+  /** The server's environment carries a link of its own that a saved one can be dropped for. */
+  serverLinkAvailable: z.boolean(),
   connected: z.boolean(),
   lastHeartbeatAt: isoDateTime.nullable(),
   updatedAt: isoDateTime.nullable(),
 });
 export type ConsoleLinkStatusDto = z.infer<typeof consoleLinkStatusDto>;
+
+export const consoleLinkSaveResult = consoleLinkStatusDto.extend({
+  /**
+   * Whether the console had a signed plan waiting that proved the public key. Without one the id
+   * and secret were still accepted, and the key is checked when the next plan arrives.
+   */
+  keyVerified: z.boolean(),
+});
+export type ConsoleLinkSaveResult = z.infer<typeof consoleLinkSaveResult>;

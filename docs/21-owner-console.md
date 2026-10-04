@@ -92,20 +92,36 @@ The secret is stored only as a hash. Rotating issues a new secret for the same i
 live connection; revoking refuses the stack altogether. Neither touches the customer's data: a
 revoked stack keeps running on whatever document it last applied.
 
-**Entering them in the CRM instead of the server.** An admin of the stack can paste the four lines
-into Settings, Console link (`PUT /api/v1/console-link`, `settings:manage`,
-two-factor, five a minute). Nothing is stored until the console itself accepts the stack id and
-secret, and any plan it has waiting is verified against the key given. The secret is encrypted with
-AES-256-GCM under `SECRETS_KEY` (`console_link_config.secret_encrypted`), redacted from logs, left
-out of the audit row, and never returned by any route. The worker and the api pick the change up
-over Valkey (`console:config-changed`) without a restart.
+**Entering and changing them in the CRM.** An admin of the stack can paste the four lines into
+Settings, Console link (`PUT /api/v1/console-link`, `settings:manage`, two-factor, five a minute).
+Nothing is stored until the console itself accepts the stack id and secret, and any plan it has
+waiting is verified against the key given and must be addressed to this stack. The secret is
+encrypted with AES-256-GCM under `SECRETS_KEY` (`console_link_config.secret_encrypted`), redacted
+from logs, left out of the audit row, and never returned by any route. The console's address is
+treated the same way: no route returns it and the audit row records only that it changed, because a
+provider's console often sits on a private address a customer's admin has no need to read. On a
+link that already exists, a blank address or secret keeps the one in use. The worker and the api
+pick the change up over Valkey (`console:config-changed`) without a restart.
 
-Values in the server's `.env` always take precedence, and the CRM shows them read-only. The public
-key is what makes a plan tamper-proof, so the CRM accepts a new one only on a stack that trusts none
-yet; such a stack runs standalone with everything on, so trusting a first key takes nothing away.
-After that it accepts only a key already trusted, which is what a secret rotation needs. There is no
-unlink: going back to standalone would lift every limit. Replacing a trusted key is done on the
-server.
+A link saved in the CRM is used ahead of the one in the server's `.env`, so a stack set up on the
+server can still be edited from the screen. Three rules keep that safe:
+
+- **A warning and a confirmation.** Changing the address, the stack id or the public key of an
+  existing link points the stack at a different console. The screen warns before the form and asks
+  for a typed confirmation; the server refuses such a change unless the request carries
+  `confirmChange`, so the rule does not depend on the screen.
+- **A replacement key must be proven.** A first key may go in unproven, since a stack that trusts
+  none runs standalone with everything on and has nothing to lose. A replacement is accepted only
+  when the console has a plan waiting that is signed with it. A wrong key would otherwise have the
+  stack refuse every plan from then on.
+- **No unlinking.** Going back to standalone would lift every limit. A link saved in the CRM can be
+  dropped (`DELETE /api/v1/console-link`) only to fall back to the one in `.env`, and the request
+  is refused when `.env` has none.
+
+An operator who wants `.env` to be the only word sets `CONSOLE_LINK_LOCKED=true`. The saved link is
+then ignored and the screen is read-only. Set it on any stack whose admins should not be able to
+move it to a console of their own choosing: an admin who controls a console can issue that console's
+own plan.
 
 ## 5. Suspension, and what it actually does
 

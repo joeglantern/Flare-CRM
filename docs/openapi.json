@@ -5621,12 +5621,6 @@
                             }
                           ]
                         },
-                        "consoleUrl": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
-                        },
                         "stackId": {
                           "type": [
                             "string",
@@ -5636,11 +5630,23 @@
                         "secretSet": {
                           "type": "boolean"
                         },
+                        "publicKeys": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "trustedKeyIds": {
                           "type": "array",
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "locked": {
+                          "type": "boolean"
+                        },
+                        "serverLinkAvailable": {
+                          "type": "boolean"
                         },
                         "connected": {
                           "type": "boolean"
@@ -5672,10 +5678,12 @@
                       },
                       "required": [
                         "managedBy",
-                        "consoleUrl",
                         "stackId",
                         "secretSet",
+                        "publicKeys",
                         "trustedKeyIds",
+                        "locked",
+                        "serverLinkAvailable",
                         "connected",
                         "lastHeartbeatAt",
                         "updatedAt"
@@ -5706,8 +5714,7 @@
                 "properties": {
                   "consoleUrl": {
                     "type": "string",
-                    "maxLength": 300,
-                    "format": "uri"
+                    "maxLength": 300
                   },
                   "stackId": {
                     "type": "string",
@@ -5715,19 +5722,19 @@
                   },
                   "stackSecret": {
                     "type": "string",
-                    "minLength": 32,
                     "maxLength": 256
                   },
                   "publicKey": {
                     "type": "string",
                     "minLength": 40,
                     "maxLength": 400
+                  },
+                  "confirmChange": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
-                  "consoleUrl",
                   "stackId",
-                  "stackSecret",
                   "publicKey"
                 ],
                 "additionalProperties": false
@@ -5760,10 +5767,117 @@
                             }
                           ]
                         },
-                        "consoleUrl": {
+                        "stackId": {
                           "type": [
                             "string",
                             "null"
+                          ]
+                        },
+                        "secretSet": {
+                          "type": "boolean"
+                        },
+                        "publicKeys": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "trustedKeyIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "locked": {
+                          "type": "boolean"
+                        },
+                        "serverLinkAvailable": {
+                          "type": "boolean"
+                        },
+                        "connected": {
+                          "type": "boolean"
+                        },
+                        "lastHeartbeatAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "updatedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "keyVerified": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "managedBy",
+                        "stackId",
+                        "secretSet",
+                        "publicKeys",
+                        "trustedKeyIds",
+                        "locked",
+                        "serverLinkAvailable",
+                        "connected",
+                        "lastHeartbeatAt",
+                        "updatedAt",
+                        "keyVerified"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "entitlements"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "managedBy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "server",
+                                "admin"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
                           ]
                         },
                         "stackId": {
@@ -5775,11 +5889,23 @@
                         "secretSet": {
                           "type": "boolean"
                         },
+                        "publicKeys": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "trustedKeyIds": {
                           "type": "array",
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "locked": {
+                          "type": "boolean"
+                        },
+                        "serverLinkAvailable": {
+                          "type": "boolean"
                         },
                         "connected": {
                           "type": "boolean"
@@ -5811,10 +5937,12 @@
                       },
                       "required": [
                         "managedBy",
-                        "consoleUrl",
                         "stackId",
                         "secretSet",
+                        "publicKeys",
                         "trustedKeyIds",
+                        "locked",
+                        "serverLinkAvailable",
                         "connected",
                         "lastHeartbeatAt",
                         "updatedAt"

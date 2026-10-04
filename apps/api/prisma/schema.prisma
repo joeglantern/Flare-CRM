@@ -800,7 +800,7 @@ model ConsoleLinkConfig {
   stackId         String   @map("stack_id")
   /// AES-256-GCM under SECRETS_KEY (lib/crypto.ts). Never returned by any route.
   secretEncrypted Bytes    @map("secret_encrypted")
-  /// Base64 SPKI Ed25519 keys this stack trusts. Only ever added to, never replaced from the GUI.
+  /// Base64 SPKI Ed25519 keys this stack trusts. Replaced only by a key the console has proven.
   publicKeys      String[] @map("public_keys")
   updatedById     String?  @map("updated_by_id") @db.Uuid
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseConsoleLines } from './console-lines';
+import { linkChanges, parseConsoleLines } from './console-lines';
 
 describe('reading the lines the console prints for a new stack', () => {
   it('takes all four values from a pasted block, quotes and exports included', () => {
@@ -25,5 +25,38 @@ describe('reading the lines the console prints for a new stack', () => {
 
   it('returns nothing for text that is not the console block', () => {
     expect(parseConsoleLines('hello\nworld')).toEqual({});
+  });
+});
+
+describe('what an edit changes about an existing link', () => {
+  const current = { stackId: 'stk_abcdefghijklmnopqrst', publicKeys: ['MCowBQYDK2VwAyEAkey1='] };
+  const same = {
+    consoleUrl: '',
+    stackId: 'stk_abcdefghijklmnopqrst',
+    stackSecret: 'n'.repeat(40),
+    publicKey: 'MCowBQYDK2VwAyEAkey1=',
+  };
+
+  it('is nothing when only the secret is replaced', () => {
+    expect(linkChanges(current, same)).toEqual([]);
+  });
+
+  it('names the address, the stack id and the key, each when it differs', () => {
+    expect(linkChanges(current, { ...same, consoleUrl: 'https://other.example.com' })).toHaveLength(
+      1,
+    );
+    expect(linkChanges(current, { ...same, stackId: 'stk_zzzzzzzzzzzzzzzzzzzz' })).toHaveLength(1);
+    expect(
+      linkChanges(current, {
+        consoleUrl: 'https://other.example.com',
+        stackId: 'stk_zzzzzzzzzzzzzzzzzzzz',
+        stackSecret: '',
+        publicKey: 'MCowBQYDK2VwAyEAkey2=',
+      }),
+    ).toHaveLength(3);
+  });
+
+  it('has nothing to compare on a first link', () => {
+    expect(linkChanges({ stackId: null, publicKeys: [] }, same)).toEqual([]);
   });
 });

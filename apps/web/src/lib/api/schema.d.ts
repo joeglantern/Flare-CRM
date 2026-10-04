@@ -1697,10 +1697,12 @@ export interface paths {
                         "application/json": {
                             data: {
                                 connected: boolean;
-                                consoleUrl: string | null;
                                 lastHeartbeatAt: string | null;
+                                locked: boolean;
                                 managedBy: ("server" | "admin") | null;
+                                publicKeys: string[];
                                 secretSet: boolean;
+                                serverLinkAvailable: boolean;
                                 stackId: string | null;
                                 trustedKeyIds: string[];
                                 updatedAt: string | null;
@@ -1720,11 +1722,11 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** Format: uri */
-                        consoleUrl: string;
+                        confirmChange?: boolean;
+                        consoleUrl?: string;
                         publicKey: string;
                         stackId: string;
-                        stackSecret: string;
+                        stackSecret?: string;
                     };
                 };
             };
@@ -1738,10 +1740,13 @@ export interface paths {
                         "application/json": {
                             data: {
                                 connected: boolean;
-                                consoleUrl: string | null;
+                                keyVerified: boolean;
                                 lastHeartbeatAt: string | null;
+                                locked: boolean;
                                 managedBy: ("server" | "admin") | null;
+                                publicKeys: string[];
                                 secretSet: boolean;
+                                serverLinkAvailable: boolean;
                                 stackId: string | null;
                                 trustedKeyIds: string[];
                                 updatedAt: string | null;
@@ -1752,7 +1757,39 @@ export interface paths {
             };
         };
         post?: never;
-        delete?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                connected: boolean;
+                                lastHeartbeatAt: string | null;
+                                locked: boolean;
+                                managedBy: ("server" | "admin") | null;
+                                publicKeys: string[];
+                                secretSet: boolean;
+                                serverLinkAvailable: boolean;
+                                stackId: string | null;
+                                trustedKeyIds: string[];
+                                updatedAt: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;

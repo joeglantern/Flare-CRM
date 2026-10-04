@@ -39,3 +39,25 @@ export function parseConsoleLines(text: string): Partial<ConsoleLinkValues> {
   }
   return out;
 }
+
+/**
+ * What saving this form would change about a link that already exists, in the words the
+ * confirmation shows. Any of the three points the workspace at a different console, so the server
+ * refuses them unless the admin confirms. An empty list is a plain secret replacement.
+ */
+export function linkChanges(
+  current: { stackId: string | null; publicKeys: string[] },
+  form: ConsoleLinkValues,
+): string[] {
+  const out: string[] = [];
+  if (form.consoleUrl.trim() !== '') {
+    out.push('The console address changes. Plans and limits will come from the new address.');
+  }
+  if (current.stackId !== null && form.stackId.trim() !== current.stackId) {
+    out.push('The stack id changes. The console will treat this workspace as a different stack.');
+  }
+  if (current.publicKeys.length > 0 && !current.publicKeys.includes(form.publicKey.trim())) {
+    out.push('The public key changes. Plans signed with the old key will be refused from now on.');
+  }
+  return out;
+}
