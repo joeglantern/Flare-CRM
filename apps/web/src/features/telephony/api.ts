@@ -9,7 +9,8 @@ import type {
 } from '@crm/shared';
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { z } from 'zod';
-import { api, unwrap } from '@/lib/api/client';
+import type { PopupPreviewBody } from '@crm/shared';
+import { api, http, unwrap } from '@/lib/api/client';
 import { qk } from '@/lib/query';
 
 export type CallDispositionDto = z.infer<typeof callDispositionDto>;
@@ -173,6 +174,14 @@ export function useSetDisposition() {
         void qc.invalidateQueries({ queryKey: qk.timeline('contact', call.contactId) });
       }
     },
+  });
+}
+
+/** A rehearsal of the call popup for the person asking: start it, answer it, end it. */
+export function usePopupPreview() {
+  return useMutation({
+    mutationFn: (body: PopupPreviewBody) =>
+      http.post<{ pbxCallId: string }>('/api/v1/cti/popup-preview', body),
   });
 }
 

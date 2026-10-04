@@ -26,6 +26,7 @@ import { useSocketEvent } from '@/lib/socket/client';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/providers/permissions';
 import { useCtiStatus, useLiveCalls, type LiveCallDto } from './api';
+import { TestCallButton } from './TestCallButton';
 
 /** Ringing is the state a manager reacts to, so it sorts to the top. */
 const RANK: Record<string, number> = { ringing: 0, answered: 1, held: 2 };
@@ -72,9 +73,17 @@ export function LiveCallsBoard() {
         title="Live calls"
         description="What the PBX is doing right now."
         actions={
-          <Button variant="secondary" icon={RefreshCw} loading={live.isFetching} onClick={refresh}>
-            Refresh
-          </Button>
+          <>
+            <TestCallButton />
+            <Button
+              variant="secondary"
+              icon={RefreshCw}
+              loading={live.isFetching}
+              onClick={refresh}
+            >
+              Refresh
+            </Button>
+          </>
         }
       />
 

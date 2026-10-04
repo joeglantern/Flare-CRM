@@ -26,6 +26,7 @@ import { PageHeader } from '@/app/shell/TopBar';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { useDispositions } from '@/features/telephony/api';
 import { Dialpad } from '@/features/telephony/Dialpad';
+import { TestCallButton } from '@/features/telephony/TestCallButton';
 import { ContactFormDrawer } from '@/features/contacts/ContactForm';
 import { linkTo } from '@/lib/links';
 import { useListState } from '@/lib/list-state';
@@ -243,6 +244,7 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
         }
         actions={
           <>
+            <TestCallButton />
             {perms.has('call:export') && (
               <Button
                 variant="secondary"

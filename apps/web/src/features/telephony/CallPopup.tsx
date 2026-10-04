@@ -41,7 +41,7 @@ import { useSettings } from '@/providers/settings';
 import { cn } from '@/lib/utils';
 import { ContactFormDrawer } from '@/features/contacts/ContactForm';
 import { cancelledCopy, DIAL_SILENCE_SEC } from './cancel-copy';
-import { useCapabilities, useLinkCallContact } from './api';
+import { useCapabilities, useLinkCallContact, usePopupPreview } from './api';
 import { activeCall, talkSeconds, useCallStore, type CallCard } from './call-store';
 import { DispositionForm } from './DispositionForm';
 
@@ -202,6 +202,8 @@ function CallCardView({
   );
   const [addingContact, setAddingContact] = useState(false);
   const linkContact = useLinkCallContact();
+  const test = usePopupPreview();
+  const isTest = card.pbxCallId.startsWith(POPUP_PREVIEW_PREFIX);
   const onContactLinked = useCallStore((s) => s.onContactLinked);
 
   const ringing = card.status === 'ringing';
@@ -286,7 +288,7 @@ function CallCardView({
           {header}
         </span>
         {/* A rehearsal started from Settings: said plainly, so it is never taken for a real call. */}
-        {card.pbxCallId.startsWith(POPUP_PREVIEW_PREFIX) && <Badge tone="neutral">Preview</Badge>}
+        {isTest && <Badge tone="neutral">Test call</Badge>}
         {payload?.direction === 'outbound' || card.direction === 'outbound' ? (
           <PhoneOutgoing size={13} className="text-muted" aria-hidden />
         ) : (
@@ -443,7 +445,37 @@ function CallCardView({
           />
         ) : (
           <>
-            {ringing && (
+            {/*
+              A test call has no phone behind it, so the popup carries the two steps a phone would
+              supply. They appear on a test call and nowhere else.
+            */}
+            {isTest && (ringing || inCall) && (
+              <div className="flex flex-wrap gap-2">
+                {ringing && (
+                  <Button
+                    variant="primary"
+                    icon={Phone}
+                    loading={test.isPending}
+                    onClick={() => {
+                      test.mutate({ stage: 'answered', pbxCallId: card.pbxCallId });
+                    }}
+                  >
+                    Answer
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  loading={test.isPending}
+                  onClick={() => {
+                    test.mutate({ stage: 'ended', pbxCallId: card.pbxCallId });
+                  }}
+                >
+                  End test call
+                </Button>
+              </div>
+            )}
+
+            {ringing && !isTest && (
               <div className="flex flex-wrap gap-2">
                 {caps.answer === 'none' && (
                   <p className="text-sm text-muted">
