@@ -257,7 +257,17 @@ export function SettingsScreen() {
           {active === 'general' && <GeneralSection />}
           {active === 'branding' && <BrandingSection />}
           {active === 'plan' && <PlanSection />}
-          {active === 'console' && <ConsoleLinkCard />}
+          {/*
+            Everything a new stack is connected with, on one page: the plan, the phone system and
+            the mail server. The PBX and email cards also stay on their own pages.
+          */}
+          {active === 'console' && (
+            <>
+              <ConsoleLinkCard />
+              <PbxConnectionCard />
+              <SmtpCard />
+            </>
+          )}
           {active === 'email' && <SmtpCard />}
           {active === 'telephony' && (
             <>
