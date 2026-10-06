@@ -6,6 +6,7 @@
  * different console takes an explicit confirmation and, for a new key, proof of that key.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { encryptJson } from '../../src/lib/crypto.js';
 import { readConsoleConfig } from '../../src/modules/console-link/config.js';
 import { startFakeConsole, type FakeConsole } from '../setup/fake-console.js';
 import {
@@ -74,6 +75,8 @@ describe('owner console link entered by an admin', () => {
     await ctx.app.entitlements.refreshConsoleConfig();
   });
   afterAll(async () => {
+    // The next test file's app reads this table as it boots, before that file wipes the database.
+    await ctx.app.db.consoleLinkConfig.deleteMany();
     await ctx.close();
     await fake.close();
   });
@@ -344,6 +347,7 @@ describe('owner console link set on the server', () => {
       expect(back.json<Envelope<Status>>().data.managedBy).toBe('server');
       expect(await ctx.app.db.consoleLinkConfig.count()).toBe(0);
     } finally {
+      await ctx.app.db.consoleLinkConfig.deleteMany();
       await ctx.close();
     }
   });
@@ -380,6 +384,7 @@ describe('owner console link set on the server', () => {
       expect(effective.credentials?.CONSOLE_URL).toBe(second.url);
     } finally {
       await second.close();
+      await ctx.app.db.consoleLinkConfig.deleteMany();
       await ctx.close();
     }
   });
@@ -393,7 +398,7 @@ describe('owner console link set on the server', () => {
           id: 1,
           consoleUrl: fake.url,
           stackId: 'stk_zzzzzzzzzzzzzzzzzzzz',
-          secretEncrypted: Buffer.from('ignored'),
+          secretEncrypted: encryptJson({ secret: 'ignored'.repeat(6) }, ctx.app.config.SECRETS_KEY),
           publicKeys: [],
         },
       });
@@ -420,6 +425,7 @@ describe('owner console link set on the server', () => {
       expect(res.statusCode).toBe(409);
       expect(fake.restCalls).toHaveLength(0);
     } finally {
+      await ctx.app.db.consoleLinkConfig.deleteMany();
       await ctx.close();
     }
   });
