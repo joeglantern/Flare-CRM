@@ -170,7 +170,8 @@ async function main(): Promise<void> {
       log: app.log,
       onStatus: ({ connected }) => {
         app.realtime
-          .to([rooms.role('admin'), ...(connected ? [] : [rooms.all])])
+          // Everyone: an agent's sidebar and dial button show this, not only an admin's.
+          .to(rooms.all)
           .emit('pbx:status', {
             at: nowIso(),
             connected,

@@ -26493,6 +26493,9 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "connected": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -26504,7 +26507,8 @@
                         "mute",
                         "transfer",
                         "dial",
-                        "myExtension"
+                        "myExtension",
+                        "connected"
                       ],
                       "additionalProperties": false
                     }

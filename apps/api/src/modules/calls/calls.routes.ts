@@ -321,12 +321,14 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
     handler: async (request) => {
       const user = requireUser(request);
       const caps = await app.cti.capabilities();
+      const connected = app.cti.enabled && (await readCtiStatus(app.valkey)).connected;
       return {
         data: {
           enabled: app.cti.enabled,
           ...caps,
           dial: app.cti.enabled && Boolean(user.extension),
           myExtension: user.extension ?? null,
+          connected,
         },
       };
     },

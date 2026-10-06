@@ -11,7 +11,8 @@ import { useLeads } from '@/features/leads/api';
 import { useTasks } from '@/features/tasks/api';
 import { useCalls } from '@/features/calls/api';
 import { CallPopupHost } from '@/features/telephony/CallPopup';
-import { useCtiStatus } from '@/features/telephony/api';
+import { useQuery } from '@tanstack/react-query';
+import { capabilitiesQuery, useCapabilities, useCtiStatus } from '@/features/telephony/api';
 import { activeCall, useCallStore } from '@/features/telephony/call-store';
 import { DialerProvider } from '@/features/telephony/dialer';
 import { useChannels } from '@/features/inbox/api';
@@ -52,6 +53,15 @@ export function AppShell({ children }: { children?: ReactNode }) {
   // Queries for a feature the customer does not have would only ever be refused; do not ask.
   const { features } = useEntitlements();
   const cti = useCtiStatus(features.telephony && perms.has('pbx:view_status'));
+  // Everyone gets the PBX state from their capabilities; the full status is only for the people
+  // allowed to run the PBX. Reading only the latter showed every agent "PBX not enabled".
+  const caps = useCapabilities();
+  const capsLoaded = useQuery(capabilitiesQuery).data !== undefined;
+  const pbx = {
+    enabled: cti.data?.enabled ?? caps.enabled,
+    connected: cti.data?.connected ?? caps.connected,
+    since: cti.data?.since ?? null,
+  };
   const channels = useChannels(features.messaging && perms.has('chat:read'));
 
   // Sidebar counts. Each is the same query the screen behind it uses, so nothing is fetched twice.
@@ -129,7 +139,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
     ? { tone: 'ringing', label: 'Ringing' }
     : live !== undefined
       ? { tone: 'on_call', label: 'On a call' }
-      : cti.data?.enabled === true && !cti.data.connected
+      : pbx.enabled && !pbx.connected
         ? { tone: 'offline', label: 'PBX offline' }
         : { tone: 'available', label: 'Available' };
 
@@ -148,7 +158,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
               calls: missed.data?.page.total,
               inbox: inbox.data?.pages[0]?.data.filter((c) => c.unreadCount > 0).length,
             }}
-            pbx={{ enabled: cti.data?.enabled ?? false, connected: cti.data?.connected ?? false }}
+            pbx={pbx}
             channel={{
               enabled: activeChannel !== undefined,
               connected: activeChannel !== undefined,
@@ -170,11 +180,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
             }}
           />
           <Banners
-            pbx={{
-              enabled: cti.data?.enabled ?? false,
-              connected: cti.data?.connected ?? true,
-              since: cti.data?.since ?? null,
-            }}
+            // Nothing is known until the first answer: no alarm banner on every page load.
+            pbx={{ ...pbx, connected: capsLoaded || cti.data !== undefined ? pbx.connected : true }}
             channel={{
               enabled: activeChannel !== undefined,
               connected: activeChannel !== undefined,
@@ -193,7 +200,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           calls: missed.data?.page.total,
           inbox: inbox.data?.pages[0]?.data.filter((c) => c.unreadCount > 0).length,
         }}
-        pbx={{ enabled: cti.data?.enabled ?? false, connected: cti.data?.connected ?? false }}
+        pbx={pbx}
         channel={{
           enabled: activeChannel !== undefined,
           connected: activeChannel !== undefined,

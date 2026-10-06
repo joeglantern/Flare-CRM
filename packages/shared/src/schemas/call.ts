@@ -131,6 +131,12 @@ export const ctiCapabilitiesDto = z.object({
   transfer: z.boolean(),
   dial: z.boolean(),
   myExtension: z.string().nullable(),
+  /**
+   * Whether the PBX event stream is up right now. Here, and not only on /cti/status, because
+   * every signed-in person needs it to trust their own popups and dial button, while the full
+   * status (leader, token, reconcile) stays with the people who run the PBX.
+   */
+  connected: z.boolean(),
 });
 
 export const ctiStatusDto = z.object({

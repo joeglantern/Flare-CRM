@@ -865,10 +865,18 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       status.json<Envelope<{ enabled: boolean; connected: boolean; leader: string | null }>>().data,
     ).toMatchObject({ enabled: true, connected: true });
     expect(status.json<Envelope<{ leader: string | null }>>().data.leader).not.toBeNull();
+    // An agent may not read /cti/status, and the sidebar used to show them "PBX not enabled"
+    // because of it. The connection state reaches them through their capabilities instead.
+    expect((await ctx.as(agent, { method: 'GET', url: '/api/v1/cti/status' })).statusCode).toBe(
+      403,
+    );
     const caps = await ctx.as(agent, { method: 'GET', url: '/api/v1/cti/capabilities' });
-    expect(caps.json<Envelope<{ dial: boolean; myExtension: string }>>().data).toMatchObject({
+    expect(
+      caps.json<Envelope<{ dial: boolean; myExtension: string; connected: boolean }>>().data,
+    ).toMatchObject({
       dial: true,
       myExtension: '1001',
+      connected: true,
     });
   }, 30_000);
 

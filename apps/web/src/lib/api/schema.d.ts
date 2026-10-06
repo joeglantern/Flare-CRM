@@ -3939,6 +3939,7 @@ export interface paths {
                             data: {
                                 /** @enum {string} */
                                 answer: "none" | "api" | "webrtc";
+                                connected: boolean;
                                 decline: boolean;
                                 dial: boolean;
                                 enabled: boolean;

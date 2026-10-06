@@ -96,6 +96,12 @@ export function AuthenticatedRuntime({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: qk.notifications() });
     }, [queryClient]),
   );
+  useSocketEvent(
+    'pbx:status',
+    useCallback<ServerToClientEvents['pbx:status']>(() => {
+      void queryClient.invalidateQueries({ queryKey: qk.cti() });
+    }, [queryClient]),
+  );
   useOnSocketConnect(
     useCallback(() => {
       void queryClient.invalidateQueries({ queryKey: qk.notifications() });

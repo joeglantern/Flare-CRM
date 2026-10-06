@@ -25,6 +25,8 @@ export interface CtiCapabilities {
   transfer: boolean;
   dial: boolean;
   myExtension: string | null;
+  /** The PBX event stream is up; everyone may read this, unlike the full status. */
+  connected: boolean;
 }
 
 export interface CtiStatus {
@@ -56,6 +58,8 @@ export const capabilitiesQuery = queryOptions({
   queryFn: async (): Promise<CtiCapabilities> =>
     unwrap(await api.GET('/api/v1/cti/capabilities')).data,
   staleTime: 60_000,
+  // The PBX state rides along, so it is kept fresh; pbx:status pushes changes in between.
+  refetchInterval: 30_000,
 });
 
 export function useCapabilities(): CtiCapabilities {
@@ -71,6 +75,7 @@ export function useCapabilities(): CtiCapabilities {
       transfer: false,
       dial: false,
       myExtension: null,
+      connected: false,
     }
   );
 }
