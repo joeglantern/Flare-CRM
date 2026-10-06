@@ -32,6 +32,7 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
             allowAgentPlayback: s.recording.allowAgentPlayback,
           },
           branding: s.branding,
+          supportContact: s.supportContact,
         },
       };
     },

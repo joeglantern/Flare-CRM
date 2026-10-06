@@ -7718,6 +7718,12 @@ export interface paths {
                                     sessionIdleMinutes: number;
                                 };
                                 sharedDirectory: boolean;
+                                supportContact: {
+                                    /** Format: email */
+                                    email: string;
+                                    name: string;
+                                    phone?: string;
+                                } | null;
                             };
                         };
                     };
@@ -7798,6 +7804,12 @@ export interface paths {
                             sessionIdleMinutes: number;
                         };
                         sharedDirectory?: boolean;
+                        supportContact?: {
+                            /** Format: email */
+                            email: string;
+                            name: string;
+                            phone?: string;
+                        } | null;
                     };
                 };
             };
@@ -7869,6 +7881,12 @@ export interface paths {
                                     sessionIdleMinutes: number;
                                 };
                                 sharedDirectory: boolean;
+                                supportContact: {
+                                    /** Format: email */
+                                    email: string;
+                                    name: string;
+                                    phone?: string;
+                                } | null;
                             };
                         };
                     };
@@ -8010,6 +8028,12 @@ export interface paths {
                                 security: {
                                     sessionIdleMinutes: number;
                                 };
+                                supportContact: {
+                                    /** Format: email */
+                                    email: string;
+                                    name: string;
+                                    phone?: string;
+                                } | null;
                             };
                         };
                     };

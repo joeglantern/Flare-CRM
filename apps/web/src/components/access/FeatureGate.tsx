@@ -7,7 +7,8 @@
 import type { FeatureKey, Permission } from '@crm/shared';
 import type { ReactNode } from 'react';
 import { ForbiddenState, PlanLockedState } from '@/components/data/states';
-import { useAccess, useEntitlements } from '@/providers/entitlements';
+import { useAccess } from '@/providers/entitlements';
+import { useSupportContact } from '@/providers/support-contact';
 import { usePermissions } from '@/providers/permissions';
 
 export function FeatureGate({
@@ -23,7 +24,7 @@ export function FeatureGate({
   children: ReactNode;
 }) {
   const access = useAccess(permission, feature);
-  const { ownerContact } = useEntitlements();
+  const ownerContact = useSupportContact();
   const perms = usePermissions();
 
   if (access.blockedBy === 'permission') {

@@ -2,7 +2,13 @@
  * Business settings stored in the `settings` table (docs/05 "settings" keys).
  * Each key has a Zod schema and a default; unknown keys are rejected.
  */
-import { AgentVisibility, brandingDefaults, brandingSettings, valuesOf } from '@crm/shared';
+import {
+  AgentVisibility,
+  brandingDefaults,
+  brandingSettings,
+  ownerContact,
+  valuesOf,
+} from '@crm/shared';
 import { z } from 'zod';
 
 export const settingSchemas = {
@@ -67,6 +73,12 @@ export const settingSchemas = {
     require2FAForAll: z.boolean(),
     sessionIdleMinutes: z.number().int().min(5).max(720),
   }),
+  /**
+   * Who people here should ask for help: the business's own admin or IT desk, entered in the CRM.
+   * Null falls back to the contact the plan names, which is the provider and often not who an
+   * agent should be calling about a locked screen.
+   */
+  supportContact: ownerContact.nullable(),
 } as const;
 
 export type SettingKey = keyof typeof settingSchemas;
@@ -107,6 +119,7 @@ export const settingDefaults: Settings = {
   matching: { allowSuffixMatch: true, suffixLength: 9 },
   branding: brandingDefaults,
   security: { require2FAForPrivileged: true, require2FAForAll: false, sessionIdleMinutes: 60 },
+  supportContact: null,
 };
 
 export const settingKeys = Object.keys(settingSchemas) as SettingKey[];
@@ -129,4 +142,5 @@ export const publicSettingsSchema = z.object({
   security: z.object({ sessionIdleMinutes: z.number().int() }),
   recording: z.object({ consentText: z.string(), allowAgentPlayback: z.boolean() }),
   branding: settingSchemas.branding,
+  supportContact: settingSchemas.supportContact,
 });

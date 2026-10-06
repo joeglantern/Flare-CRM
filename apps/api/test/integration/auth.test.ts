@@ -212,6 +212,45 @@ describe('auth & authorization', () => {
     expect(mapped?.userId).toBe(id);
   });
 
+  it('an admin sets who people should contact for help, and every user can read it', async () => {
+    const admin = await ctx.createUser({ role: 'admin' });
+    const agent = await ctx.createUser({ role: 'agent' });
+    const contact = { name: 'IT desk', email: 'it@example.com', phone: '0712000000' };
+
+    expect(
+      (
+        await ctx.as(agent, {
+          method: 'PATCH',
+          url: '/api/v1/settings',
+          payload: { supportContact: contact },
+        })
+      ).statusCode,
+    ).toBe(403);
+    const bad = await ctx.as(admin, {
+      method: 'PATCH',
+      url: '/api/v1/settings',
+      payload: { supportContact: { name: 'IT desk', email: 'not-an-email' } },
+    });
+    expect(bad.statusCode).toBe(422);
+
+    const saved = await ctx.as(admin, {
+      method: 'PATCH',
+      url: '/api/v1/settings',
+      payload: { supportContact: contact },
+    });
+    expect(saved.statusCode, saved.body).toBe(200);
+    const pub = await ctx.as(agent, { method: 'GET', url: '/api/v1/settings/public' });
+    expect(pub.json<{ data: { supportContact: unknown } }>().data.supportContact).toEqual(contact);
+
+    await ctx.as(admin, {
+      method: 'PATCH',
+      url: '/api/v1/settings',
+      payload: { supportContact: null },
+    });
+    const cleared = await ctx.as(agent, { method: 'GET', url: '/api/v1/settings/public' });
+    expect(cleared.json<{ data: { supportContact: unknown } }>().data.supportContact).toBeNull();
+  });
+
   it('rejects duplicate extensions and self role change', async () => {
     const admin = await ctx.createUser({ role: 'admin' });
     await ctx.createUser({ role: 'agent', extension: '2001' });

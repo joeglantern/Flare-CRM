@@ -20,6 +20,7 @@ import { qk } from '@/lib/query';
 import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
 import { cn } from '@/lib/utils';
+import { SupportContactCard } from './SupportContactCard';
 
 const SOURCE_NOTE: Record<string, string> = {
   console: 'Managed by your provider. Changes arrive here automatically.',
@@ -136,17 +137,7 @@ export function PlanSection() {
         </div>
       </Panel>
 
-      <Panel title="Who to contact">
-        <div className="text-base">
-          <div>{e.ownerContact.name}</div>
-          <a href={`mailto:${e.ownerContact.email}`}>{e.ownerContact.email}</a>
-          {e.ownerContact.phone !== undefined && (
-            <>
-              {' · '}
-              <a href={`tel:${e.ownerContact.phone}`}>{e.ownerContact.phone}</a>
-            </>
-          )}
-        </div>
+      <SupportContactCard>
         {e.link.configured && (
           <p className="mt-3 text-sm text-muted">
             Plan updates {e.link.connected ? 'are arriving' : 'are not arriving right now'}
@@ -165,7 +156,7 @@ export function PlanSection() {
             .
           </p>
         )}
-      </Panel>
+      </SupportContactCard>
     </>
   );
 }

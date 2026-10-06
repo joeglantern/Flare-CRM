@@ -3480,6 +3480,39 @@
                             "sessionIdleMinutes"
                           ],
                           "additionalProperties": false
+                        },
+                        "supportContact": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                "email": {
+                                  "type": "string",
+                                  "maxLength": 254,
+                                  "format": "email",
+                                  "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                                },
+                                "phone": {
+                                  "type": "string",
+                                  "minLength": 3,
+                                  "maxLength": 32
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "email"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -3495,7 +3528,8 @@
                         "contactSync",
                         "matching",
                         "branding",
-                        "security"
+                        "security",
+                        "supportContact"
                       ],
                       "additionalProperties": false
                     }
@@ -3793,6 +3827,39 @@
                       "require2FAForPrivileged",
                       "require2FAForAll",
                       "sessionIdleMinutes"
+                    ]
+                  },
+                  "supportContact": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120
+                          },
+                          "email": {
+                            "type": "string",
+                            "maxLength": 254,
+                            "format": "email",
+                            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          },
+                          "phone": {
+                            "type": "string",
+                            "minLength": 3,
+                            "maxLength": 32
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "email"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   }
                 },
@@ -4096,6 +4163,39 @@
                             "sessionIdleMinutes"
                           ],
                           "additionalProperties": false
+                        },
+                        "supportContact": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                "email": {
+                                  "type": "string",
+                                  "maxLength": 254,
+                                  "format": "email",
+                                  "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                                },
+                                "phone": {
+                                  "type": "string",
+                                  "minLength": 3,
+                                  "maxLength": 32
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "email"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -4111,7 +4211,8 @@
                         "contactSync",
                         "matching",
                         "branding",
-                        "security"
+                        "security",
+                        "supportContact"
                       ],
                       "additionalProperties": false
                     }
@@ -4277,6 +4378,39 @@
                             "palette"
                           ],
                           "additionalProperties": false
+                        },
+                        "supportContact": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                "email": {
+                                  "type": "string",
+                                  "maxLength": 254,
+                                  "format": "email",
+                                  "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                                },
+                                "phone": {
+                                  "type": "string",
+                                  "minLength": 3,
+                                  "maxLength": 32
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "email"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -4285,7 +4419,8 @@
                         "popup",
                         "security",
                         "recording",
-                        "branding"
+                        "branding",
+                        "supportContact"
                       ],
                       "additionalProperties": false
                     }

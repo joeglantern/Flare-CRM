@@ -6,7 +6,7 @@
  */
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
-import { brandingDefaults, type BrandingSettings } from '@crm/shared';
+import { brandingDefaults, type BrandingSettings, type OwnerContact } from '@crm/shared';
 import { api, unwrap } from '@/lib/api/client';
 import { applyBrandPalette, watchThemeForPalette } from '@/lib/branding';
 import { qk } from '@/lib/query';
@@ -24,6 +24,8 @@ export interface PublicSettings {
   security: { sessionIdleMinutes: number };
   recording: { consentText: string; allowAgentPlayback: boolean };
   branding: BrandingSettings;
+  /** Entered by an admin in Settings; null means "ask whoever the plan names". */
+  supportContact: OwnerContact | null;
 }
 
 export interface AppSettings extends PublicSettings {
@@ -43,6 +45,7 @@ const FALLBACK: AppSettings = {
   security: { sessionIdleMinutes: 60 },
   recording: { consentText: '', allowAgentPlayback: true },
   branding: brandingDefaults,
+  supportContact: null,
   timezone: DEFAULT_TZ,
   timezoneLabel: 'EAT',
 };

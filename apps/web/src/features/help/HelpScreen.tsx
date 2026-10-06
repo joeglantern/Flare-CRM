@@ -15,6 +15,7 @@ import { PageHeader } from '@/app/shell/TopBar';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { useSearchParam } from '@/lib/list-state';
 import { useEntitlements } from '@/providers/entitlements';
+import { useSupportContact } from '@/providers/support-contact';
 import { usePermissions } from '@/providers/permissions';
 import { cn } from '@/lib/utils';
 import { BlockView } from './blocks/Blocks';
@@ -33,7 +34,7 @@ export function useHelpAccess(): Access {
 export function HelpScreen() {
   usePageMeta([{ label: 'Help' }]);
   const access = useHelpAccess();
-  const { ownerContact } = useEntitlements();
+  const ownerContact = useSupportContact();
   const navigate = useNavigate();
   const [chapterId, setChapterId] = useSearchParam('chapter');
   const [sectionId] = useSearchParam('section');
