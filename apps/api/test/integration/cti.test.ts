@@ -396,6 +396,9 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       })
     ).json<Envelope<{ id: string; phones: { id: string }[] }>>().data;
     const socket = await agentSocket(agent);
+    // Someone not on the call: their missed-calls list must still learn a callback was placed.
+    const onlooker = await agentSocket(admin);
+    const placed = waitFor<{ callId: string; direction: string }>(onlooker, 'calls:changed');
     const dialing = waitFor<{ pbxCallId: string }>(socket, 'call:dialing');
     const res = await ctx.as(agent, {
       method: 'POST',
@@ -406,6 +409,7 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     const dial = res.json<Envelope<{ callId: string; pbxCallId: string; callee: string }>>().data;
     expect(dial.callee).toBe('0745000111');
     expect((await dialing).pbxCallId).toBe(dial.pbxCallId);
+    expect(await placed).toMatchObject({ callId: dial.callId, direction: 'outbound' });
     const sent = pbx.requestsTo('/openapi/v1.0/call/dial')[0]?.body as {
       caller: string;
       callee: string;
@@ -414,6 +418,7 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
 
     pbx.emit(outboundRinging(dial.pbxCallId, '1001', '0745000111'));
     const logged = waitFor<{ status: string; contactId: string }>(socket, 'call:logged');
+    const loggedForAll = waitFor<{ callId: string }>(onlooker, 'calls:changed');
     pbx.emit(
       cdr(dial.pbxCallId, {
         from: '1001',
@@ -425,6 +430,7 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       }),
     );
     expect(await logged).toMatchObject({ status: 'completed', contactId: contact.id });
+    expect((await loggedForAll).callId).toBe(dial.callId);
     const rows = await ctx.app.db.call.findMany({ where: { pbxCallId: dial.pbxCallId } });
     expect(rows).toHaveLength(1); // the pre-seeded row was reused, not duplicated
     expect(rows[0]).toMatchObject({

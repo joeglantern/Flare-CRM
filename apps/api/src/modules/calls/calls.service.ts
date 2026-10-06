@@ -31,6 +31,7 @@ import { newId } from '../../lib/ids.js';
 import { isoOrNull } from '../../lib/object.js';
 import { SHAPES, scopeWhere } from '../../lib/scope.js';
 import type { AuditContext } from '../audit/audit.service.js';
+import { rooms } from '../../lib/realtime.js';
 
 export const callSelect = {
   id: true,
@@ -500,6 +501,10 @@ export class CallsService {
     this.app.realtime
       .to(`user:${actor.id}`)
       .emit('call:dialing', { at: new Date().toISOString(), callId, pbxCallId, callee });
+    // A call placed to a number that rang in unanswered is its callback: say so to every screen.
+    this.app.realtime
+      .to(rooms.all)
+      .emit('calls:changed', { at: new Date().toISOString(), callId, direction: 'outbound' });
     // After call:dialing, so a refusal that already arrived replaces the card it just opened.
     const settled = await cti.machine.settleEarlyEnd(pbxCallId);
     if (!settled) {

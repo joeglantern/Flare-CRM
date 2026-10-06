@@ -862,6 +862,10 @@ export class CallStateMachine {
           recordingStatus,
         });
       }
+    }
+    // Every list of calls, on every screen, including a callback ticking off a missed call.
+    this.app.realtime.to(rooms.all).emit('calls:changed', { at: nowIso(), callId, direction });
+    if (source !== 'reconcile' || state !== null) {
       if (
         direction === 'inbound' &&
         (status === 'missed' || status === 'abandoned' || status === 'voicemail')

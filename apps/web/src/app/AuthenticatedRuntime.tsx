@@ -10,7 +10,7 @@
 import type { ServerToClientEvents } from '@crm/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { useCallback, useEffect, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useCallStore } from '@/features/telephony/call-store';
 import { onUnauthenticated } from '@/lib/api/client';
 import { authClient } from '@/lib/auth/client';
@@ -80,6 +80,20 @@ export function AuthenticatedRuntime({ children }: { children: ReactNode }) {
   );
 
   // cache coherence
+  // Any call logged or placed, anywhere: the call lists, the missed calls and whether each was
+  // called back. Calls come in bursts, so a burst refetches once.
+  const callsStale = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useSocketEvent(
+    'calls:changed',
+    useCallback<ServerToClientEvents['calls:changed']>(() => {
+      if (callsStale.current !== null) return;
+      callsStale.current = setTimeout(() => {
+        callsStale.current = null;
+        void queryClient.invalidateQueries({ queryKey: qk.list('calls') });
+        void queryClient.invalidateQueries({ queryKey: qk.list('missed-calls') });
+      }, 400);
+    }, [queryClient]),
+  );
   useSocketEvent(
     'entity:changed',
     useCallback<ServerToClientEvents['entity:changed']>(

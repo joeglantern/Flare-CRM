@@ -84,6 +84,16 @@ export const serverEvents = {
     transferredTo: z.string().optional(),
   }),
   'call:ended': z.object({ at, callId: uuid.nullable(), pbxCallId: z.string(), endedAt: at }),
+  /**
+   * To everyone: the call log changed (a call was logged, or one placed). Carries no number or
+   * name, only enough to know a list is stale: a missed or abandoned call shows "called back" on
+   * every screen the moment somebody returns it, not at the next refresh.
+   */
+  'calls:changed': z.object({
+    at,
+    callId: uuid,
+    direction: z.enum(['inbound', 'outbound', 'internal']),
+  }),
   'call:logged': z.object({
     at,
     callId: uuid,
