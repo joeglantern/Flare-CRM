@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { presetRange, rangeLabel } from './FilterBar';
+import { rangeLabel } from '@/lib/range-label';
+import { presetRange } from './FilterBar';
 
 describe('the report and call list date range', () => {
   it('has a last 24 hours preset that ends now', () => {

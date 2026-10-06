@@ -19,9 +19,9 @@ import {
   FilterBar,
   FilterChip,
   presetRange,
-  rangeLabel,
   type DateRange,
 } from '@/components/filters/FilterBar';
+import { rangeLabel } from '@/lib/range-label';
 import { ExportDialog } from '@/components/filters/ExportDialog';
 import { PageHeader } from '@/app/shell/TopBar';
 import { usePageMeta } from '@/app/shell/page-meta';

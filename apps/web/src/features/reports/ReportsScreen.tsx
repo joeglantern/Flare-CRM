@@ -23,12 +23,8 @@ import { DataTable, type Column } from '@/components/data/DataTable';
 import { DateTime, Duration, Money } from '@/components/data/formatters';
 import { EmptyState, ErrorState, ForbiddenState } from '@/components/data/states';
 import { Panel } from '@/components/entity/EntityHeader';
-import {
-  DateRangePicker,
-  presetRange,
-  rangeLabel,
-  type DateRange,
-} from '@/components/filters/FilterBar';
+import { DateRangePicker, presetRange, type DateRange } from '@/components/filters/FilterBar';
+import { rangeLabel } from '@/lib/range-label';
 import { ExportDialog } from '@/components/filters/ExportDialog';
 import { PageHeader } from '@/app/shell/TopBar';
 import { usePageMeta } from '@/app/shell/page-meta';
