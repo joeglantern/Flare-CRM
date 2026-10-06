@@ -23,7 +23,12 @@ import { DataTable, type Column } from '@/components/data/DataTable';
 import { DateTime, Duration, Money } from '@/components/data/formatters';
 import { EmptyState, ErrorState, ForbiddenState } from '@/components/data/states';
 import { Panel } from '@/components/entity/EntityHeader';
-import { DateRangePicker, presetRange, type DateRange } from '@/components/filters/FilterBar';
+import {
+  DateRangePicker,
+  presetRange,
+  rangeLabel,
+  type DateRange,
+} from '@/components/filters/FilterBar';
 import { ExportDialog } from '@/components/filters/ExportDialog';
 import { PageHeader } from '@/app/shell/TopBar';
 import { usePageMeta } from '@/app/shell/page-meta';
@@ -126,7 +131,7 @@ export function ReportsScreen() {
             : 'calls'
         }
         filters={filters}
-        filterSummary={`${range.from.slice(0, 10)} to ${range.to.slice(0, 10)} · export gives the rows behind this chart, as CSV`}
+        filterSummary={`${rangeLabel(range)} · export gives the rows behind this chart, as CSV`}
       />
     </div>
   );

@@ -19,6 +19,7 @@ import {
   FilterBar,
   FilterChip,
   presetRange,
+  rangeLabel,
   type DateRange,
 } from '@/components/filters/FilterBar';
 import { ExportDialog } from '@/components/filters/ExportDialog';
@@ -416,7 +417,7 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
         entity="calls"
         filters={filters}
         estimatedCount={query.data?.page.total}
-        filterSummary={`${range.from.slice(0, 10)} → ${range.to.slice(0, 10)}${missed ? ' · missed · inbound' : ''}`}
+        filterSummary={`${rangeLabel(range)}${missed ? ' · missed · inbound' : ''}`}
       />
     </div>
   );

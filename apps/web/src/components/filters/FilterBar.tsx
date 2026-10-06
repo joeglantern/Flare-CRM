@@ -13,6 +13,7 @@ import { Button, IconButton } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Popover } from '@/components/ui/Menu';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { datetimeFromLocalInput, datetimeToLocalInput } from '@/lib/datetime-input';
 import { cn } from '@/lib/utils';
 
 export interface FilterOption {
@@ -197,7 +198,7 @@ export function SavedViews({ storageKey }: { storageKey: string }) {
       >
         Views
       </Button>
-      <Popover open={open} onOpenChange={setOpen} anchor={anchor} width={260}>
+      <Popover open={open} onOpenChange={setOpen} anchor={anchor} width={280}>
         <div className="flex flex-col gap-1 p-1">
           {views.length === 0 && (
             <p className="px-2 py-3 text-sm text-muted">
@@ -262,7 +263,7 @@ export function SavedViews({ storageKey }: { storageKey: string }) {
   );
 }
 
-export type RangePreset = 'today' | '7d' | '30d' | 'month' | 'quarter' | 'custom';
+export type RangePreset = '24h' | 'today' | '7d' | '30d' | 'month' | 'quarter' | 'custom';
 
 export interface DateRange {
   from: string;
@@ -272,6 +273,13 @@ export interface DateRange {
 
 export function presetRange(preset: RangePreset): DateRange {
   const now = new Date();
+  if (preset === '24h') {
+    return {
+      from: new Date(now.getTime() - 24 * 3_600_000).toISOString(),
+      to: now.toISOString(),
+      preset,
+    };
+  }
   const end = new Date(now);
   end.setHours(23, 59, 59, 999);
   const start = new Date(now);
@@ -284,6 +292,29 @@ export function presetRange(preset: RangePreset): DateRange {
     start.setDate(1);
   }
   return { from: start.toISOString(), to: end.toISOString(), preset };
+}
+
+/**
+ * A range as people read it, in local time and with the time of day when it is not a whole day.
+ * The ISO text sliced to ten characters used to stand in for this, which is the UTC date: in
+ * Nairobi a range starting at local midnight read as the day before.
+ */
+export function rangeLabel(range: DateRange): string {
+  const at = (iso: string, endOfDay: boolean) => {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    const whole = endOfDay
+      ? d.getHours() === 23 && d.getMinutes() === 59
+      : d.getHours() === 0 && d.getMinutes() === 0;
+    return whole
+      ? date
+      : `${date} ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+  };
+  return `${at(range.from, false)} → ${at(range.to, true)}`;
 }
 
 export function DateRangePicker({
@@ -302,15 +333,15 @@ export function DateRangePicker({
   const anchor = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
   const presets: { id: RangePreset; label: string }[] = [
+    { id: '24h', label: 'Last 24 hours' },
     { id: 'today', label: 'Today' },
     { id: '7d', label: 'Last 7 days' },
     { id: '30d', label: 'Last 30 days' },
     { id: 'month', label: 'This month' },
     { id: 'quarter', label: 'This quarter' },
   ];
-  const label =
-    presets.find((p) => p.id === value.preset)?.label ??
-    `${value.from.slice(0, 10)} → ${value.to.slice(0, 10)}`;
+  const label = presets.find((p) => p.id === value.preset)?.label ?? rangeLabel(value);
+  const backwards = Date.parse(value.from) > Date.parse(value.to);
 
   const control = (
     <Button
@@ -352,29 +383,31 @@ export function DateRangePicker({
               {value.preset === p.id && <Check size={14} className="text-flare" aria-hidden />}
             </button>
           ))}
-          <div className="mt-1 grid grid-cols-2 gap-2 border-t border-border pt-2">
+          {/* Date and time of day, both in local time; an empty time is the whole day. */}
+          <div className="mt-1 flex flex-col gap-2 border-t border-border pt-2">
             <Input
-              type="date"
+              type="datetime-local"
               label="From"
-              value={value.from.slice(0, 10)}
+              value={datetimeToLocalInput(value.from)}
               onChange={(e) => {
-                onChange({
-                  ...value,
-                  from: new Date(`${e.target.value}T00:00:00`).toISOString(),
-                  preset: 'custom',
-                });
+                const from = datetimeFromLocalInput(e.target.value);
+                if (from !== null) onChange({ ...value, from, preset: 'custom' });
               }}
             />
             <Input
-              type="date"
+              type="datetime-local"
               label="To"
-              value={value.to.slice(0, 10)}
+              value={datetimeToLocalInput(value.to)}
+              error={backwards ? 'Ends before it starts' : undefined}
               onChange={(e) => {
-                onChange({
-                  ...value,
-                  to: new Date(`${e.target.value}T23:59:59`).toISOString(),
-                  preset: 'custom',
-                });
+                const to = datetimeFromLocalInput(e.target.value);
+                // The field holds minutes; the range takes in the whole of the last one.
+                if (to !== null)
+                  onChange({
+                    ...value,
+                    to: new Date(Date.parse(to) + 59_999).toISOString(),
+                    preset: 'custom',
+                  });
               }}
             />
           </div>
