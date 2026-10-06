@@ -69,6 +69,10 @@ export function startProcessors(app: FastifyInstance): RunningWorkers {
     await tasks.fireReminder(job.data.taskId);
   });
 
+  register(QUEUES.taskOverdue, 1, async () => {
+    await tasks.notifyOverdue();
+  });
+
   register(QUEUES.csvImport, 1, async (job) => {
     await runCsvImport(app, job.data.importJobId);
   });

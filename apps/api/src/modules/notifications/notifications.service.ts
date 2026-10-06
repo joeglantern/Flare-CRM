@@ -18,6 +18,7 @@ export const DEFAULT_PREFERENCES: Record<NotificationType, { inApp: boolean; ema
   task_due: { inApp: true, email: true },
   task_assigned: { inApp: true, email: true },
   task_declined: { inApp: true, email: true },
+  task_overdue: { inApp: true, email: true },
   deal_stage: { inApp: true, email: false },
   mention: { inApp: true, email: true },
   system: { inApp: true, email: false },

@@ -37,7 +37,7 @@ async function land(href: string) {
 
 describe('notificationHref for tasks', () => {
   it('opens the task a hand-back or an assignment is about', async () => {
-    for (const type of ['task_assigned', 'task_declined', 'task_due'] as const) {
+    for (const type of ['task_assigned', 'task_declined', 'task_due', 'task_overdue'] as const) {
       const href = notificationHref(
         notification(type, { taskId: TASK_ID, url: `/tasks?taskId=${TASK_ID}` }),
       );

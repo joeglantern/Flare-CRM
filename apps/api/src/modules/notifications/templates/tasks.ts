@@ -1,5 +1,6 @@
 /**
- * What a task says by email: that one was given to you, and that one you gave was handed back.
+ * What a task says by email: that one was given to you, that one you gave was handed back, and
+ * that one you gave is past due and not done.
  *
  * Both carry the same four things a reader needs to act without opening the app first: the task,
  * when it is due, who did this and why. The layout and escaping live in `renderEmail`.
@@ -98,6 +99,33 @@ export function taskHandedBackEmail(input: {
     sign: place ?? 'Flare CRM',
     reason:
       'You received it because you gave this task to someone and they handed it back. You can turn these emails off in Preferences on the Notifications page.',
+    sender: input.installation.sender,
+  });
+}
+
+export function taskOverdueEmail(input: {
+  to: TaskMailRecipient;
+  task: TaskMailTask;
+  assignee: string;
+  installation: Installation;
+}): MailMessage {
+  const place = input.installation.sender.name;
+  return renderEmail({
+    to: input.to.email,
+    subject: `Not done yet: ${input.task.title}`,
+    preheader: `A task you gave ${input.assignee} is past its due time and still open.`,
+    heading: `${input.assignee} has not finished a task you gave them.`,
+    paragraphs: [
+      'It was due at the time below and is still open. You can check in with them, move the due date, or give it to someone else.',
+    ],
+    facts: [
+      ...taskFacts(input.task, input.to.timezone),
+      { label: 'Assigned to', value: input.assignee },
+    ],
+    button: { label: 'Open the task', url: taskUrl(input.installation.appUrl, input.task.id) },
+    sign: place ?? 'Flare CRM',
+    reason:
+      'You received it because you gave this task to someone and its due time passed. You can turn these emails off in Preferences on the Notifications page.',
     sender: input.installation.sender,
   });
 }

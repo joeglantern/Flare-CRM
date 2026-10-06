@@ -24060,6 +24060,7 @@
                               "task_due",
                               "task_assigned",
                               "task_declined",
+                              "task_overdue",
                               "deal_stage",
                               "mention",
                               "system"
@@ -24236,6 +24237,7 @@
                             "task_due",
                             "task_assigned",
                             "task_declined",
+                            "task_overdue",
                             "deal_stage",
                             "mention",
                             "system"
@@ -24325,6 +24327,7 @@
                               "task_due",
                               "task_assigned",
                               "task_declined",
+                              "task_overdue",
                               "deal_stage",
                               "mention",
                               "system"
@@ -24383,6 +24386,7 @@
                             "task_due",
                             "task_assigned",
                             "task_declined",
+                            "task_overdue",
                             "deal_stage",
                             "mention",
                             "system"
@@ -24433,6 +24437,7 @@
                               "task_due",
                               "task_assigned",
                               "task_declined",
+                              "task_overdue",
                               "deal_stage",
                               "mention",
                               "system"

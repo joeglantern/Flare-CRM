@@ -7,6 +7,7 @@ import type { MailMessage } from '../plugins/mailer.js';
 export const QUEUES = {
   email: 'email',
   taskReminder: 'task.reminder',
+  taskOverdue: 'task.overdue',
   recordingDownload: 'recording.download',
   ctiEvent: 'cti.event',
   ctiReconcile: 'cti.reconcile',
@@ -24,6 +25,7 @@ export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 export interface JobPayloads {
   [QUEUES.email]: MailMessage;
   [QUEUES.taskReminder]: { taskId: string };
+  [QUEUES.taskOverdue]: Record<string, never>;
   [QUEUES.recordingDownload]: { callId: string; fileName: string };
   [QUEUES.ctiEvent]: { raw: unknown; source: 'webhook' | 'websocket'; receivedAt: string };
   [QUEUES.ctiReconcile]: { since?: string };

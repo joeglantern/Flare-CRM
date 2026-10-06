@@ -38,6 +38,7 @@ const TYPE_META: Record<string, { icon: LucideIcon; color: string; label: string
   task_due: { icon: Clock, color: 'text-warning', label: 'Task due' },
   task_assigned: { icon: SquareCheck, color: 'text-muted', label: 'Task' },
   task_declined: { icon: Undo2, color: 'text-warning', label: 'Handed back' },
+  task_overdue: { icon: Clock, color: 'text-danger', label: 'Not done yet' },
   deal_stage: { icon: Kanban, color: 'text-muted', label: 'Deal' },
   mention: { icon: AtSign, color: 'text-muted', label: 'Mention' },
   system: { icon: Info, color: 'text-muted', label: 'System' },

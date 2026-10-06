@@ -34,6 +34,10 @@ async function main(): Promise<void> {
       { pattern: '0 30 2 * * *' },
       { name: 'scheduled', data: {} },
     );
+  // A task past due and unfinished is reported to whoever gave it within a minute of its deadline.
+  await app.queues
+    .get(QUEUES.taskOverdue)
+    .upsertJobScheduler('task-overdue-1m', { every: 60_000 }, { name: 'scheduled', data: {} });
 
   /*
    * The owner console link lives in this process and nowhere else: the api process serves people

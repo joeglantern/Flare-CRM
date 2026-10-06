@@ -6533,7 +6533,7 @@ export interface paths {
                                 readAt: string | null;
                                 title: string;
                                 /** @enum {string} */
-                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
+                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "task_overdue" | "deal_stage" | "mention" | "system";
                             }[];
                             page: {
                                 cursor: string | null;
@@ -6591,7 +6591,7 @@ export interface paths {
                                 readAt: string | null;
                                 title: string;
                                 /** @enum {string} */
-                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
+                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "task_overdue" | "deal_stage" | "mention" | "system";
                             };
                         };
                     };
@@ -6631,7 +6631,7 @@ export interface paths {
                                 email: boolean;
                                 inApp: boolean;
                                 /** @enum {string} */
-                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
+                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "task_overdue" | "deal_stage" | "mention" | "system";
                             }[];
                         };
                     };
@@ -6652,7 +6652,7 @@ export interface paths {
                             email: boolean;
                             inApp: boolean;
                             /** @enum {string} */
-                            type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
+                            type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "task_overdue" | "deal_stage" | "mention" | "system";
                         }[];
                     };
                 };
@@ -6669,7 +6669,7 @@ export interface paths {
                                 email: boolean;
                                 inApp: boolean;
                                 /** @enum {string} */
-                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "deal_stage" | "mention" | "system";
+                                type: "call_incoming" | "call_missed" | "message_new" | "task_due" | "task_assigned" | "task_declined" | "task_overdue" | "deal_stage" | "mention" | "system";
                             }[];
                         };
                     };

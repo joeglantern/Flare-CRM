@@ -34,6 +34,7 @@ import { QUEUES } from '../../jobs/queues.js';
 import type { AuditContext } from '../audit/audit.service.js';
 import {
   taskAssignedEmail,
+  taskOverdueEmail,
   taskHandedBackEmail,
   type TaskMailTask,
 } from '../notifications/templates/tasks.js';
@@ -474,7 +475,10 @@ export class TasksService {
             ? { status: body.status, completedAt: body.status === 'done' ? new Date() : null }
             : {}),
           ...(body.priority !== undefined ? { priority: body.priority } : {}),
-          ...(body.dueAt !== undefined ? { dueAt: body.dueAt ? new Date(body.dueAt) : null } : {}),
+          ...(body.dueAt !== undefined
+            ? // A new deadline earns its own notice to whoever gave the task.
+              { dueAt: body.dueAt ? new Date(body.dueAt) : null, overdueNotifiedAt: null }
+            : {}),
           ...(body.remindAt !== undefined ? { remindAt } : {}),
           ...(reassigning
             ? {
@@ -769,6 +773,56 @@ export class TasksService {
     });
     if (before.reminderJobId)
       await this.app.queues.remove(QUEUES.taskReminder, before.reminderJobId);
+  }
+
+  /**
+   * Tells the person who gave a task, once, that it passed its due time unfinished. Run every
+   * minute by the worker. A task someone set for themselves is left alone: they have their own
+   * reminder, and telling them about it twice is noise.
+   *
+   * The row is marked before the notice goes out, by a conditional update, so two workers racing
+   * over the same task send it once; a failure in between costs a notice, never doubles one.
+   */
+  async notifyOverdue(now = new Date()): Promise<number> {
+    const rows = await this.db.task.findMany({
+      where: {
+        dueAt: { lt: now },
+        overdueNotifiedAt: null,
+        status: { in: ['open', 'in_progress'] },
+        deletedAt: null,
+        assigneeId: { not: null },
+      },
+      select: taskSelect,
+      orderBy: { dueAt: 'asc' },
+      take: 200,
+    });
+    let sent = 0;
+    for (const row of rows) {
+      const giver = giverOf(row);
+      const claimed = await this.db.task.updateMany({
+        where: { id: row.id, overdueNotifiedAt: null },
+        data: { overdueNotifiedAt: now },
+      });
+      if (claimed.count === 0) continue;
+      if (giver === null || row.assigneeId === null || giver === row.assigneeId) continue;
+      const assignee = await this.nameOf(row.assigneeId);
+      const task = this.mailTask(row);
+      await this.app.notifications.notify({
+        userId: giver,
+        type: 'task_overdue',
+        title: `Not done yet: ${row.title}`,
+        body: `${assignee} has not finished it, and it was due.`,
+        data: {
+          taskId: row.id,
+          url: taskPath(row.id),
+          assigneeId: row.assigneeId,
+          dueAt: row.dueAt?.toISOString() ?? null,
+        },
+        email: (to, installation) => taskOverdueEmail({ to, task, assignee, installation }),
+      });
+      sent++;
+    }
+    return sent;
   }
 
   /** Called by the worker when a reminder fires. */

@@ -435,6 +435,9 @@ model Task {
   remindAt       DateTime? @map("remind_at") @db.Timestamptz(3)
   reminderJobId  String?   @map("reminder_job_id")
   reminderSentAt DateTime? @map("reminder_sent_at") @db.Timestamptz(3)
+  /// When the person who gave the task was told it is past due and not done. Cleared when the
+  /// due date moves, so a new deadline gets its own notice.
+  overdueNotifiedAt DateTime? @map("overdue_notified_at") @db.Timestamptz(3)
   assigneeId     String?   @map("assignee_id") @db.Uuid
   contactId      String?   @map("contact_id") @db.Uuid
   dealId         String?   @map("deal_id") @db.Uuid
@@ -461,6 +464,7 @@ model Task {
   @@index([dealId])
   @@index([deletedAt])
   @@index([assignedById])
+  @@index([dueAt, overdueNotifiedAt])
   @@index([createdById])
   @@map("tasks")
 }
