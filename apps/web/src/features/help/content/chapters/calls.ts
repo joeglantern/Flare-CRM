@@ -68,17 +68,7 @@ export const calls: Chapter = {
       blocks: [
         {
           type: 'p',
-          text: 'Click any phone number in the CRM to dial it. Your desk phone rings first; when you pick up, the CRM connects the call.',
-        },
-        {
-          type: 'p',
-          text: 'For a number that is not in the CRM, use the dialpad. It shows the exact digits it will send to the phone system, including any outside line prefix, so a misdial is visible before it happens.',
-        },
-        {
-          type: 'figure',
-          name: 'dialpad',
-          alt: 'The dialpad with a number entered and recent calls beside it',
-          caption: 'The dialpad.',
+          text: 'Click the phone icon next to any number in the CRM to call it straight away. Your desk phone rings first; when you pick up, the CRM connects the call.',
         },
         {
           type: 'callout',

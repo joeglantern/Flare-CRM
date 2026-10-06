@@ -29,7 +29,6 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppTasksRouteImport } from './routes/_app/tasks'
 import { Route as AppCallsIndexRouteImport } from './routes/_app/calls/index'
 import { Route as AppCallsCallIdRouteImport } from './routes/_app/calls/$callId'
-import { Route as AppCallsDialpadRouteImport } from './routes/_app/calls/dialpad'
 import { Route as AppCallsMissedRouteImport } from './routes/_app/calls/missed'
 import { Route as AppCompaniesIndexRouteImport } from './routes/_app/companies/index'
 import { Route as AppCompaniesCompanyIdRouteImport } from './routes/_app/companies/$companyId'
@@ -144,11 +143,6 @@ const AppCallsCallIdRoute = AppCallsCallIdRouteImport.update({
   path: '/calls/$callId',
   getParentRoute: () => AppRoute,
 } as any)
-const AppCallsDialpadRoute = AppCallsDialpadRouteImport.update({
-  id: '/calls/dialpad',
-  path: '/calls/dialpad',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppCallsMissedRoute = AppCallsMissedRouteImport.update({
   id: '/calls/missed',
   path: '/calls/missed',
@@ -239,7 +233,6 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRoute
   '/tasks': typeof AppTasksRoute
   '/calls/$callId': typeof AppCallsCallIdRoute
-  '/calls/dialpad': typeof AppCallsDialpadRoute
   '/calls/missed': typeof AppCallsMissedRoute
   '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AppContactsContactIdRoute
@@ -275,7 +268,6 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/tasks': typeof AppTasksRoute
   '/calls/$callId': typeof AppCallsCallIdRoute
-  '/calls/dialpad': typeof AppCallsDialpadRoute
   '/calls/missed': typeof AppCallsMissedRoute
   '/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/contacts/$contactId': typeof AppContactsContactIdRoute
@@ -313,7 +305,6 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/tasks': typeof AppTasksRoute
   '/_app/calls/$callId': typeof AppCallsCallIdRoute
-  '/_app/calls/dialpad': typeof AppCallsDialpadRoute
   '/_app/calls/missed': typeof AppCallsMissedRoute
   '/_app/companies/$companyId': typeof AppCompaniesCompanyIdRoute
   '/_app/contacts/$contactId': typeof AppContactsContactIdRoute
@@ -351,7 +342,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/calls/$callId'
-    | '/calls/dialpad'
     | '/calls/missed'
     | '/companies/$companyId'
     | '/contacts/$contactId'
@@ -387,7 +377,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/calls/$callId'
-    | '/calls/dialpad'
     | '/calls/missed'
     | '/companies/$companyId'
     | '/contacts/$contactId'
@@ -424,7 +413,6 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/tasks'
     | '/_app/calls/$callId'
-    | '/_app/calls/dialpad'
     | '/_app/calls/missed'
     | '/_app/companies/$companyId'
     | '/_app/contacts/$contactId'
@@ -597,13 +585,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCallsCallIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/calls/dialpad': {
-      id: '/_app/calls/dialpad'
-      path: '/calls/dialpad'
-      fullPath: '/calls/dialpad'
-      preLoaderRoute: typeof AppCallsDialpadRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/calls/missed': {
       id: '/_app/calls/missed'
       path: '/calls/missed'
@@ -715,7 +696,6 @@ interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppTasksRoute: typeof AppTasksRoute
   AppCallsCallIdRoute: typeof AppCallsCallIdRoute
-  AppCallsDialpadRoute: typeof AppCallsDialpadRoute
   AppCallsMissedRoute: typeof AppCallsMissedRoute
   AppCompaniesCompanyIdRoute: typeof AppCompaniesCompanyIdRoute
   AppContactsContactIdRoute: typeof AppContactsContactIdRoute
@@ -743,7 +723,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppTasksRoute: AppTasksRoute,
   AppCallsCallIdRoute: AppCallsCallIdRoute,
-  AppCallsDialpadRoute: AppCallsDialpadRoute,
   AppCallsMissedRoute: AppCallsMissedRoute,
   AppCompaniesCompanyIdRoute: AppCompaniesCompanyIdRoute,
   AppContactsContactIdRoute: AppContactsContactIdRoute,

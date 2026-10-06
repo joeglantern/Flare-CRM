@@ -29,8 +29,6 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Kbd } from '@/components/ui/Kbd';
 import { Spinner } from '@/components/ui/Loading';
 import { useGlobalSearch, type SearchHit } from '@/features/search/api';
-import { useDialer } from '@/features/telephony/dialer';
-import { formatPhone } from '@/lib/format';
 import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
 import { useSettings } from '@/providers/settings';
@@ -66,7 +64,6 @@ export function CommandPalette({
   const perms = usePermissions();
   const { features } = useEntitlements();
   const settings = useSettings();
-  const dialer = useDialer();
   const [query, setQuery] = useState(initialQuery);
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -234,26 +231,6 @@ export function CommandPalette({
     const q = query.trim().toLowerCase();
     const out: Row[] = [];
 
-    const dialNumber = search.data?.dialable ?? null;
-    if (dialNumber !== null && dialer.canDial) {
-      out.push({ kind: 'header', id: 'h-dial', label: 'Call' });
-      out.push({
-        kind: 'command',
-        id: 'dial-typed',
-        command: {
-          id: 'dial-typed',
-          label: `Call ${formatPhone(dialNumber)}`,
-          icon: Phone,
-          keywords: 'call dial',
-          meta: dialNumber,
-          run: () => {
-            onOpenChange(false);
-            dialer.dial({ e164: dialNumber });
-          },
-        },
-      });
-    }
-
     for (const g of search.data?.groups ?? []) {
       out.push({ kind: 'header', id: `h-${g.kind}`, label: g.label });
       for (const hit of g.hits) out.push({ kind: 'hit', id: `${g.kind}-${hit.id}`, hit });
@@ -268,7 +245,7 @@ export function CommandPalette({
       for (const c of matched.slice(0, 8)) out.push({ kind: 'command', id: c.id, command: c });
     }
     return out;
-  }, [commands, query, search.data, dialer, onOpenChange]);
+  }, [commands, query, search.data]);
 
   const selectable = rows.filter((r) => r.kind !== 'header');
 

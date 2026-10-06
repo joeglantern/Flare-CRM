@@ -5,7 +5,7 @@
  */
 import type { CallDto } from '@crm/shared';
 import { useNavigate } from '@tanstack/react-router';
-import { Check, Download, Grid3x3, Phone, UserPlus } from 'lucide-react';
+import { Check, Download, Phone, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -25,7 +25,6 @@ import { ExportDialog } from '@/components/filters/ExportDialog';
 import { PageHeader } from '@/app/shell/TopBar';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { useDispositions } from '@/features/telephony/api';
-import { Dialpad } from '@/features/telephony/Dialpad';
 import { TestCallButton } from '@/features/telephony/TestCallButton';
 import { ContactFormDrawer } from '@/features/contacts/ContactForm';
 import { linkTo } from '@/lib/links';
@@ -47,7 +46,6 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
   const dispositions = useDispositions();
   const list = useListState<CallFilters>({ sort: '-startedAt' });
   const [range, setRange] = useState<DateRange>(() => presetRange('30d'));
-  const [dialpadOpen, setDialpadOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [saving, setSaving] = useState<CallDto | null>(null);
   const canCreateContact = perms.has('contact:create');
@@ -256,17 +254,6 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
                 Export
               </Button>
             )}
-            {perms.has('call:dial') && (
-              <Button
-                variant="primary"
-                icon={Grid3x3}
-                onClick={() => {
-                  setDialpadOpen(true);
-                }}
-              >
-                Dialpad
-              </Button>
-            )}
           </>
         }
       />
@@ -403,21 +390,10 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
                 title: 'No calls in this range',
                 description:
                   'Calls appear here the moment the PBX logs them. Inbound, outbound, missed and internal.',
-                ...(perms.has('call:dial')
-                  ? {
-                      primaryAction: {
-                        label: 'Open dialpad',
-                        onClick: () => {
-                          setDialpadOpen(true);
-                        },
-                      },
-                    }
-                  : {}),
               }
         }
       />
 
-      <Dialpad open={dialpadOpen} onOpenChange={setDialpadOpen} />
       {/*
         Every earlier call from the same number takes the new name as well; the server does that
         when the contact is saved, and the list refreshes when the save lands.

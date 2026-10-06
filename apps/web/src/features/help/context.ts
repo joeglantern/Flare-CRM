@@ -11,7 +11,6 @@ export interface HelpTarget {
 
 const PATHS: { prefix: string; target: HelpTarget }[] = [
   { prefix: '/calls/missed', target: { chapter: 'calls', section: 'missed' } },
-  { prefix: '/calls/dialpad', target: { chapter: 'calls', section: 'calling-out' } },
   { prefix: '/calls/', target: { chapter: 'calls', section: 'history' } },
   { prefix: '/calls', target: { chapter: 'calls', section: 'history' } },
   { prefix: '/live-calls', target: { chapter: 'live-calls' } },

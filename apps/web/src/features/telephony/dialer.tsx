@@ -1,10 +1,11 @@
 /**
- * DialButton and DialDialog (Component Inventory · Telephony), used in 30+ places.
+ * DialButton (Component Inventory · Telephony), used in 30+ places.
  *
- * The confirmation shows the literal dialable string, which is what makes a prefix
- * misconfiguration obvious on the first try (Flows · Click to dial). Do-not-call is blocked here
- * with an override only for `contact:override_dnc`, and every dial control is disabled with a
- * reason when the PBX is disconnected.
+ * Clicking the phone icon calls at once: the desk phone rings first, so that ring is the
+ * confirmation, and a dialog before it was one click too many for a number already on screen.
+ * Do-not-call is the one exception: it still stops at a dialog, with an override only for
+ * `contact:override_dnc`. Every dial control is disabled with a reason when the PBX is
+ * disconnected.
  */
 import { Ban, Phone, Unplug } from 'lucide-react';
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
@@ -39,8 +40,10 @@ export interface DialTarget {
 }
 
 interface DialerApi {
-  /** Opens the confirmation dialog. */
+  /** Calls at once; a do-not-call contact opens the override dialog instead. */
   dial: (target: DialTarget) => void;
+  /** A call is being placed, so a second click does not place another. */
+  pending: boolean;
   available: boolean;
   reason: string | null;
   canDial: boolean;
@@ -53,9 +56,10 @@ export function DialerProvider({ children }: { children: ReactNode }) {
   const perms = usePermissions();
   const status = useCtiStatus(perms.has('pbx:view_status'));
   const [target, setTarget] = useState<DialTarget | null>(null);
+  const placing = useDial();
 
   const canDial = perms.has('call:dial');
-  const connected = caps.enabled && (status.data?.connected ?? caps.dial);
+  const connected = caps.enabled && (status.data?.connected ?? caps.connected);
   const reason = !caps.enabled
     ? 'Telephony is not enabled'
     : !canDial
@@ -66,16 +70,26 @@ export function DialerProvider({ children }: { children: ReactNode }) {
           ? 'PBX disconnected'
           : null;
 
+  const { mutate, isPending } = placing;
   const value = useMemo<DialerApi>(
     () => ({
       dial: (t) => {
-        setTarget(t);
+        if (t.doNotCall === true) {
+          setTarget(t);
+          return;
+        }
+        mutate(dialBody(t), {
+          onError: (e) => {
+            toast({ tone: 'danger', title: 'Could not dial', description: errorMessage(e) });
+          },
+        });
       },
+      pending: isPending,
       available: reason === null,
       reason,
       canDial,
     }),
-    [reason, canDial],
+    [reason, canDial, mutate, isPending],
   );
 
   return (
@@ -95,6 +109,7 @@ export function useDialer(): DialerApi {
   return (
     useContext(DialerContext) ?? {
       dial: () => undefined,
+      pending: false,
       available: false,
       reason: 'Telephony is not available here',
       canDial: false,
@@ -127,7 +142,7 @@ export function DialButton({
         label={label ?? `Call ${target.display ?? formatPhone(target.e164)}`}
         size={size}
         variant={variant}
-        disabled={disabled}
+        disabled={disabled || dialer.pending}
         onClick={() => {
           dialer.dial(target);
         }}
@@ -136,6 +151,17 @@ export function DialButton({
   );
 }
 
+/** The server takes the number from the call when redialling, else from the saved phone. */
+function dialBody(target: DialTarget) {
+  return target.callId != null
+    ? { callId: target.callId }
+    : {
+        ...(target.contactId != null ? { contactId: target.contactId } : {}),
+        ...(target.phoneId != null ? { phoneId: target.phoneId } : { number: target.e164 }),
+      };
+}
+
+/** Only for a do-not-call contact: everyone else is called without a dialog. */
 function DialDialog({ target, onClose }: { target: DialTarget | null; onClose: () => void }) {
   const dial = useDial();
   const settings = useSettings();
@@ -179,28 +205,18 @@ function DialDialog({ target, onClose }: { target: DialTarget | null; onClose: (
               icon={Phone}
               loading={dial.isPending}
               onClick={() => {
-                dial.mutate(
-                  target.callId != null
-                    ? { callId: target.callId }
-                    : {
-                        ...(target.contactId != null ? { contactId: target.contactId } : {}),
-                        ...(target.phoneId != null
-                          ? { phoneId: target.phoneId }
-                          : { number: target.e164 }),
-                      },
-                  {
-                    onSuccess: () => {
-                      onClose();
-                    },
-                    onError: (e) => {
-                      toast({
-                        tone: 'danger',
-                        title: 'Could not dial',
-                        description: errorMessage(e),
-                      });
-                    },
+                dial.mutate(dialBody(target), {
+                  onSuccess: () => {
+                    onClose();
                   },
-                );
+                  onError: (e) => {
+                    toast({
+                      tone: 'danger',
+                      title: 'Could not dial',
+                      description: errorMessage(e),
+                    });
+                  },
+                });
               }}
             >
               {blocked ? 'Dial anyway' : 'Call now'}

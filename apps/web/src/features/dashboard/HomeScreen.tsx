@@ -51,7 +51,6 @@ import { useDeals } from '@/features/deals/api';
 import { useConversations } from '@/features/inbox/api';
 import { useCompleteTask, useTasks } from '@/features/tasks/api';
 import { useCtiStatus, useLiveCalls } from '@/features/telephony/api';
-import { useDialer } from '@/features/telephony/dialer';
 import { useAgentPerformance, useCallsSummary, usePipelineSummary } from '@/features/reports/api';
 import { useUsers } from '@/features/users/api';
 import { useMe } from '@/lib/auth/me';
@@ -159,7 +158,6 @@ function PbxBanners() {
 function QuickActions() {
   const perms = usePermissions();
   const navigate = useNavigate();
-  const dialer = useDialer();
 
   const actions: {
     id: string;
@@ -171,21 +169,6 @@ function QuickActions() {
     title?: string;
     go: () => void;
   }[] = [
-    ...(perms.has('call:dial')
-      ? [
-          {
-            id: 'dial',
-            label: 'Call a number',
-            icon: Phone,
-            primary: true,
-            disabled: !dialer.available,
-            title: dialer.reason ?? 'Open the dialpad',
-            go: () => {
-              void navigate({ to: '/calls/dialpad' });
-            },
-          },
-        ]
-      : []),
     ...(perms.has('contact:create')
       ? [
           {
