@@ -26,6 +26,7 @@ import {
   HardDriveDownload,
   KeyRound,
   Link2,
+  Mail,
   Palette,
   Pencil,
   Phone,
@@ -56,6 +57,8 @@ import { DetailList, Panel } from '@/components/entity/EntityHeader';
 import { OwnerPicker } from '@/components/entity/pickers';
 import { PageHeader } from '@/app/shell/TopBar';
 import { ConsoleLinkCard } from './ConsoleLinkCard';
+import { PbxConnectionCard } from './PbxConnectionCard';
+import { SmtpCard } from './SmtpCard';
 import { PlanSection } from './PlanSection';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { errorMessage } from '@/lib/api/errors';
@@ -135,6 +138,7 @@ const SECTIONS: Section[] = [
   { id: 'plan', label: 'Your plan', icon: BadgeCheck, requires: 'settings:read' },
   // Its own entry: at the foot of Your plan it sat below four panels and went unseen.
   { id: 'console', label: 'Console link', icon: Link2, requires: 'settings:manage' },
+  { id: 'email', label: 'Email', icon: Mail, requires: 'settings:manage' },
   {
     id: 'telephony',
     label: 'Telephony',
@@ -254,8 +258,10 @@ export function SettingsScreen() {
           {active === 'branding' && <BrandingSection />}
           {active === 'plan' && <PlanSection />}
           {active === 'console' && <ConsoleLinkCard />}
+          {active === 'email' && <SmtpCard />}
           {active === 'telephony' && (
             <>
+              {perms.has('settings:manage') && <PbxConnectionCard />}
               <TelephonySection />
               <ContactSyncSection />
             </>

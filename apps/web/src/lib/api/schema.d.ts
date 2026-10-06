@@ -5796,6 +5796,291 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/pbx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                baseUrl: string | null;
+                                clientId: string | null;
+                                connected: boolean;
+                                enabled: boolean;
+                                fingerprint: string | null;
+                                secretSet: boolean;
+                                /** @enum {string} */
+                                source: "admin" | "server";
+                                tls: ("public" | "fingerprint") | null;
+                                updatedAt: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        baseUrl: string;
+                        clientId: string;
+                        clientSecret?: string;
+                        confirmReconnect?: boolean;
+                        enabled: boolean;
+                        fingerprint?: string;
+                        /** @enum {string} */
+                        tls: "public" | "fingerprint";
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                baseUrl: string | null;
+                                clientId: string | null;
+                                connected: boolean;
+                                enabled: boolean;
+                                fingerprint: string | null;
+                                secretSet: boolean;
+                                /** @enum {string} */
+                                source: "admin" | "server";
+                                tls: ("public" | "fingerprint") | null;
+                                updatedAt: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                baseUrl: string | null;
+                                clientId: string | null;
+                                connected: boolean;
+                                enabled: boolean;
+                                fingerprint: string | null;
+                                secretSet: boolean;
+                                /** @enum {string} */
+                                source: "admin" | "server";
+                                tls: ("public" | "fingerprint") | null;
+                                updatedAt: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/smtp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                from: string | null;
+                                host: string | null;
+                                passwordSet: boolean;
+                                port: number | null;
+                                security: ("tls" | "starttls" | "none") | null;
+                                /** @enum {string} */
+                                source: "admin" | "server";
+                                updatedAt: string | null;
+                                username: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        from: string;
+                        host: string;
+                        password?: string;
+                        port: number;
+                        /** @enum {string} */
+                        security: "tls" | "starttls" | "none";
+                        username?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                from: string | null;
+                                host: string | null;
+                                passwordSet: boolean;
+                                port: number | null;
+                                security: ("tls" | "starttls" | "none") | null;
+                                /** @enum {string} */
+                                source: "admin" | "server";
+                                updatedAt: string | null;
+                                username: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                from: string | null;
+                                host: string | null;
+                                passwordSet: boolean;
+                                port: number | null;
+                                security: ("tls" | "starttls" | "none") | null;
+                                /** @enum {string} */
+                                source: "admin" | "server";
+                                updatedAt: string | null;
+                                username: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/smtp/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                sentTo: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/leads": {
         parameters: {
             query?: never;

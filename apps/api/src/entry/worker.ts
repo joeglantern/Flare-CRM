@@ -166,11 +166,8 @@ async function main(): Promise<void> {
       valkey: app.valkey,
       tokens,
       machine: app.cti.machine,
-      baseUrl: env.YEASTAR_BASE_URL ?? '',
-      tls: {
-        caFile: env.YEASTAR_TLS_CA_FILE,
-        fingerprintSha256: env.YEASTAR_TLS_FINGERPRINT_SHA256,
-      },
+      baseUrl: app.cti.pbx.baseUrl ?? '',
+      tls: app.cti.pbx.tls,
       log: app.log,
       onStatus: ({ connected }) => {
         app.realtime

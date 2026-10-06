@@ -10,11 +10,19 @@ import { YeastarClient } from '../integrations/yeastar/client.js';
 import { ExtensionMap } from '../integrations/yeastar/extension-map.js';
 import { readCtiStatus } from '../integrations/yeastar/subscriber.js';
 import { TokenManager } from '../integrations/yeastar/token-manager.js';
+import {
+  INTEGRATIONS_CHANNEL,
+  pbxUsable,
+  readPbx,
+  type EffectivePbx,
+} from '../modules/integrations/config.js';
 
 export type CtiCapabilities = ServerEventPayload<'call:ringing'>['capabilities'];
 
 export interface Cti {
   enabled: boolean;
+  /** The PBX this process talks to: saved in Settings, else the server's .env. */
+  pbx: EffectivePbx;
   client: YeastarClient | null;
   tokens: TokenManager | null;
   extMap: ExtensionMap;
@@ -26,9 +34,8 @@ export interface Cti {
 export default fp(
   async function ctiPlugin(app: FastifyInstance) {
     const { config } = app;
-    const enabled =
-      config.YEASTAR_ENABLED &&
-      Boolean(config.YEASTAR_BASE_URL && config.YEASTAR_CLIENT_ID && config.YEASTAR_CLIENT_SECRET);
+    const pbx = await readPbx(app.db, config);
+    const enabled = pbxUsable(pbx);
 
     const extMap = new ExtensionMap(app.db, app.valkey, app.log);
     await extMap.start();
@@ -37,11 +44,8 @@ export default fp(
     let tokens: TokenManager | null = null;
     if (enabled) {
       const c = new YeastarClient({
-        baseUrl: config.YEASTAR_BASE_URL ?? '',
-        tls: {
-          caFile: config.YEASTAR_TLS_CA_FILE,
-          fingerprintSha256: config.YEASTAR_TLS_FINGERPRINT_SHA256,
-        },
+        baseUrl: pbx.baseUrl ?? '',
+        tls: pbx.tls,
         getAccessToken: () => {
           if (!tokens) throw new Error('token manager not ready');
           return tokens.getAccessToken();
@@ -56,8 +60,8 @@ export default fp(
       tokens = new TokenManager(
         app.valkey,
         {
-          clientId: config.YEASTAR_CLIENT_ID ?? '',
-          clientSecret: config.YEASTAR_CLIENT_SECRET ?? '',
+          clientId: pbx.clientId ?? '',
+          clientSecret: pbx.clientSecret ?? '',
         },
         c,
         app.log,
@@ -89,7 +93,7 @@ export default fp(
       },
     });
 
-    const cti: Cti = { enabled, client, tokens, extMap, machine, capabilities, popLatencies };
+    const cti: Cti = { enabled, pbx, client, tokens, extMap, machine, capabilities, popLatencies };
     app.decorate('cti', cti);
 
     app.events.on('user.extension_changed', () => {
@@ -108,7 +112,30 @@ export default fp(
       };
     });
 
+    /*
+     * A new PBX means a new client, token and event stream in both processes. Rebuilding all of
+     * that in place is where a half-switched process would come from, so each process instead
+     * shuts down cleanly and its container brings it back up on the new settings, which takes a
+     * few seconds. Outside production nothing restarts a process, so it says so and waits.
+     */
+    const pbxListener = app.valkey.duplicate();
+    pbxListener.on('error', (err: unknown) => {
+      app.log.warn({ err }, 'PBX settings listener connection error');
+    });
+    await pbxListener.subscribe(INTEGRATIONS_CHANNEL);
+    pbxListener.on('message', (_channel, key) => {
+      if (key !== 'pbx') return;
+      if (config.NODE_ENV !== 'production') {
+        app.log.warn('PBX settings changed; restart the api and worker to use them');
+        return;
+      }
+      app.log.info('PBX settings changed; restarting to reconnect');
+      // Long enough for the request that saved them to get its answer.
+      setTimeout(() => process.kill(process.pid, 'SIGTERM'), 1500).unref();
+    });
+
     app.addHook('onClose', async () => {
+      await pbxListener.quit().catch(() => undefined);
       await extMap.stop();
       await client?.close();
     });

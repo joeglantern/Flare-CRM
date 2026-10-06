@@ -813,6 +813,18 @@ model ConsoleLinkConfig {
   @@map("console_link_config")
 }
 
+/// Email and PBX connection details an admin entered in the CRM (key "smtp" or "pbx"). The
+/// value, password or API secret included, is AES-256-GCM under SECRETS_KEY and never returned.
+model IntegrationConfig {
+  key           String   @id
+  dataEncrypted Bytes    @map("data_encrypted")
+  updatedById   String?  @map("updated_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("integration_config")
+}
+
 model Setting {
   key         String   @id
   value       Json

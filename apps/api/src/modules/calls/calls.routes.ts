@@ -527,7 +527,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
         data: {
           sign,
           username: user.extension,
-          pbxUrl: app.config.YEASTAR_BASE_URL ?? '',
+          pbxUrl: app.cti.pbx.baseUrl ?? '',
           expiresInSec: 3600,
         },
       };

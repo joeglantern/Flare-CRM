@@ -42,6 +42,8 @@ export class FakePbx {
   tokenCounter = 0;
   dialCounter = 0;
   rejectNextTokenUse = false;
+  /** When set, /get_token accepts only this client ID and secret, as the real PBX does. */
+  credentials: { username: string; password: string } | null = null;
   private app: FastifyInstance | null = null;
   private wss: WebSocketServer | null = null;
   url = '';
@@ -74,7 +76,13 @@ export class FakePbx {
       return typeof q.access_token === 'string' && q.access_token.startsWith('tok-');
     };
 
-    app.post('/openapi/v1.0/get_token', async () => {
+    app.post('/openapi/v1.0/get_token', async (request) => {
+      const b = (request.body ?? {}) as { username?: string; password?: string };
+      if (
+        this.credentials !== null &&
+        (b.username !== this.credentials.username || b.password !== this.credentials.password)
+      )
+        return { errcode: 10004, errmsg: 'USER OR PASSWORD ERROR' };
       this.tokenCounter++;
       return {
         errcode: 0,
