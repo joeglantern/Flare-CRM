@@ -193,6 +193,25 @@ describe('auth & authorization', () => {
     expect(audit?.actorId).toBe(admin.id);
   });
 
+  it('a new user with an extension is known to the call popup at once, not a minute later', async () => {
+    const admin = await ctx.createUser({ role: 'admin' });
+    const res = await ctx.as(admin, {
+      method: 'POST',
+      url: '/api/v1/users',
+      payload: { name: 'Fresh Agent', email: 'fresh.agent@example.com', extension: '1077' },
+    });
+    expect(res.statusCode).toBe(201);
+    const id = res.json<{ data: { id: string } }>().data.id;
+
+    // The map refreshes over Valkey; give that round trip a moment, well short of the 60 s timer.
+    let mapped = await ctx.app.cti.extMap.lookup('1077');
+    for (let i = 0; i < 20 && mapped === null; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      mapped = await ctx.app.cti.extMap.lookup('1077');
+    }
+    expect(mapped?.userId).toBe(id);
+  });
+
   it('rejects duplicate extensions and self role change', async () => {
     const admin = await ctx.createUser({ role: 'admin' });
     await ctx.createUser({ role: 'agent', extension: '2001' });

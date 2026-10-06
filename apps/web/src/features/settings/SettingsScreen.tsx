@@ -3292,6 +3292,11 @@ function UserDialog({
   const [email, setEmail] = useState(user?.email ?? '');
   const [role, setRole] = useState<UserRole>(user?.role ?? 'agent');
   const [extension, setExtension] = useState(user?.extension ?? '');
+  // The PBX extensions nobody here holds yet, from the last match run, offered as one-click picks:
+  // a user saved without an extension gets no popups, and nothing else tells anyone why.
+  const perms = usePermissions();
+  const links = useExtensionLinks(open && perms.has('pbx:view_status'));
+  const free = (links.data?.unmatchedExtensions ?? []).filter((e) => e.number !== extension.trim());
 
   useResetOnOpen(open, user, () => {
     setName(user?.name ?? '');
@@ -3380,8 +3385,28 @@ function UserDialog({
           onChange={(e) => {
             setExtension(e.target.value);
           }}
-          description="Without an extension they cannot dial or receive screen pops."
+          description="Without an extension they cannot dial or receive call popups."
         />
+        {free.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm text-muted">Free on the PBX</span>
+            <div className="flex flex-wrap gap-1.5">
+              {free.map((e) => (
+                <button
+                  key={e.number}
+                  type="button"
+                  className="h-7 rounded-full border border-strong px-2.5 text-sm hover:bg-hover"
+                  onClick={() => {
+                    setExtension(e.number);
+                  }}
+                >
+                  <span className="mono">{e.number}</span>
+                  {e.name !== null && <span className="text-muted"> {e.name}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Dialog>
   );

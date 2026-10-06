@@ -269,6 +269,9 @@ export class UsersService {
       entityId: userId,
       after: dto,
     });
+    // Otherwise the new extension waits for the next periodic refresh, and a call in that minute
+    // rings a phone the CRM cannot put a name to.
+    if (dto.extension !== null) await ExtensionMap.notifyChanged(this.deps.valkey);
     return dto;
   }
 
