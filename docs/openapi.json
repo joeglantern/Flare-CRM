@@ -3204,6 +3204,11 @@
                             "all"
                           ]
                         },
+                        "timezone": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
                         "sharedDirectory": {
                           "type": "boolean"
                         },
@@ -3517,6 +3522,7 @@
                       },
                       "required": [
                         "agentVisibility",
+                        "timezone",
                         "sharedDirectory",
                         "defaultCountry",
                         "currency",
@@ -3562,6 +3568,11 @@
                       "team",
                       "all"
                     ]
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
                   },
                   "sharedDirectory": {
                     "type": "boolean"
@@ -3887,6 +3898,11 @@
                             "all"
                           ]
                         },
+                        "timezone": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
                         "sharedDirectory": {
                           "type": "boolean"
                         },
@@ -4200,6 +4216,7 @@
                       },
                       "required": [
                         "agentVisibility",
+                        "timezone",
                         "sharedDirectory",
                         "defaultCountry",
                         "currency",
@@ -4411,6 +4428,11 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
                         }
                       },
                       "required": [
@@ -4420,7 +4442,8 @@
                         "security",
                         "recording",
                         "branding",
-                        "supportContact"
+                        "supportContact",
+                        "timezone"
                       ],
                       "additionalProperties": false
                     }

@@ -21,6 +21,9 @@ import {
 import { Badge, type BadgeTone } from '@/components/ui/Badge';
 import { useNow } from '@/lib/hooks';
 import { cn } from '@/lib/utils';
+import { sameZonedDay, startOfZonedDay } from '@/lib/format/zoned';
+import { formatTime } from '@/lib/format/date';
+import { useSettings } from '@/providers/settings';
 
 export function CallStatusBadge({ status, live = false }: { status: string; live?: boolean }) {
   const map: Record<
@@ -110,6 +113,7 @@ export function TaskPriorityFlag({ priority }: { priority: string }) {
 export function DueLabel({ dueAt, status }: { dueAt: string | null; status: string }) {
   // Ticks once a minute so "in 2h" does not go stale on a screen left open.
   const now = useNow(dueAt !== null && status !== 'done', 60_000);
+  const { timezone } = useSettings();
   if (dueAt === null) return <span className="text-faint">—</span>;
   if (status === 'done') return <span className="text-muted">Done</span>;
   const due = new Date(dueAt).getTime();
@@ -122,20 +126,14 @@ export function DueLabel({ dueAt, status }: { dueAt: string | null; status: stri
       </span>
     );
   }
-  const sameDay = new Date(dueAt).toDateString() === new Date().toDateString();
-  if (sameDay) {
-    return <span className="text-warning">Today {new Date(dueAt).toTimeString().slice(0, 5)}</span>;
+  // Today and tomorrow on the CRM's calendar, not the computer's.
+  if (sameZonedDay(new Date(dueAt), new Date(now), timezone)) {
+    return <span className="text-warning">Today {formatTime(dueAt, timezone)}</span>;
   }
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  if (new Date(dueAt).toDateString() === tomorrow.toDateString()) {
+  if (sameZonedDay(new Date(dueAt), startOfZonedDay(timezone, 1, new Date(now)), timezone)) {
     return <span className="text-muted">Tomorrow</span>;
   }
-  return (
-    <span className="text-muted">
-      {new Date(dueAt).toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}
-    </span>
-  );
+  return <span className="text-muted">{formatShortDate(dueAt, timezone)}</span>;
 }
 
 export function MessageTicks({
@@ -251,5 +249,12 @@ export function ImportStatusBadge({ status }: { status: string }) {
     <Badge tone={map[status] ?? 'outline'} dot={status === 'running'} pulse={status === 'running'}>
       <span className="capitalize">{status}</span>
     </Badge>
+  );
+}
+
+/** "9 Oct" on the CRM's calendar. */
+function formatShortDate(iso: string, tz: string): string {
+  return new Intl.DateTimeFormat('en-KE', { day: 'numeric', month: 'short', timeZone: tz }).format(
+    new Date(iso),
   );
 }

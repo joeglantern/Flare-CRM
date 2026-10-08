@@ -20,6 +20,7 @@ import {
   verifyEmail,
   welcomeSetPassword,
 } from '../modules/notifications/templates/auth.js';
+import { workspaceTimeZone } from '../modules/settings/settings.service.js';
 
 export interface AuthDeps {
   env: Env;
@@ -45,11 +46,6 @@ function invitedByFrom(flag: string): string | null {
   } catch {
     return null;
   }
-}
-
-function timeZoneOf(user: object): string | null {
-  const zone = (user as { timezone?: unknown }).timezone;
-  return typeof zone === 'string' ? zone : null;
 }
 
 export function createAuth(deps: AuthDeps) {
@@ -79,7 +75,7 @@ export function createAuth(deps: AuthDeps) {
           valkey.getdel(`${WELCOME_FLAG_PREFIX}${user.id}`),
           readInstallation(db, env.APP_URL),
         ]);
-        const timeZone = timeZoneOf(user);
+        const timeZone = await workspaceTimeZone(db);
         const message =
           welcome === null
             ? passwordReset({ to: user.email, url, installation, timeZone })

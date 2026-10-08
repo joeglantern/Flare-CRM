@@ -8009,6 +8009,7 @@ export interface paths {
                                     name: string;
                                     phone?: string;
                                 } | null;
+                                timezone: string;
                             };
                         };
                     };
@@ -8095,6 +8096,7 @@ export interface paths {
                             name: string;
                             phone?: string;
                         } | null;
+                        timezone?: string;
                     };
                 };
             };
@@ -8172,6 +8174,7 @@ export interface paths {
                                     name: string;
                                     phone?: string;
                                 } | null;
+                                timezone: string;
                             };
                         };
                     };
@@ -8319,6 +8322,7 @@ export interface paths {
                                     name: string;
                                     phone?: string;
                                 } | null;
+                                timezone: string;
                             };
                         };
                     };

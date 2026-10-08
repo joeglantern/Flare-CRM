@@ -25,7 +25,6 @@ import { scopeOf } from '../../lib/scope.js';
 import { CallsService } from '../calls/calls.service.js';
 import { ReportsService, type ReportRange } from './reports.service.js';
 
-const DEFAULT_TZ = 'Africa/Nairobi';
 
 const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = new ReportsService(app);
@@ -42,15 +41,17 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
     return { kind: 'own', userId: actor.id, includeUnassigned: false };
   };
 
-  const rangeOf = (
+  // Day and hour boundaries in reports are the CRM's, the same days people see on screen.
+  const rangeOf = async (
     request: FastifyRequest,
     query: { from?: string | undefined; to?: string | undefined; tz?: string | undefined },
-  ): ReportRange => {
+  ): Promise<ReportRange> => {
+    const timeZone = await app.settings.get('timezone');
     const to = query.to ? new Date(query.to) : new Date();
     const from = query.from
       ? new Date(query.from)
       : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return { from, to, tz: query.tz ?? requireUser(request).timezone ?? DEFAULT_TZ };
+    return { from, to, tz: query.tz ?? timeZone };
   };
 
   const sendCsv = async (
@@ -101,7 +102,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
     handler: async (request, reply) => {
       const data = await service.callsSummary(
         await reportScope(request),
-        rangeOf(request, request.query),
+        await rangeOf(request, request.query),
         { userId: request.query.userId, teamId: request.query.teamId },
       );
       if (request.query.format === 'csv')
@@ -126,7 +127,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
     handler: async (request, reply) => {
       const data = await service.agentPerformance(
         await reportScope(request),
-        rangeOf(request, request.query),
+        await rangeOf(request, request.query),
         { teamId: request.query.teamId },
       );
       if (request.query.format === 'csv') {
@@ -240,7 +241,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
     handler: async (request, reply) => {
       const data = await service.pipelineSummary(
         await reportScope(request),
-        rangeOf(request, request.query),
+        await rangeOf(request, request.query),
         { pipelineId: request.query.pipelineId, ownerId: request.query.ownerId },
       );
       if (request.query.format === 'csv')
@@ -265,7 +266,7 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
     handler: async (request, reply) => {
       const data = await service.pipelineConversion(
         await reportScope(request),
-        rangeOf(request, request.query),
+        await rangeOf(request, request.query),
         { pipelineId: request.query.pipelineId, ownerId: request.query.ownerId },
       );
       if (request.query.format === 'csv')

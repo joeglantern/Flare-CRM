@@ -33,6 +33,7 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
           },
           branding: s.branding,
           supportContact: s.supportContact,
+          timezone: s.timezone,
         },
       };
     },

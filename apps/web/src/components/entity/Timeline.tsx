@@ -28,6 +28,8 @@ import { Skeleton } from '@/components/ui/Loading';
 import { DateTime } from '@/components/data/formatters';
 import { EmptyState, ErrorState } from '@/components/data/states';
 import { cn } from '@/lib/utils';
+import { sameZonedDay, startOfZonedDay, zonedParts } from '@/lib/format/zoned';
+import { useSettings } from '@/providers/settings';
 
 const ICON: Record<string, { icon: LucideIcon; tone: string; label: string }> = {
   call: { icon: PhoneIncoming, tone: 'text-muted', label: 'Call' },
@@ -91,7 +93,8 @@ export function Timeline({
   emptyDescription = 'Calls, messages, notes, tasks and deal changes all land on this timeline.',
   className,
 }: TimelineProps) {
-  const groups = useMemo(() => groupByDay(items), [items]);
+  const { timezone } = useSettings();
+  const groups = useMemo(() => groupByDay(items, timezone), [items, timezone]);
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
@@ -266,31 +269,35 @@ function linkFor(a: ActivityDto): string | null {
   return null;
 }
 
-function groupByDay(items: ActivityDto[]): { day: string; items: ActivityDto[] }[] {
-  const out: { day: string; items: ActivityDto[] }[] = [];
+/**
+ * Items under a heading per day of the CRM's calendar. Groups are matched on the day itself, not
+ * on the heading: matching a heading such as "Today" against a date never succeeded, so every item
+ * used to get a heading of its own.
+ */
+function groupByDay(items: ActivityDto[], tz: string): { day: string; items: ActivityDto[] }[] {
+  const out: { key: string; day: string; items: ActivityDto[] }[] = [];
   for (const item of items) {
-    const day = new Date(item.occurredAt).toDateString();
+    const p = zonedParts(new Date(item.occurredAt), tz);
+    const key = `${String(p.year)}-${String(p.month)}-${String(p.day)}`;
     const last = out[out.length - 1];
-    if (last?.day === day) last.items.push(item);
-    else out.push({ day: labelFor(item.occurredAt), items: [item] });
+    if (last?.key === key) last.items.push(item);
+    else out.push({ key, day: labelFor(item.occurredAt, tz), items: [item] });
   }
   return out;
 }
 
-function labelFor(iso: string): string {
+function labelFor(iso: string, tz: string): string {
   const d = new Date(iso);
   const now = new Date();
-  const same = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-  if (same(d, now)) return 'Today';
-  const y = new Date(now);
-  y.setDate(y.getDate() - 1);
-  if (same(d, y)) return 'Yesterday';
-  return d.toLocaleDateString('en-KE', {
+  if (sameZonedDay(d, now, tz)) return 'Today';
+  if (sameZonedDay(d, startOfZonedDay(tz, -1, now), tz)) return 'Yesterday';
+  return new Intl.DateTimeFormat('en-KE', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric',
-  });
+    timeZone: tz,
+    ...(zonedParts(d, tz).year === zonedParts(now, tz).year ? {} : { year: 'numeric' }),
+  }).format(d);
 }
 
 export const ACTIVITY_TYPES = valuesOf(ActivityType);

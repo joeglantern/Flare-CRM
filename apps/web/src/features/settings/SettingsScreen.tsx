@@ -113,6 +113,7 @@ import {
   type AuditFilters,
   type CustomFieldEntity,
 } from './api';
+import { TIMEZONES } from '@/lib/format/timezones';
 
 interface Section {
   id: string;
@@ -367,6 +368,7 @@ function GeneralSection() {
   const currency = useSettingsSection('currency');
   const visibility = useSettingsSection('agentVisibility');
   const directory = useSettingsSection('sharedDirectory');
+  const zone = useSettingsSection('timezone');
   const [draftCountry, setDraftCountry] = useState<string | null>(null);
   const [draftCurrency, setDraftCurrency] = useState<string | null>(null);
 
@@ -426,6 +428,18 @@ function GeneralSection() {
           }}
         />
       </div>
+
+      <Select
+        label="Time zone"
+        description="The CRM's own clock. Every time on every screen, in emails and in reports is in this zone, whatever the computer it is read on is set to."
+        searchable
+        disabled={!zone.canManage}
+        value={zone.value ?? 'Africa/Nairobi'}
+        onChange={(v) => {
+          zone.save(v, `Times now show in ${v.replace('_', ' ')}`);
+        }}
+        options={TIMEZONES.map((tz) => ({ value: tz, label: tz.replace('_', ' ') }))}
+      />
 
       <Select
         label="What an agent can see"

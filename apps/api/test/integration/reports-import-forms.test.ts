@@ -119,6 +119,66 @@ describe('reports, CSV import/export, web forms', () => {
     expect(missed.json<Envelope<unknown[]>>().data).toHaveLength(1);
   });
 
+  it('runs on the CRM time zone: one setting, read by everyone, used for report hours', async () => {
+    const bad = await ctx.as(admin, {
+      method: 'PATCH',
+      url: '/api/v1/settings',
+      payload: { timezone: 'Mars/Olympus' },
+    });
+    expect(bad.statusCode).toBe(422);
+    expect(
+      (
+        await ctx.as(agent, {
+          method: 'PATCH',
+          url: '/api/v1/settings',
+          payload: { timezone: 'UTC' },
+        })
+      ).statusCode,
+    ).toBe(403);
+
+    // 10:15 UTC is 13:15 in Nairobi, the default.
+    const at = new Date('2026-10-07T10:15:00Z');
+    await ctx.app.db.call.create({
+      data: {
+        id: newId(),
+        pbxCallId: 'tz.1',
+        pbxCdrUid: 'tz-uid-1',
+        direction: 'inbound',
+        status: 'completed',
+        fromNumber: '0712000000',
+        toNumber: '1000',
+        userId: admin.id,
+        extension: '1000',
+        startedAt: at,
+        ringDurationSec: 3,
+        talkDurationSec: 30,
+        totalDurationSec: 33,
+      },
+    });
+    const range = `from=${encodeURIComponent('2026-10-07T00:00:00Z')}&to=${encodeURIComponent('2026-10-08T00:00:00Z')}`;
+    const busyHour = async () => {
+      const res = await ctx.as(admin, {
+        method: 'GET',
+        url: `/api/v1/reports/calls/summary?${range}`,
+      });
+      const hours = res.json<{ data: { byHour: { hour: number; inbound: number }[] } }>().data
+        .byHour;
+      return hours.find((h) => h.inbound > 0)?.hour;
+    };
+    expect(await busyHour()).toBe(13);
+
+    const saved = await ctx.as(admin, {
+      method: 'PATCH',
+      url: '/api/v1/settings',
+      payload: { timezone: 'UTC' },
+    });
+    expect(saved.statusCode, saved.body).toBe(200);
+    const pub = await ctx.as(agent, { method: 'GET', url: '/api/v1/settings/public' });
+    expect(pub.json<{ data: { timezone: string } }>().data.timezone).toBe('UTC');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await busyHour()).toBe(10);
+  });
+
   it('pipeline reports: summary, conversion and forecast', async () => {
     const pipelines = (await ctx.as(admin, { method: 'GET', url: '/api/v1/pipelines' })).json<
       Envelope<{ id: string; stages: { id: string; name: string; type: string }[] }[]>

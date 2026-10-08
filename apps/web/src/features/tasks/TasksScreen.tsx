@@ -44,6 +44,8 @@ import {
   type TaskFilters,
 } from './api';
 import { TaskFormDialog } from './TaskForm';
+import { startOfZonedDay, zonedParts } from '@/lib/format/zoned';
+import { TZDate } from '@date-fns/tz';
 
 const TYPE_LABEL: Record<string, string> = {
   call: 'Call',
@@ -146,18 +148,17 @@ export function TasksScreen() {
 
 /* ── list ───────────────────────────────────────────────────────────────────────────────── */
 
-/** Start and end of the local day, as ISO, because the server only takes an explicit range. */
-function dayRange(offsetDays: number, spanDays: number): { from: string; to: string } {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() + offsetDays);
-  const end = new Date(start);
-  end.setDate(end.getDate() + spanDays);
-  return { from: start.toISOString(), to: end.toISOString() };
+/** Whole days on the CRM's calendar, as ISO, because the server only takes an explicit range. */
+function dayRange(tz: string, offsetDays: number, spanDays: number): { from: string; to: string } {
+  return {
+    from: startOfZonedDay(tz, offsetDays).toISOString(),
+    to: startOfZonedDay(tz, offsetDays + spanDays).toISOString(),
+  };
 }
 
 function TaskList() {
   const perms = usePermissions();
+  const { timezone } = useSettings();
   const navigate = useNavigate();
   const { online } = useSocketState();
   const list = useListState<TaskFilters>();
@@ -174,11 +175,11 @@ function TaskList() {
 
   const quickFilters = useMemo<TaskFilters>(() => {
     if (quick === 'overdue') return { overdue: 'true', status: 'open' };
-    if (quick === 'today') return { ...dayRange(0, 1), status: 'open' };
-    if (quick === 'week') return { ...dayRange(0, 7), status: 'open' };
+    if (quick === 'today') return { ...dayRange(timezone, 0, 1), status: 'open' };
+    if (quick === 'week') return { ...dayRange(timezone, 0, 7), status: 'open' };
     if (quick === 'mine') return { mine: 'true', status: 'open' };
     return {};
-  }, [quick]);
+  }, [quick, timezone]);
 
   const canRead = perms.has('task:read');
   const query = useTasks({ ...list.queryParams, ...quickFilters }, canRead);
@@ -583,12 +584,35 @@ function TaskList() {
 
 /* ── calendar ───────────────────────────────────────────────────────────────────────────── */
 
-function startOfMonthGrid(month: Date): Date {
-  const first = new Date(month.getFullYear(), month.getMonth(), 1);
-  const weekday = (first.getDay() + 6) % 7; // Monday first
-  first.setDate(first.getDate() - weekday);
-  first.setHours(0, 0, 0, 0);
-  return first;
+/** A day of the month grid, on the CRM's calendar. */
+interface GridDay {
+  key: string;
+  day: number;
+  month: number;
+  start: Date;
+}
+
+const dayKey = (p: { year: number; month: number; day: number }) =>
+  `${String(p.year)}-${String(p.month)}-${String(p.day)}`;
+
+/**
+ * Six weeks from the Monday on or before the first of the month, every day built on the CRM's
+ * calendar so a task lands on the day the CRM says it is due, not the computer's.
+ */
+function monthGrid(tz: string, monthOffset: number): { month: TZDate; days: GridDay[] } {
+  const now = zonedParts(new Date(), tz);
+  const month = new TZDate(now.year, now.month + monthOffset, 1, 0, 0, 0, 0, tz);
+  const lead = (month.getDay() + 6) % 7; // Monday first
+  const days = Array.from({ length: 43 }, (_, i) => {
+    const start = new TZDate(month.getFullYear(), month.getMonth(), 1 - lead + i, 0, 0, 0, 0, tz);
+    return {
+      key: dayKey({ year: start.getFullYear(), month: start.getMonth(), day: start.getDate() }),
+      day: start.getDate(),
+      month: start.getMonth(),
+      start: new Date(start.getTime()),
+    };
+  });
+  return { month, days };
 }
 
 function TaskCalendar() {
@@ -599,19 +623,14 @@ function TaskCalendar() {
   const [assigneeId, setAssigneeId] = useSearchParam('assignee');
   const [editing, setEditing] = useState<TaskDto | null>(null);
 
-  const month = useMemo(() => {
-    const d = new Date();
-    d.setDate(1);
-    d.setMonth(d.getMonth() + monthOffset);
-    return d;
-  }, [monthOffset]);
-
-  const gridStart = useMemo(() => startOfMonthGrid(month), [month]);
-  const gridEnd = useMemo(() => {
-    const d = new Date(gridStart);
-    d.setDate(d.getDate() + 42);
-    return d;
-  }, [gridStart]);
+  const grid = useMemo(
+    () => monthGrid(settings.timezone, monthOffset),
+    [settings.timezone, monthOffset],
+  );
+  const month = grid.month;
+  // 43 days were built so the 42nd ends where the 43rd begins.
+  const gridStart = grid.days[0]?.start ?? new Date();
+  const gridEnd = grid.days[42]?.start ?? new Date();
 
   const query = useTaskCalendar(
     {
@@ -626,13 +645,13 @@ function TaskCalendar() {
     const map = new Map<string, TaskDto[]>();
     for (const t of query.data ?? []) {
       if (t.dueAt === null) continue;
-      const key = new Date(t.dueAt).toDateString();
+      const key = dayKey(zonedParts(new Date(t.dueAt), settings.timezone));
       const list = map.get(key) ?? [];
       list.push(t);
       map.set(key, list);
     }
     return map;
-  }, [query.data]);
+  }, [query.data, settings.timezone]);
 
   if (!perms.has('task:read')) return <ForbiddenState permission="task:read" what="Tasks" />;
   if (query.isError) {
@@ -647,12 +666,8 @@ function TaskCalendar() {
     );
   }
 
-  const days = Array.from({ length: 42 }, (_, i) => {
-    const d = new Date(gridStart);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
-  const today = new Date().toDateString();
+  const days = grid.days.slice(0, 42);
+  const today = dayKey(zonedParts(new Date(), settings.timezone));
   const monthLabel = new Intl.DateTimeFormat('en-GB', {
     month: 'long',
     year: 'numeric',
@@ -729,24 +744,21 @@ function TaskCalendar() {
             </div>
             <div className="grid grid-cols-7 gap-px rounded-md border border-border bg-border">
               {days.map((d) => {
-                const list = byDay.get(d.toDateString()) ?? [];
-                const otherMonth = d.getMonth() !== month.getMonth();
+                const list = byDay.get(d.key) ?? [];
+                const otherMonth = d.month !== month.getMonth();
                 return (
                   <div
-                    key={d.toISOString()}
+                    key={d.key}
                     className={cn(
                       'flex min-h-24 flex-col gap-1 bg-bg p-1.5',
                       otherMonth && 'bg-surface text-faint',
-                      d.toDateString() === today && 'ring-1 ring-flare ring-inset',
+                      d.key === today && 'ring-1 ring-flare ring-inset',
                     )}
                   >
                     <span
-                      className={cn(
-                        'mono text-xs',
-                        d.toDateString() === today && 'font-medium text-flare',
-                      )}
+                      className={cn('mono text-xs', d.key === today && 'font-medium text-flare')}
                     >
-                      {d.getDate()}
+                      {d.day}
                     </span>
                     {list.slice(0, 3).map((t) => (
                       <button

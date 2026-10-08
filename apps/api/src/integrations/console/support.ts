@@ -24,6 +24,7 @@ import {
 } from '../../modules/notifications/templates/auth.js';
 import type { Mailer } from '../../plugins/mailer.js';
 import type { Db } from '../../plugins/prisma.js';
+import { workspaceTimeZone } from '../../modules/settings/settings.service.js';
 
 /** Better Auth keeps a list of live sessions per user under this key, and each session under its token. */
 const SESSION_LIST_PREFIX = 'auth:active-sessions-';
@@ -197,7 +198,7 @@ async function tellThem(
         contactName: null,
         byProvider: true,
         reason,
-        timeZone: user.timezone,
+        timeZone: await workspaceTimeZone(deps.db),
       }),
     );
   } catch (err: unknown) {
@@ -237,7 +238,7 @@ async function tellAdministrators(
           provider,
           reason,
           when,
-          timeZone: admin.timezone,
+          timeZone: await workspaceTimeZone(deps.db),
         }),
       );
     }

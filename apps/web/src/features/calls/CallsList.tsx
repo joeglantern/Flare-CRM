@@ -35,6 +35,7 @@ import { useAssignableUsers } from '@/features/users/api';
 import { usePermissions } from '@/providers/permissions';
 import { useSocketState } from '@/providers/socket';
 import { useCalls, type CallFilters } from './api';
+import { useSettings } from '@/providers/settings';
 
 export function CallsListScreen({ missed = false }: { missed?: boolean }) {
   usePageMeta(
@@ -46,7 +47,8 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
   const users = useAssignableUsers();
   const dispositions = useDispositions();
   const list = useListState<CallFilters>({ sort: '-startedAt' });
-  const [range, setRange] = useState<DateRange>(() => presetRange('30d'));
+  const settings = useSettings();
+  const [range, setRange] = useState<DateRange>(() => presetRange('30d', settings.timezone));
   const [exportOpen, setExportOpen] = useState(false);
   const [saving, setSaving] = useState<CallDto | null>(null);
   const canCreateContact = perms.has('contact:create');
@@ -417,7 +419,7 @@ export function CallsListScreen({ missed = false }: { missed?: boolean }) {
         entity="calls"
         filters={filters}
         estimatedCount={query.data?.page.total}
-        filterSummary={`${rangeLabel(range)}${missed ? ' · missed · inbound' : ''}`}
+        filterSummary={`${rangeLabel(range, settings.timezone)}${missed ? ' · missed · inbound' : ''}`}
       />
     </div>
   );

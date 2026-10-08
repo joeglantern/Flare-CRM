@@ -63,14 +63,15 @@ import { cn } from '@/lib/utils';
 import { usePermissions } from '@/providers/permissions';
 import { useSocketState } from '@/providers/socket';
 import { MAX_PAGE_SIZE } from '@crm/shared';
+import { endOfZonedDay, startOfZonedDay, zonedParts } from '@/lib/format/zoned';
+import { useSettings } from '@/providers/settings';
 
-/** Midnight to now, which is what "today" means on every card here. */
-function today(): { from: string; to: string } {
-  const from = new Date();
-  from.setHours(0, 0, 0, 0);
-  const to = new Date();
-  to.setHours(23, 59, 59, 999);
-  return { from: from.toISOString(), to: to.toISOString() };
+/** Today on the CRM's calendar, which is what "today" means on every card here. */
+function today(tz: string): { from: string; to: string } {
+  return {
+    from: startOfZonedDay(tz).toISOString(),
+    to: endOfZonedDay(tz).toISOString(),
+  };
 }
 
 export function HomeScreen() {
@@ -89,7 +90,8 @@ export function HomeScreen() {
           ? 'team'
           : 'mine';
 
-  const hour = new Date().getHours();
+  const { timezone } = useSettings();
+  const hour = zonedParts(new Date(), timezone).hours;
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
@@ -242,7 +244,8 @@ function AgentBoard() {
   const me = useMe();
   const perms = usePermissions();
   const { online } = useSocketState();
-  const range = useMemo(() => today(), []);
+  const { timezone } = useSettings();
+  const range = useMemo(() => today(timezone), [timezone]);
 
   const canCalls = perms.has('call:read');
   const canTasks = perms.has('task:read');
@@ -601,7 +604,8 @@ function AgentBoard() {
 
 function TeamBoard() {
   const perms = usePermissions();
-  const range = useMemo(() => today(), []);
+  const { timezone } = useSettings();
+  const range = useMemo(() => today(timezone), [timezone]);
   const now = useNow(true, 1000);
 
   const canTeam = perms.has('report:view_team') || perms.has('report:view_all');

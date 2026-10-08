@@ -32,6 +32,7 @@ import type { Storage } from '../../integrations/storage/storage.js';
 import type { Mailer } from '../../plugins/mailer.js';
 import { readInstallation, twoFactorReset } from '../notifications/templates/auth.js';
 import type { Redis } from 'ioredis';
+import { workspaceTimeZone } from '../settings/settings.service.js';
 
 export interface UsersDeps {
   db: Db;
@@ -418,7 +419,7 @@ export class UsersService {
           doneBy: actor?.label ?? 'An administrator',
           contactName: actor?.name ?? null,
           byProvider: false,
-          timeZone: user.timezone,
+          timeZone: await workspaceTimeZone(this.deps.db),
         }),
       );
     } catch (err: unknown) {

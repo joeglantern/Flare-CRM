@@ -14,7 +14,6 @@ import { Button, IconButton } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input, PasswordInput } from '@/components/ui/Input';
 import { Dialog } from '@/components/ui/Overlay';
-import { Select } from '@/components/ui/Select';
 import { Segmented } from '@/components/ui/Toggle';
 import { toast } from '@/components/ui/toast';
 import { DateTime } from '@/components/data/formatters';
@@ -27,20 +26,12 @@ import { errorMessage } from '@/lib/api/errors';
 import { focusFirstError } from '@/lib/forms';
 import { useTheme } from '@/lib/theme';
 import { useUpdateMe } from '@/features/users/api';
-
-const TIMEZONES = [
-  'Africa/Nairobi',
-  'Africa/Kampala',
-  'Africa/Dar_es_Salaam',
-  'Africa/Lagos',
-  'Africa/Johannesburg',
-  'Europe/London',
-  'UTC',
-];
+import { useSettings } from '@/providers/settings';
 
 export function ProfileScreen() {
   usePageMeta([{ label: 'Your account' }]);
   const me = useMe();
+  const settings = useSettings();
   const updateMe = useUpdateMe();
   const invalidateMe = useInvalidateMe();
   const [name, setName] = useState(me.name);
@@ -69,29 +60,6 @@ export function ProfileScreen() {
         },
         onError: (e) => {
           toast({ tone: 'danger', title: 'Could not save', description: errorMessage(e) });
-        },
-      },
-    );
-  };
-
-  const setTimezone = (tz: string) => {
-    updateMe.mutate(
-      { timezone: tz },
-      {
-        onSuccess: () => {
-          toast({
-            tone: 'success',
-            title: 'Timezone saved',
-            description: `Every date now shows in ${tz}.`,
-          });
-          void invalidateMe();
-        },
-        onError: (e) => {
-          toast({
-            tone: 'danger',
-            title: 'Could not save the timezone',
-            description: errorMessage(e),
-          });
         },
       },
     );
@@ -270,14 +238,17 @@ export function ProfileScreen() {
             />
           </Panel>
 
-          <Panel title="Timezone" note="Every date and time in the CRM is shown in this zone.">
-            <Select
-              value={me.timezone}
-              onChange={setTimezone}
-              label="Your timezone"
-              searchable
-              options={TIMEZONES.map((tz) => ({ value: tz, label: tz.replace('_', ' ') }))}
-            />
+          {/*
+            One zone for everyone: the CRM's own, set by an admin. A personal zone made two people
+            read the same call at different times, and filters cut days in different places.
+          */}
+          <Panel title="Time zone">
+            <p className="text-base">
+              Every date and time in the CRM is in{' '}
+              <span className="font-medium">{settings.timezone.replace('_', ' ')}</span>, the
+              CRM&apos;s own time zone, whatever your computer is set to.
+            </p>
+            <p className="mt-1 text-sm text-muted">An admin can change it in Settings, General.</p>
           </Panel>
         </aside>
       </div>

@@ -31,18 +31,18 @@ describe('datetime custom fields', () => {
       target: { value: '2026-09-24T10:30' },
     });
     const sent = onChange.mock.calls[0]?.[0] as string;
-    expect(sent).toMatch(/Z$/);
-    expect(new Date(sent).getTime()).toBe(new Date('2026-09-24T10:30').getTime());
+    // Read in the CRM's zone (Nairobi, UTC+3), whatever this machine is set to.
+    expect(sent).toBe('2026-09-24T07:30:00.000Z');
   });
 
-  it('shows a stored instant as local time, and round-trips it unchanged', () => {
+  it('shows a stored instant in the CRM zone, and round-trips it unchanged', () => {
     const stored = '2026-09-24T07:30:00.000Z';
-    const shown = datetimeToLocalInput(stored);
-    expect(shown).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
-    expect(datetimeFromLocalInput(shown)).toBe(stored);
+    const shown = datetimeToLocalInput(stored, 'Africa/Nairobi');
+    expect(shown).toBe('2026-09-24T10:30');
+    expect(datetimeFromLocalInput(shown, 'Africa/Nairobi')).toBe(stored);
   });
 
   it('clears to null rather than an empty string', () => {
-    expect(datetimeFromLocalInput('')).toBeNull();
+    expect(datetimeFromLocalInput('', 'Africa/Nairobi')).toBeNull();
   });
 });

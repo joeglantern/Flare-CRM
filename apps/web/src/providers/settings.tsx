@@ -11,7 +11,6 @@ import { api, unwrap } from '@/lib/api/client';
 import { applyBrandPalette, watchThemeForPalette } from '@/lib/branding';
 import { qk } from '@/lib/query';
 import { DEFAULT_TZ } from '@/lib/format';
-import { useMeOptional } from '@/lib/auth/me';
 
 export interface PublicSettings {
   defaultCountry: string;
@@ -26,10 +25,15 @@ export interface PublicSettings {
   branding: BrandingSettings;
   /** Entered by an admin in Settings; null means "ask whoever the plan names". */
   supportContact: OwnerContact | null;
+  /** The CRM's own time zone (Settings, General). Older servers do not send it. */
+  timezone?: string;
 }
 
 export interface AppSettings extends PublicSettings {
-  /** The signed-in user's IANA zone; every date in the product renders in it. */
+  /**
+   * The CRM's IANA zone; every date in the product renders in it, and every date typed in is read
+   * in it, whatever the zone of the computer.
+   */
   timezone: string;
   timezoneLabel: string;
 }
@@ -73,12 +77,11 @@ function zoneLabel(tz: string): string {
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const me = useMeOptional();
   const { data } = useQuery(publicSettingsQuery);
   const value = useMemo<AppSettings>(() => {
-    const tz = me?.timezone ?? FALLBACK.timezone;
+    const tz = data?.timezone ?? FALLBACK.timezone;
     return { ...FALLBACK, ...(data ?? {}), timezone: tz, timezoneLabel: zoneLabel(tz) };
-  }, [data, me?.timezone]);
+  }, [data]);
 
   /**
    * The customer's colours, applied to the document rather than passed down: every token already

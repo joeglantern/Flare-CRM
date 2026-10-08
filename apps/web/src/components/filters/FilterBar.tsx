@@ -13,7 +13,10 @@ import { Button, IconButton } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Popover } from '@/components/ui/Menu';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { TZDate } from '@date-fns/tz';
 import { datetimeFromLocalInput, datetimeToLocalInput } from '@/lib/datetime-input';
+import { endOfZonedDay, startOfZonedDay, zonedParts } from '@/lib/format/zoned';
+import { useSettings } from '@/providers/settings';
 import { rangeLabel } from '@/lib/range-label';
 import { cn } from '@/lib/utils';
 
@@ -272,8 +275,8 @@ export interface DateRange {
   preset?: RangePreset;
 }
 
-export function presetRange(preset: RangePreset): DateRange {
-  const now = new Date();
+/** A preset range on the CRM's calendar: "today" is today in its zone, not the computer's. */
+export function presetRange(preset: RangePreset, tz: string, now: Date = new Date()): DateRange {
   if (preset === '24h') {
     return {
       from: new Date(now.getTime() - 24 * 3_600_000).toISOString(),
@@ -281,16 +284,14 @@ export function presetRange(preset: RangePreset): DateRange {
       preset,
     };
   }
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  if (preset === '7d') start.setDate(start.getDate() - 6);
-  else if (preset === '30d') start.setDate(start.getDate() - 29);
-  else if (preset === 'month') start.setDate(1);
-  else if (preset === 'quarter') {
-    start.setMonth(Math.floor(start.getMonth() / 3) * 3);
-    start.setDate(1);
+  const end = endOfZonedDay(tz, 0, now);
+  let start = startOfZonedDay(tz, 0, now);
+  if (preset === '7d') start = startOfZonedDay(tz, -6, now);
+  else if (preset === '30d') start = startOfZonedDay(tz, -29, now);
+  else if (preset === 'month' || preset === 'quarter') {
+    const p = zonedParts(now, tz);
+    const month = preset === 'month' ? p.month : Math.floor(p.month / 3) * 3;
+    start = new Date(new TZDate(p.year, month, 1, 0, 0, 0, 0, tz).getTime());
   }
   return { from: start.toISOString(), to: end.toISOString(), preset };
 }
@@ -310,6 +311,7 @@ export function DateRangePicker({
 }) {
   const anchor = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
+  const { timezone } = useSettings();
   const presets: { id: RangePreset; label: string }[] = [
     { id: '24h', label: 'Last 24 hours' },
     { id: 'today', label: 'Today' },
@@ -318,7 +320,7 @@ export function DateRangePicker({
     { id: 'month', label: 'This month' },
     { id: 'quarter', label: 'This quarter' },
   ];
-  const label = presets.find((p) => p.id === value.preset)?.label ?? rangeLabel(value);
+  const label = presets.find((p) => p.id === value.preset)?.label ?? rangeLabel(value, timezone);
   const backwards = Date.parse(value.from) > Date.parse(value.to);
 
   const control = (
@@ -352,7 +354,7 @@ export function DateRangePicker({
               key={p.id}
               type="button"
               onClick={() => {
-                onChange(presetRange(p.id));
+                onChange(presetRange(p.id, timezone));
                 setOpen(false);
               }}
               className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left text-base hover:bg-hover"
@@ -361,24 +363,24 @@ export function DateRangePicker({
               {value.preset === p.id && <Check size={14} className="text-flare" aria-hidden />}
             </button>
           ))}
-          {/* Date and time of day, both in local time; an empty time is the whole day. */}
+          {/* Date and time of day, both on the CRM's clock. */}
           <div className="mt-1 flex flex-col gap-2 border-t border-border pt-2">
             <Input
               type="datetime-local"
               label="From"
-              value={datetimeToLocalInput(value.from)}
+              value={datetimeToLocalInput(value.from, timezone)}
               onChange={(e) => {
-                const from = datetimeFromLocalInput(e.target.value);
+                const from = datetimeFromLocalInput(e.target.value, timezone);
                 if (from !== null) onChange({ ...value, from, preset: 'custom' });
               }}
             />
             <Input
               type="datetime-local"
               label="To"
-              value={datetimeToLocalInput(value.to)}
+              value={datetimeToLocalInput(value.to, timezone)}
               error={backwards ? 'Ends before it starts' : undefined}
               onChange={(e) => {
-                const to = datetimeFromLocalInput(e.target.value);
+                const to = datetimeFromLocalInput(e.target.value, timezone);
                 // The field holds minutes; the range takes in the whole of the last one.
                 if (to !== null)
                   onChange({

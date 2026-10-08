@@ -11,8 +11,28 @@ import {
 } from '@crm/shared';
 import { z } from 'zod';
 
+/** An IANA zone the runtime knows, e.g. Africa/Nairobi. */
+const timeZone = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .refine((tz) => {
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Not a time zone this server knows');
+
 export const settingSchemas = {
   agentVisibility: z.enum(valuesOf(AgentVisibility)),
+  /**
+   * The CRM's own time zone. Every time on every screen, in every email and in every report is
+   * in this zone, whatever the zone of the computer it is read on.
+   */
+  timezone: timeZone,
   /** Contacts and companies visible to every agent, whatever agentVisibility says for the rest. */
   sharedDirectory: z.boolean(),
   defaultCountry: z.string().length(2).toUpperCase(),
@@ -87,6 +107,7 @@ export type Settings = { [K in SettingKey]: SettingValue<K> };
 
 export const settingDefaults: Settings = {
   agentVisibility: 'owned',
+  timezone: 'Africa/Nairobi',
   // On: an agent who never owned a contact must still find them when they call, and see a
   // colleague's new contact or company rather than creating a duplicate.
   sharedDirectory: true,
@@ -143,4 +164,5 @@ export const publicSettingsSchema = z.object({
   recording: z.object({ consentText: z.string(), allowAgentPlayback: z.boolean() }),
   branding: settingSchemas.branding,
   supportContact: settingSchemas.supportContact,
+  timezone: settingSchemas.timezone,
 });

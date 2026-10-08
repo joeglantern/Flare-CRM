@@ -19,6 +19,8 @@ import { usePermissions } from '@/providers/permissions';
 import { useCreateTask, useTaskAssignees, useUpdateTask } from './api';
 import { HandBackDialog, HandedBackNotice, TaskHistory } from './HandBack';
 import { handBackTarget } from './hand-back';
+import { fromZonedInput, toZonedInput, zonedAt } from '@/lib/format/zoned';
+import { useSettings } from '@/providers/settings';
 
 export interface TaskDefaults {
   contactId?: string | null;
@@ -58,6 +60,7 @@ export function TaskFormDialog({
 }) {
   const me = useMe();
   const perms = usePermissions();
+  const { timezone } = useSettings();
   const create = useCreateTask();
   const update = useUpdateTask();
   const canAssign = perms.has('task:assign');
@@ -71,7 +74,9 @@ export function TaskFormDialog({
       title: task?.title ?? defaults?.title ?? '',
       type: task?.type ?? defaults?.type ?? 'call',
       priority: task?.priority ?? 'normal',
-      dueAt: (task?.dueAt ?? defaults?.dueAt ?? defaultDue()).slice(0, 16),
+      // Shown on the CRM's clock. The ISO text cut to 16 characters was the UTC time, so a task
+      // due at 09:00 in Nairobi opened in this form as 06:00.
+      dueAt: toZonedInput(task?.dueAt ?? defaults?.dueAt ?? defaultDue(timezone), timezone),
       assigneeId: task?.assigneeId ?? me.id,
       contactId: task?.contact?.id ?? defaults?.contactId ?? null,
       dealId: task?.deal?.id ?? defaults?.dealId ?? null,
@@ -81,7 +86,7 @@ export function TaskFormDialog({
           ? minutesBefore(task.dueAt, task.remindAt)
           : null,
     }),
-    [task, defaults, me.id],
+    [task, defaults, me.id, timezone],
   );
 
   const [form, setForm] = useState(initial);
@@ -101,12 +106,12 @@ export function TaskFormDialog({
       title: form.title.trim(),
       type: form.type,
       priority: form.priority,
-      dueAt: form.dueAt === '' ? null : new Date(form.dueAt).toISOString(),
+      dueAt: form.dueAt === '' ? null : fromZonedInput(form.dueAt, timezone),
       assigneeId: form.assigneeId,
       contactId: form.contactId,
       dealId: form.dealId,
       description: form.description.trim() === '' ? null : form.description.trim(),
-      remindAt: remindAtFrom(form.dueAt, form.remindMinutes),
+      remindAt: remindAtFrom(fromZonedInput(form.dueAt, timezone), form.remindMinutes),
     };
     if (defaults?.companyId != null && !editing) body.companyId = defaults.companyId;
     if (defaults?.sourceCallId != null && !editing) body.sourceCallId = defaults.sourceCallId;
@@ -309,18 +314,16 @@ export function TaskFormDialog({
 }
 
 /** The API stores an absolute reminder time; the UI offers the familiar "N before" choices. */
-function remindAtFrom(dueLocal: string, minutes: number | null): string | null {
-  if (minutes === null || dueLocal === '') return null;
-  return new Date(new Date(dueLocal).getTime() - minutes * 60_000).toISOString();
+function remindAtFrom(due: string | null, minutes: number | null): string | null {
+  if (minutes === null || due === null) return null;
+  return new Date(new Date(due).getTime() - minutes * 60_000).toISOString();
 }
 
 function minutesBefore(dueAt: string, remindAt: string): number {
   return Math.round((new Date(dueAt).getTime() - new Date(remindAt).getTime()) / 60_000);
 }
 
-function defaultDue(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  d.setHours(9, 0, 0, 0);
-  return d.toISOString();
+/** Tomorrow at nine, on the CRM's clock. */
+function defaultDue(tz: string): string {
+  return zonedAt(tz, 1, 9).toISOString();
 }

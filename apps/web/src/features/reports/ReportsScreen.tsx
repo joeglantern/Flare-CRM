@@ -41,6 +41,7 @@ import {
   usePipelineSummary,
   type AgentPerformanceRow,
 } from './api';
+import { useSettings } from '@/providers/settings';
 
 const REPORTS = [
   { id: 'calls', label: 'Call volume' },
@@ -57,7 +58,8 @@ export function ReportsScreen() {
   usePageMeta([{ label: 'Reports' }]);
   const perms = usePermissions();
   const [tab, setTab] = useSearchParam('report');
-  const [range, setRange] = useState<DateRange>(() => presetRange('30d'));
+  const settings = useSettings();
+  const [range, setRange] = useState<DateRange>(() => presetRange('30d', settings.timezone));
   const [exportOpen, setExportOpen] = useState(false);
 
   const active = tab ?? 'calls';
@@ -127,7 +129,7 @@ export function ReportsScreen() {
             : 'calls'
         }
         filters={filters}
-        filterSummary={`${rangeLabel(range)} · export gives the rows behind this chart, as CSV`}
+        filterSummary={`${rangeLabel(range, settings.timezone)} · export gives the rows behind this chart, as CSV`}
       />
     </div>
   );

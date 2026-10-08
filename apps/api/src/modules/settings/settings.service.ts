@@ -86,3 +86,14 @@ export class SettingsService {
     return this.getAll();
   }
 }
+
+/**
+ * The CRM's time zone, read straight from the table for code that runs outside the settings
+ * service (sign-in emails, the console link). Anything that cannot be read falls back to the
+ * default rather than to the server's own zone.
+ */
+export async function workspaceTimeZone(db: Db): Promise<string> {
+  const row = await db.setting.findUnique({ where: { key: 'timezone' } });
+  const parsed = settingSchemas.timezone.safeParse(row?.value);
+  return parsed.success ? parsed.data : settingDefaults.timezone;
+}

@@ -11,6 +11,7 @@ import { Tag } from '@/components/ui/Badge';
 import { DateTime } from '@/components/data/formatters';
 import { PhoneNumber } from '@/components/data/PhoneNumber';
 import { datetimeFromLocalInput, datetimeToLocalInput } from '@/lib/datetime-input';
+import { useSettings } from '@/providers/settings';
 import { cn } from '@/lib/utils';
 
 export type CustomFieldValues = Record<string, unknown>;
@@ -31,6 +32,7 @@ export function CustomFieldInput({
   onChange: (v: unknown) => void;
   error?: string;
 }) {
+  const { timezone } = useSettings();
   const label = definition.label;
   const common = { label, error, required: definition.required };
 
@@ -72,9 +74,9 @@ export function CustomFieldInput({
         <Input
           {...common}
           type="datetime-local"
-          value={datetimeToLocalInput(value)}
+          value={datetimeToLocalInput(value, timezone)}
           onChange={(e) => {
-            onChange(datetimeFromLocalInput(e.target.value));
+            onChange(datetimeFromLocalInput(e.target.value, timezone));
           }}
         />
       );

@@ -13,6 +13,8 @@ import { errorMessage } from '@/lib/api/errors';
 import { useCreateTask } from '@/features/tasks/api';
 import { cn } from '@/lib/utils';
 import { useDispositions, useSetDisposition } from './api';
+import { zonedAt } from '@/lib/format/zoned';
+import { useSettings } from '@/providers/settings';
 
 export function DispositionForm({
   callId,
@@ -33,6 +35,7 @@ export function DispositionForm({
 }) {
   const dispositions = useDispositions();
   const save = useSetDisposition();
+  const { timezone } = useSettings();
   const createTask = useCreateTask();
   const [dispositionId, setDispositionId] = useState<string | null>(initial?.dispositionId ?? null);
   const [note, setNote] = useState(initial?.note ?? '');
@@ -46,9 +49,8 @@ export function DispositionForm({
       {
         onSuccess: () => {
           if (followUp) {
-            const due = new Date();
-            due.setDate(due.getDate() + 1);
-            due.setHours(9, 0, 0, 0);
+            // Tomorrow at nine on the CRM's clock.
+            const due = zonedAt(timezone, 1, 9);
             createTask.mutate({
               title: 'Follow-up call',
               type: 'call',

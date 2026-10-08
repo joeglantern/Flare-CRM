@@ -9,6 +9,7 @@ import type { MailMessage } from '../../plugins/mailer.js';
 import type { Db } from '../../plugins/prisma.js';
 import type { Queues } from '../../plugins/queues.js';
 import { QUEUES } from '../../jobs/queues.js';
+import { workspaceTimeZone } from '../settings/settings.service.js';
 import { readInstallation, type Installation } from './templates/auth.js';
 
 export const DEFAULT_PREFERENCES: Record<NotificationType, { inApp: boolean; email: boolean }> = {
@@ -92,7 +93,9 @@ export class NotificationsService {
       if (user?.isActive) {
         if (input.email) {
           const installation = await readInstallation(this.db, this.appUrl);
-          await this.queues.add(QUEUES.email, input.type, input.email(user, installation));
+          // Times in the email are in the CRM's zone, the same as on screen.
+          const recipient = { ...user, timezone: await workspaceTimeZone(this.db) };
+          await this.queues.add(QUEUES.email, input.type, input.email(recipient, installation));
         } else {
           const link =
             typeof input.data?.url === 'string' ? `${this.appUrl}${input.data.url}` : this.appUrl;
