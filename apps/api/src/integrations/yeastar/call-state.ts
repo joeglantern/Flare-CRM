@@ -63,11 +63,6 @@ export interface LiveCallState {
   ended: boolean;
   /** The queue the call came through; absent on a state saved before queues were known. */
   queue?: { number: string; name: string } | null;
-  /**
-   * Whose phone rang most recently. An unanswered queue call is handed to them: they keep the
-   * card, write it up, and the missed call is theirs.
-   */
-  lastRungUserId?: string | null;
 }
 
 const STATE_TTL_SEC = 6 * 60 * 60;
@@ -466,7 +461,6 @@ export class CallStateMachine {
       };
       const mapped = leg.number ? await this.deps.extMap.lookup(leg.number) : null;
 
-      if (IS_RINGING.has(leg.status) && mapped) state.lastRungUserId = mapped.userId;
       if (IS_RINGING.has(leg.status) || (IS_TALKING.has(leg.status) && !prev)) {
         if (!state.ringingExtensions.includes(leg.number)) state.ringingExtensions.push(leg.number);
         if (popup && mapped && !state.poppedUsers.includes(mapped.userId)) {
@@ -536,10 +530,9 @@ export class CallStateMachine {
     if (!state.ended && (trunkBye || allExtBye)) {
       state.ended = true;
       const reason = state.answeredExtension ? null : 'caller_hung_up';
-      // Nobody answered a queue call: the agent it rang on last keeps the card to write it up.
-      const keeper = reason && state.queue ? (state.lastRungUserId ?? null) : null;
+      // Nobody answered: every card closes and the call is logged as missed, queue or not.
       for (const userId of state.poppedUsers) {
-        if (reason && userId !== keeper)
+        if (reason)
           this.app.realtime
             .to(rooms.user(userId))
             .emit('call:cancelled', { at: nowIso(), callId: state.crmCallId, pbxCallId, reason });
@@ -787,11 +780,7 @@ export class CallStateMachine {
       null;
     const extension = state?.answeredExtension ?? existing?.extension ?? fromCdr.extension;
     const mapped = extension ? await this.deps.extMap.lookup(extension) : null;
-    // An unanswered queue call belongs to the agent it rang on last, who is asked to write it up.
-    const queueKeeper =
-      state?.queue && !state.answeredUserId ? (state.lastRungUserId ?? null) : null;
-    const userId =
-      state?.answeredUserId ?? existing?.userId ?? queueKeeper ?? mapped?.userId ?? null;
+    const userId = state?.answeredUserId ?? existing?.userId ?? mapped?.userId ?? null;
     const status = mapCdrStatus(cdr.status, direction);
     const recordingStatus = cdr.recording
       ? existing?.recordingStatus === 'stored'

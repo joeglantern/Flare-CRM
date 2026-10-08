@@ -1021,7 +1021,7 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       expect((await closedB).reason).toBe('answered_elsewhere');
     });
 
-    it('hands an unanswered queue call to the agent it rang on last', async () => {
+    it('logs an unanswered queue call as missed and closes every popup', async () => {
       const [a, b, c] = [
         await agentSocket(admin),
         await agentSocket(agent),
@@ -1033,23 +1033,8 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
         queueCall(callId, '0712000888', '6410', [{ extension: '1001', status: 'RING' }], 'ALERT'),
       );
       await ringing;
-      pbx.emit(
-        queueCall(
-          callId,
-          '0712000888',
-          '6410',
-          [
-            { extension: '1001', status: 'BYE' },
-            { extension: '1002', status: 'RING' },
-          ],
-          'ALERT',
-        ),
-      );
-      await new Promise((r) => setTimeout(r, 200));
 
-      const keeps = waitFor<{ pbxCallId: string }>(c, 'call:ended');
-      const closedA = waitFor<{ reason: string }>(a, 'call:cancelled');
-      const closedB = waitFor<{ reason: string }>(b, 'call:cancelled');
+      const closed = [a, b, c].map((s) => waitFor<{ reason: string }>(s, 'call:cancelled'));
       pbx.emit(
         queueCall(
           callId,
@@ -1062,18 +1047,20 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
           'BYE',
         ),
       );
-      expect((await keeps).pbxCallId).toBe(callId);
-      expect((await closedA).reason).toBe('caller_hung_up');
-      expect((await closedB).reason).toBe('caller_hung_up');
+      for (const c of closed) expect((await c).reason).toBe('caller_hung_up');
 
-      // The missed call is theirs to write up.
-      const logged = waitFor<{ status: string }>(c, 'call:logged');
       pbx.emit(
         cdr(callId, { from: '0712000888', to: '6410', type: 'Inbound', status: 'NO ANSWER' }),
       );
-      expect((await logged).status).toBe('missed');
+      await until(async () =>
+        Boolean(
+          await ctx.app.db.call.findFirst({
+            where: { pbxCallId: callId, pbxCdrUid: { not: null } },
+          }),
+        ),
+      );
       const row = await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: callId } });
-      expect(row).toMatchObject({ status: 'missed', userId: third.id });
+      expect(row).toMatchObject({ status: 'missed', userId: null });
     });
 
     it('leaves a call that never went through a queue to the phones it rang', async () => {
