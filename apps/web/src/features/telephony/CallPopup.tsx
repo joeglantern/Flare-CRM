@@ -289,6 +289,8 @@ function CallCardView({
         </span>
         {/* A rehearsal started from Settings: said plainly, so it is never taken for a real call. */}
         {isTest && <Badge tone="neutral">Test call</Badge>}
+        {/* Shared with the rest of the queue: whoever answers takes it, the others' cards close. */}
+        {payload?.queue != null && <Badge tone="neutral">{payload.queue.name} queue</Badge>}
         {payload?.direction === 'outbound' || card.direction === 'outbound' ? (
           <PhoneOutgoing size={13} className="text-muted" aria-hidden />
         ) : (

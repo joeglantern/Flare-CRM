@@ -13,6 +13,7 @@ import type { Redis } from 'ioredis';
 import type { FastifyInstance } from 'fastify';
 import type { ExtensionLinkReport } from '@crm/shared';
 import { ExtensionMap } from '../integrations/yeastar/extension-map.js';
+import { refreshQueues } from '../integrations/yeastar/queue-directory.js';
 import {
   planExtensionLinks,
   type CrmUser,
@@ -31,9 +32,17 @@ function blankToNull(value: string | undefined): string | null {
 export async function runExtensionSync(app: FastifyInstance): Promise<ExtensionLinkReport | null> {
   const client = app.cti.client;
   if (!client) return null;
+  if (!(await app.entitlements.has('telephony'))) return null;
+  // Queue membership rides along: a queue call pops to every agent the PBX lists in its queue.
+  try {
+    const queues = await refreshQueues(client, app.valkey);
+    app.log.info({ queues }, 'queue directory refreshed');
+  } catch (err) {
+    app.log.warn({ err }, 'could not read the PBX queues; queue calls pop only where they ring');
+  }
+
   const settings = await app.settings.getAll();
   if (!settings.extensionSync.enabled) return null;
-  if (!(await app.entitlements.has('telephony'))) return null;
 
   const pbx: PbxExtension[] = [];
   for (let page = 1; page <= 20; page++) {

@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import type { CountryCode } from 'libphonenumber-js';
 import { z } from 'zod';
 import { QUEUES } from '../../jobs/queues.js';
+import { queueForCallPath } from './queue-directory.js';
 import { newId } from '../../lib/ids.js';
 import { nowIso, rooms } from '../../lib/realtime.js';
 import { contactSummarySelect, contactToSummary } from '../../modules/contacts/contacts.mappers.js';
@@ -60,6 +61,13 @@ export interface LiveCallState {
   answeredAt: string | null;
   firstEventAt: string;
   ended: boolean;
+  /** The queue the call came through; absent on a state saved before queues were known. */
+  queue?: { number: string; name: string } | null;
+  /**
+   * Whose phone rang most recently. An unanswered queue call is handed to them: they keep the
+   * card, write it up, and the missed call is theirs.
+   */
+  lastRungUserId?: string | null;
 }
 
 const STATE_TTL_SEC = 6 * 60 * 60;
@@ -424,6 +432,26 @@ export class CallStateMachine {
 
     const popup = classified.direction !== 'internal' || settings.popup.popOnInternalCalls;
 
+    /*
+     * A queue call goes to every agent in the queue, not only to the ones whose ring reached the
+     * CRM: the PBX reports ring states only for extensions in its status monitor, and the queue is
+     * one team's shared work. Once somebody has answered, nobody new is called in.
+     */
+    if (state.direction === 'inbound' && !state.queue && state.callPath) {
+      const queue = await queueForCallPath(this.app.valkey, state.callPath);
+      if (queue) {
+        state.queue = { number: queue.number, name: queue.name };
+        if (popup && !state.answeredExtension && !state.ended) {
+          for (const ext of queue.extensions) {
+            const agent = await this.deps.extMap.lookup(ext);
+            if (!agent || state.poppedUsers.includes(agent.userId)) continue;
+            state.poppedUsers.push(agent.userId);
+            await this.emitRinging(state, agent.userId, receivedAt);
+          }
+        }
+      }
+    }
+
     for (const leg of classified.extensions) {
       const prev = state.members[leg.channelId];
       state.members[leg.channelId] = {
@@ -438,6 +466,7 @@ export class CallStateMachine {
       };
       const mapped = leg.number ? await this.deps.extMap.lookup(leg.number) : null;
 
+      if (IS_RINGING.has(leg.status) && mapped) state.lastRungUserId = mapped.userId;
       if (IS_RINGING.has(leg.status) || (IS_TALKING.has(leg.status) && !prev)) {
         if (!state.ringingExtensions.includes(leg.number)) state.ringingExtensions.push(leg.number);
         if (popup && mapped && !state.poppedUsers.includes(mapped.userId)) {
@@ -507,8 +536,10 @@ export class CallStateMachine {
     if (!state.ended && (trunkBye || allExtBye)) {
       state.ended = true;
       const reason = state.answeredExtension ? null : 'caller_hung_up';
+      // Nobody answered a queue call: the agent it rang on last keeps the card to write it up.
+      const keeper = reason && state.queue ? (state.lastRungUserId ?? null) : null;
       for (const userId of state.poppedUsers) {
-        if (reason)
+        if (reason && userId !== keeper)
           this.app.realtime
             .to(rooms.user(userId))
             .emit('call:cancelled', { at: nowIso(), callId: state.crmCallId, pbxCallId, reason });
@@ -692,6 +723,7 @@ export class CallStateMachine {
       trunkName: state.trunkName,
       didNumber: state.didNumber,
       callPath: state.callPath,
+      queue: state.queue ?? null,
       contact,
       matchCandidates,
       recentActivity,
@@ -755,7 +787,11 @@ export class CallStateMachine {
       null;
     const extension = state?.answeredExtension ?? existing?.extension ?? fromCdr.extension;
     const mapped = extension ? await this.deps.extMap.lookup(extension) : null;
-    const userId = state?.answeredUserId ?? existing?.userId ?? mapped?.userId ?? null;
+    // An unanswered queue call belongs to the agent it rang on last, who is asked to write it up.
+    const queueKeeper =
+      state?.queue && !state.answeredUserId ? (state.lastRungUserId ?? null) : null;
+    const userId =
+      state?.answeredUserId ?? existing?.userId ?? queueKeeper ?? mapped?.userId ?? null;
     const status = mapCdrStatus(cdr.status, direction);
     const recordingStatus = cdr.recording
       ? existing?.recordingStatus === 'stored'

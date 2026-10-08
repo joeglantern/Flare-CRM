@@ -32,6 +32,8 @@ export class FakePbx {
   /** Company contacts, keyed by the id the PBX hands out. */
   contacts = new Map<number, Record<string, unknown>>();
   phonebooks: { id: number; name: string; member_select?: string }[] = [];
+  /** Queues as `GET /queue/list` serves them: each agent's extension number is in `text2`. */
+  queues: { number: string; name: string; static_agent_list: { text2: string }[] }[] = [];
   /** What `GET /call/query` answers: calls in progress, in the 30011 member layout. */
   liveCalls: { call_id: string; members: object[] }[] = [];
   /** First names the PBX will refuse to create, so a test can fail one contact and not the rest. */
@@ -288,6 +290,12 @@ export class FakePbx {
       return { errcode: 0, errmsg: 'SUCCESS', id };
     });
 
+    app.get('/openapi/v1.0/queue/list', async () => ({
+      errcode: 0,
+      errmsg: 'SUCCESS',
+      total_number: this.queues.length,
+      queue_list: this.queues,
+    }));
     app.get('/openapi/v1.0/extension/list', async () => ({
       errcode: 0,
       errmsg: 'SUCCESS',
@@ -399,6 +407,46 @@ export function inboundRinging(
             call_path: '',
           },
         },
+      ],
+    },
+  };
+}
+
+/**
+ * A call that came in through a queue, as the PBX reports it: every agent leg carries the queue
+ * number in `call_path` (seen live: "6410" on each leg of a Test queue call).
+ */
+export function queueCall(
+  callId: string,
+  from: string,
+  queue: string,
+  legs: { extension: string; status: string }[],
+  trunkStatus = 'ANSWERED',
+) {
+  return {
+    type: 30011,
+    sn: 'FAKE0001',
+    msg: {
+      call_id: callId,
+      members: [
+        {
+          inbound: {
+            from,
+            to: '3512',
+            trunk_name: 'trunk-1',
+            channel_id: `PJSIP/trunk-${callId}`,
+            member_status: trunkStatus,
+            call_path: queue,
+          },
+        },
+        ...legs.map((l) => ({
+          extension: {
+            number: l.extension,
+            channel_id: `PJSIP/${l.extension}-${callId}`,
+            member_status: l.status,
+            call_path: queue,
+          },
+        })),
       ],
     },
   };

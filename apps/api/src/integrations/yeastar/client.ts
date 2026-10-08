@@ -413,6 +413,33 @@ export class YeastarClient {
     });
   }
 
+  /**
+   * Every queue with its agents. An agent comes as the extension's internal id in `value` and its
+   * number in `text2`; the number is what call events carry, so that is what is kept.
+   */
+  queueList() {
+    const agent = z.object({ text: z.string().optional(), text2: z.string().optional() }).loose();
+    return this.call('GET', '/queue/list', {
+      query: { page: 1, page_size: 1000 },
+      schema: z
+        .object({
+          queue_list: z
+            .array(
+              z
+                .object({
+                  number: z.string(),
+                  name: z.string().optional(),
+                  static_agent_list: z.array(agent).nullable().optional(),
+                  dynamic_agent_list: z.array(agent).nullable().optional(),
+                })
+                .loose(),
+            )
+            .optional(),
+        })
+        .loose(),
+    });
+  }
+
   async close(): Promise<void> {
     await this.dispatcher.close();
   }

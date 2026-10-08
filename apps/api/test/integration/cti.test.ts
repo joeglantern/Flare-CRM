@@ -2,6 +2,7 @@ import { io as connect, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { yeastarSignature } from '../../src/integrations/yeastar/webhook-verify.js';
 import { YeastarSubscriber } from '../../src/integrations/yeastar/subscriber.js';
+import { refreshQueues } from '../../src/integrations/yeastar/queue-directory.js';
 import { reconcileCdrs } from '../../src/integrations/yeastar/reconcile.js';
 import { newId } from '../../src/lib/ids.js';
 import { startProcessors, type RunningWorkers } from '../../src/jobs/processors.js';
@@ -14,6 +15,7 @@ import {
   inboundRinging,
   nextCallId,
   outboundRinging,
+  queueCall,
 } from '../setup/fake-pbx.js';
 import { TestContext, type TestUser } from '../setup/test-app.js';
 
@@ -971,5 +973,121 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     expect((await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: orphan } })).status).toBe(
       'missed',
     );
+  });
+
+  describe('queue calls', () => {
+    let third: TestUser;
+    beforeEach(async () => {
+      third = await ctx.createUser({ role: 'agent', extension: '1002' });
+      await ctx.app.cti.extMap.refresh();
+      pbx.queues = [
+        {
+          number: '6410',
+          name: 'Test queue',
+          static_agent_list: [{ text2: '1000' }, { text2: '1001' }, { text2: '1002' }],
+        },
+      ];
+      await refreshQueues(ctx.app.cti.client!, ctx.app.valkey);
+    });
+
+    it('pops to every agent in the queue, and only the one who answers keeps the card', async () => {
+      const [a, b, c] = [
+        await agentSocket(admin),
+        await agentSocket(agent),
+        await agentSocket(third),
+      ];
+      const callId = nextCallId();
+      const rings = [a, b, c].map((s) =>
+        waitFor<{ queue: { number: string; name: string } | null }>(s, 'call:ringing'),
+      );
+      // Only one agent's ring reaches the CRM; the queue brings in the other two.
+      pbx.emit(
+        queueCall(callId, '0712000777', '6410', [{ extension: '1001', status: 'RING' }], 'ALERT'),
+      );
+      for (const ring of rings)
+        expect((await ring).queue).toEqual({ number: '6410', name: 'Test queue' });
+
+      const answered = waitFor<{ answeredByUserId: string }>(c, 'call:answered');
+      const closedA = waitFor<{ reason: string }>(a, 'call:cancelled');
+      const closedB = waitFor<{ reason: string }>(b, 'call:cancelled');
+      pbx.emit(
+        queueCall(callId, '0712000777', '6410', [
+          { extension: '1001', status: 'BYE' },
+          { extension: '1002', status: 'ANSWERED' },
+        ]),
+      );
+      expect((await answered).answeredByUserId).toBe(third.id);
+      expect((await closedA).reason).toBe('answered_elsewhere');
+      expect((await closedB).reason).toBe('answered_elsewhere');
+    });
+
+    it('hands an unanswered queue call to the agent it rang on last', async () => {
+      const [a, b, c] = [
+        await agentSocket(admin),
+        await agentSocket(agent),
+        await agentSocket(third),
+      ];
+      const callId = nextCallId();
+      const ringing = waitFor(c, 'call:ringing');
+      pbx.emit(
+        queueCall(callId, '0712000888', '6410', [{ extension: '1001', status: 'RING' }], 'ALERT'),
+      );
+      await ringing;
+      pbx.emit(
+        queueCall(
+          callId,
+          '0712000888',
+          '6410',
+          [
+            { extension: '1001', status: 'BYE' },
+            { extension: '1002', status: 'RING' },
+          ],
+          'ALERT',
+        ),
+      );
+      await new Promise((r) => setTimeout(r, 200));
+
+      const keeps = waitFor<{ pbxCallId: string }>(c, 'call:ended');
+      const closedA = waitFor<{ reason: string }>(a, 'call:cancelled');
+      const closedB = waitFor<{ reason: string }>(b, 'call:cancelled');
+      pbx.emit(
+        queueCall(
+          callId,
+          '0712000888',
+          '6410',
+          [
+            { extension: '1001', status: 'BYE' },
+            { extension: '1002', status: 'BYE' },
+          ],
+          'BYE',
+        ),
+      );
+      expect((await keeps).pbxCallId).toBe(callId);
+      expect((await closedA).reason).toBe('caller_hung_up');
+      expect((await closedB).reason).toBe('caller_hung_up');
+
+      // The missed call is theirs to write up.
+      const logged = waitFor<{ status: string }>(c, 'call:logged');
+      pbx.emit(
+        cdr(callId, { from: '0712000888', to: '6410', type: 'Inbound', status: 'NO ANSWER' }),
+      );
+      expect((await logged).status).toBe('missed');
+      const row = await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: callId } });
+      expect(row).toMatchObject({ status: 'missed', userId: third.id });
+    });
+
+    it('leaves a call that never went through a queue to the phones it rang', async () => {
+      const [a, b] = [await agentSocket(admin), await agentSocket(agent)];
+      const callId = nextCallId();
+      const ringing = waitFor<{ queue?: unknown }>(b, 'call:ringing');
+      let adminRang = false;
+      a.once('call:ringing', () => {
+        adminRang = true;
+      });
+      pbx.emit(inboundRinging(callId, '0712000999', '1001'));
+      expect((await ringing).queue ?? null).toBeNull();
+      await new Promise((r) => setTimeout(r, 300));
+      expect(adminRang).toBe(false);
+    });
   });
 });

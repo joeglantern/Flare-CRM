@@ -36,6 +36,8 @@ export const serverEvents = {
     trunkName: z.string().nullable(),
     didNumber: z.string().nullable(),
     callPath: z.string().nullable(),
+    /** The PBX queue the call came through, when it did. Every agent in it gets the popup. */
+    queue: z.object({ number: z.string(), name: z.string() }).nullable().optional(),
     contact: popupContact.nullable(),
     matchCandidates: z.array(z.object({ id: uuid, displayName: z.string() })),
     recentActivity: z.array(activitySummary).max(5),
