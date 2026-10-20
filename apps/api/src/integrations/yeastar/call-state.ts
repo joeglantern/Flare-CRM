@@ -436,7 +436,7 @@ export class CallStateMachine {
       const queue = await queueForCallPath(this.app.valkey, state.callPath);
       if (queue) {
         state.queue = { number: queue.number, name: queue.name };
-        if (popup && !state.answeredExtension && !state.ended) {
+        if (popup && !state.answeredUserId && !state.ended) {
           for (const ext of queue.extensions) {
             const agent = await this.deps.extMap.lookup(ext);
             if (!agent || state.poppedUsers.includes(agent.userId)) continue;
@@ -469,7 +469,21 @@ export class CallStateMachine {
         }
       }
 
-      if (IS_TALKING.has(leg.status) && !state.answeredExtension && leg.number) {
+      /*
+       * Who answered. A queue, ring group or IVR picks the call up before any agent does, to play
+       * its prompts, and used to be recorded as the answerer: the call then belonged to "6400",
+       * not to the agent who spoke to the caller, and that agent never saw it in their calls. So
+       * an extension that is no CRM user only holds the place until an agent picks up, and tells
+       * nobody's popup that the call was taken.
+       */
+      const claims =
+        IS_TALKING.has(leg.status) &&
+        leg.number !== '' &&
+        (!state.answeredExtension ||
+          (state.answeredUserId === null &&
+            mapped !== null &&
+            leg.number !== state.answeredExtension));
+      if (claims) {
         state.answeredExtension = leg.number;
         state.answeredUserId = mapped?.userId ?? null;
         state.answeredAt = nowIso();
@@ -484,7 +498,7 @@ export class CallStateMachine {
             },
           })
           .catch(() => undefined);
-        for (const userId of state.poppedUsers) {
+        for (const userId of mapped ? state.poppedUsers : []) {
           if (userId === mapped?.userId) {
             this.app.realtime.to(rooms.user(userId)).emit('call:answered', {
               at: nowIso(),
@@ -503,13 +517,16 @@ export class CallStateMachine {
             });
           }
         }
-        this.app.realtime.to([rooms.role('manager'), rooms.role('admin')]).emit('agent:presence', {
-          at: nowIso(),
-          userId: mapped?.userId ?? '00000000-0000-7000-8000-000000000000',
-          extension: leg.number,
-          registered: null,
-          callState: 'busy',
-        });
+        if (mapped)
+          this.app.realtime
+            .to([rooms.role('manager'), rooms.role('admin')])
+            .emit('agent:presence', {
+              at: nowIso(),
+              userId: mapped.userId,
+              extension: leg.number,
+              registered: null,
+              callState: 'busy',
+            });
       }
 
       if (leg.status === 'HOLD' && prev && !prev.hold && mapped) {
@@ -778,9 +795,21 @@ export class CallStateMachine {
       existing?.contactId ??
       (await this.matchContact(externalE164))?.id ??
       null;
-    const extension = state?.answeredExtension ?? existing?.extension ?? fromCdr.extension;
+    /*
+     * The CDR names who handled the call: the agent who answered an inbound call (`call_to`, not
+     * the queue it came through once somebody picked up) and the extension that placed an
+     * outbound one (`call_from`). When that is a CRM user it wins over anything recorded while
+     * the call was live. It is looked up as-is, whatever its length: extensions here are not all
+     * the length the dial rules expect, and a 3-digit agent was being read as "no extension".
+     */
+    const handledBy = direction === 'inbound' ? cdr.call_to : cdr.call_from;
+    const handler = handledBy ? await this.deps.extMap.lookup(handledBy) : null;
+    const extension = handler
+      ? handledBy
+      : (state?.answeredExtension ?? existing?.extension ?? fromCdr.extension);
     const mapped = extension ? await this.deps.extMap.lookup(extension) : null;
-    const userId = state?.answeredUserId ?? existing?.userId ?? mapped?.userId ?? null;
+    const userId =
+      handler?.userId ?? state?.answeredUserId ?? existing?.userId ?? mapped?.userId ?? null;
     const status = mapCdrStatus(cdr.status, direction);
     const recordingStatus = cdr.recording
       ? existing?.recordingStatus === 'stored'

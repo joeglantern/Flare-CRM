@@ -1063,6 +1063,106 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       expect(row).toMatchObject({ status: 'missed', userId: null });
     });
 
+    /*
+     * On Rani's PBX the queue itself shows as an answered extension leg before any agent picks
+     * up. The call used to belong to the queue, and the agent who took it never saw it.
+     */
+    it('gives the call to the agent who answered, not the queue that picked up first', async () => {
+      const [b, c] = [await agentSocket(agent), await agentSocket(third)];
+      const callId = nextCallId();
+      const ringing = waitFor(c, 'call:ringing');
+      pbx.emit(
+        queueCall(callId, '0712000555', '6410', [{ extension: '1001', status: 'RING' }], 'ALERT'),
+      );
+      await ringing;
+
+      // The queue answering must not close anybody's popup.
+      let closedEarly = false;
+      b.once('call:cancelled', () => {
+        closedEarly = true;
+      });
+      pbx.emit(
+        queueCall(callId, '0712000555', '6410', [{ extension: '6410', status: 'ANSWERED' }]),
+      );
+      await new Promise((r) => setTimeout(r, 300));
+      expect(closedEarly).toBe(false);
+
+      const answered = waitFor<{ answeredByUserId: string }>(c, 'call:answered');
+      pbx.emit(
+        queueCall(callId, '0712000555', '6410', [
+          { extension: '6410', status: 'ANSWERED' },
+          { extension: '1002', status: 'ANSWERED' },
+        ]),
+      );
+      expect((await answered).answeredByUserId).toBe(third.id);
+      await until(async () =>
+        Boolean(
+          await ctx.app.db.call.findFirst({ where: { pbxCallId: callId, userId: third.id } }),
+        ),
+      );
+
+      pbx.emit(
+        cdr(callId, {
+          from: '0712000555',
+          to: '1002',
+          type: 'Inbound',
+          status: 'ANSWERED',
+          talk: 20,
+        }),
+      );
+      await until(async () =>
+        Boolean(
+          await ctx.app.db.call.findFirst({
+            where: { pbxCallId: callId, pbxCdrUid: { not: null } },
+          }),
+        ),
+      );
+      expect(
+        await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: callId } }),
+      ).toMatchObject({ status: 'completed', userId: third.id, extension: '1002' });
+    });
+
+    it('gives a call to an agent whose extension is shorter than the dial rules expect', async () => {
+      const short = await ctx.createUser({ role: 'agent', extension: '117' });
+      await ctx.app.cti.extMap.refresh();
+      const inbound = nextCallId();
+      const outbound = nextCallId();
+      pbx.emit(
+        cdr(inbound, {
+          from: '0712000444',
+          to: '117',
+          type: 'Inbound',
+          status: 'ANSWERED',
+          talk: 9,
+        }),
+      );
+      pbx.emit(
+        cdr(outbound, {
+          from: '117',
+          to: '0712000444',
+          type: 'Outbound',
+          status: 'ANSWERED',
+          talk: 9,
+        }),
+      );
+      await until(
+        async () =>
+          (await ctx.app.db.call.count({ where: { pbxCallId: { in: [inbound, outbound] } } })) ===
+          2,
+      );
+      for (const id of [inbound, outbound]) {
+        expect(await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: id } })).toMatchObject({
+          userId: short.id,
+          extension: '117',
+        });
+      }
+      // and the agent sees both in their own call list
+      const list = (await ctx.as(short, { method: 'GET', url: '/api/v1/calls' })).json<{
+        data: { id: string }[];
+      }>().data;
+      expect(list).toHaveLength(2);
+    });
+
     it('leaves a call that never went through a queue to the phones it rang', async () => {
       const [a, b] = [await agentSocket(admin), await agentSocket(agent)];
       const callId = nextCallId();
