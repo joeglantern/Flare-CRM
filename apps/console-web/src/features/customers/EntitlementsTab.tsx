@@ -240,7 +240,10 @@ export function EntitlementsTab({
         </ul>
       </Section>
 
-      <Section title="Limits" description="Empty means no limit.">
+      <Section
+        title="Limits"
+        description="Switch on No limit to let a customer go without one, for example to run any number of users."
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           {limitKeys.map((key) => (
             <LimitRow
@@ -510,6 +513,15 @@ function FeatureRow({
   );
 }
 
+/** A sensible number to start from when a limit is switched back on and the plan has none. */
+const START_AT: Record<LimitKey, number> = {
+  seats: 10,
+  storage_gb: 20,
+  recording_retention_days: 365,
+  channels: 1,
+  pipelines: 3,
+};
+
 function LimitRow({
   limitKey,
   value,
@@ -526,45 +538,59 @@ function LimitRow({
   onChange: (next: number | null) => void;
 }) {
   const definition = LIMITS[limitKey];
+  const unlimited = value === null;
   return (
-    <Input
-      type="number"
-      min={0}
-      disabled={readOnly}
-      label={
-        <span className="flex items-center gap-2">
-          {definition.label}
-          {overridden ? (
-            readOnly ? (
-              <Badge tone="neutral">Overridden</Badge>
+    <div className="flex flex-col gap-2">
+      <Input
+        type="number"
+        min={0}
+        disabled={readOnly || unlimited}
+        label={
+          <span className="flex items-center gap-2">
+            {definition.label}
+            {overridden ? (
+              readOnly ? (
+                <Badge tone="neutral">Overridden</Badge>
+              ) : (
+                <button
+                  type="button"
+                  className="text-sm text-flare-link underline underline-offset-2"
+                  onClick={() => {
+                    onChange(fromPlan);
+                  }}
+                >
+                  back to plan
+                </button>
+              )
             ) : (
-              <button
-                type="button"
-                className="text-sm text-flare-link underline underline-offset-2"
-                onClick={() => {
-                  onChange(fromPlan);
-                }}
-              >
-                back to plan
-              </button>
-            )
-          ) : (
-            <Badge tone="neutral">From plan</Badge>
-          )}
-        </span>
-      }
-      description={`${definition.description} ${value === null ? 'No limit.' : ''}`.trim()}
-      placeholder="No limit"
-      suffix={
-        definition.unit === '' ? undefined : (
-          <span className="text-sm text-muted">{definition.unit}</span>
-        )
-      }
-      value={value === null ? '' : String(value)}
-      onChange={(e) => {
-        const raw = e.target.value.trim();
-        onChange(raw === '' ? null : Math.max(0, Math.floor(Number(raw))));
-      }}
-    />
+              <Badge tone="neutral">From plan</Badge>
+            )}
+          </span>
+        }
+        description={definition.description}
+        placeholder="No limit"
+        suffix={
+          definition.unit === '' ? undefined : (
+            <span className="text-sm text-muted">{definition.unit}</span>
+          )
+        }
+        value={unlimited ? '' : String(value)}
+        onChange={(e) => {
+          const raw = e.target.value.trim();
+          onChange(raw === '' ? null : Math.max(0, Math.floor(Number(raw))));
+        }}
+      />
+      <Switch
+        checked={unlimited}
+        disabled={readOnly}
+        label="No limit"
+        description={
+          limitKey === 'seats' ? 'Any number of active users.' : `No cap on ${definition.unit}.`
+        }
+        onChange={(on) => {
+          onChange(on ? null : (fromPlan ?? START_AT[limitKey]));
+        }}
+      />
+    </div>
   );
 }
