@@ -215,8 +215,9 @@ fi
 echo "== deploying"
 cd "$TARGET_DIR"
 if [ "$BUILD_LOCAL" -eq 1 ]; then
+  # Through bash, not as a program: a fresh clone does not always keep the file executable.
   IMAGE_TAG=local BUILD_LOCALLY=1 REPO_DIR="$REPO_DIR" COMPOSE_DIR="$TARGET_DIR" \
-    "$REPO_DIR/infra/deploy.sh"
+    bash "$REPO_DIR/infra/deploy.sh"
 else
   IMAGE_TAG="$IMAGE_TAG" ./deploy.sh
 fi
