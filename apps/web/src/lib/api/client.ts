@@ -101,7 +101,12 @@ const call = async <T>(
     ...(init.query !== undefined ? { params: { query: cleanQuery(init.query) } } : {}),
     ...(init.body !== undefined ? { body: init.body } : {}),
   };
-  return unwrap(await fn(path as never, options as never));
+  const result = await fn(path as never, options as never);
+  // 204 No Content is how a delete (and a few actions) say "done": success with no body by
+  // design. Treating every missing body as an error put "The server returned an empty response"
+  // on screen after deletes that had worked.
+  if (result.data === undefined && result.response.status === 204) return undefined as T;
+  return unwrap(result);
 };
 
 export const http = {
@@ -114,14 +119,16 @@ export const http = {
   /** Cursor list endpoints (`{ data, page: { cursor, hasMore } }`). */
   cursor: <T>(path: string, query?: Query): Promise<CursorList<T>> =>
     call<CursorList<T>>('GET', path, { query }),
+  // Writes may answer 204 with nothing, in which case there is no envelope to open.
   post: async <T>(path: string, body?: unknown, query?: Query): Promise<T> =>
-    (await call<Envelope<T>>('POST', path, { body: body ?? {}, query })).data,
+    (await call<Envelope<T> | undefined>('POST', path, { body: body ?? {}, query }))?.data as T,
   patch: async <T>(path: string, body: unknown): Promise<T> =>
-    (await call<Envelope<T>>('PATCH', path, { body })).data,
+    (await call<Envelope<T> | undefined>('PATCH', path, { body }))?.data as T,
   put: async <T>(path: string, body: unknown): Promise<T> =>
-    (await call<Envelope<T>>('PUT', path, { body })).data,
+    (await call<Envelope<T> | undefined>('PUT', path, { body }))?.data as T,
   del: async <T>(path: string, body?: unknown): Promise<T> =>
-    (await call<Envelope<T>>('DELETE', path, body !== undefined ? { body } : {})).data,
+    (await call<Envelope<T> | undefined>('DELETE', path, body !== undefined ? { body } : {}))
+      ?.data as T,
   /** Endpoints that answer with a bare object rather than an envelope. */
   raw: <T>(
     method: 'GET' | 'POST',
