@@ -29,6 +29,8 @@ export interface NavItem {
   permission?: Permission;
   /** Hidden when the customer's plan does not include this (docs/20). */
   feature?: FeatureKey;
+  /** Shown only while this workspace setting is switched on. */
+  setting?: 'liveCalls';
   /** Which live count feeds the badge. */
   count?: 'leads' | 'tasks' | 'calls' | 'inbox';
 }
@@ -103,6 +105,7 @@ export const NAV_ITEMS: NavItem[] = [
     roles: ['admin', 'manager'],
     permission: 'pbx:view_status',
     feature: 'telephony',
+    setting: 'liveCalls',
   },
   {
     id: 'inbox',

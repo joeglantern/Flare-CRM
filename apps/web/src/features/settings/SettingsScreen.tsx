@@ -803,6 +803,7 @@ function TelephonySection() {
   const perms = usePermissions();
   const dial = useSettingsSection('dialRules');
   const popup = useSettingsSection('popup');
+  const liveCalls = useSettingsSection('liveCalls');
   const status = useCtiStatus(perms.has('pbx:view_status'));
   const [draft, setDraft] = useState<SettingsPayload['dialRules'] | null>(null);
 
@@ -968,6 +969,20 @@ function TelephonySection() {
         loading={popup.query.isPending}
         error={popup.query.error}
       >
+        {liveCalls.value !== undefined && (
+          <Switch
+            checked={liveCalls.value.enabled}
+            disabled={!liveCalls.canManage}
+            onChange={(enabled) => {
+              liveCalls.save(
+                { enabled },
+                enabled ? 'Live calls are on for managers and admins' : 'Live calls are off',
+              );
+            }}
+            label="Show live calls"
+            description="The Live calls board and the live panel on Home, for managers and admins. Off hides both."
+          />
+        )}
         {popup.value !== undefined && (
           <>
             <Switch

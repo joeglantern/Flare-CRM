@@ -29,13 +29,15 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
   const path = useRouterState({ select: (s) => s.location.pathname });
 
   const { features, customerName } = useEntitlements();
-  const { branding } = useSettings();
+  const settings = useSettings();
+  const { branding } = settings;
   const [logoBroken, setLogoBroken] = useState(false);
   const items = NAV_ITEMS.filter(
     (n) =>
       n.roles.includes(me.role) &&
       (n.permission === undefined || perms.has(n.permission)) &&
-      (n.feature === undefined || features[n.feature]),
+      (n.feature === undefined || features[n.feature]) &&
+      (n.setting === undefined || settings[n.setting]?.enabled === true),
   );
 
   return (

@@ -38,6 +38,7 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
           defaultCountry: s.defaultCountry,
           currency: s.currency,
           popup: s.popup,
+          liveCalls: s.liveCalls,
           security: { sessionIdleMinutes: s.security.sessionIdleMinutes },
           recording: {
             consentText: s.recording.consentText,

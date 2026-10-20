@@ -45,6 +45,8 @@ export const settingSchemas = {
     e164ToDialable: z.enum(['national', 'international']),
     dialPermissionExtension: z.string().max(16).nullable(),
   }),
+  /** The live calls board and the live panel on Home. Off unless an admin switches it on. */
+  liveCalls: z.object({ enabled: z.boolean() }),
   popup: z.object({
     popOnInternalCalls: z.boolean(),
     autoOpenProfileOnAnswer: z.boolean(),
@@ -144,6 +146,7 @@ export const settingDefaults: Settings = {
     e164ToDialable: 'national',
     dialPermissionExtension: null,
   },
+  liveCalls: { enabled: false },
   popup: {
     popOnInternalCalls: false,
     autoOpenProfileOnAnswer: false,
@@ -185,6 +188,7 @@ export const publicSettingsSchema = z.object({
   defaultCountry: settingSchemas.defaultCountry,
   currency: settingSchemas.currency,
   popup: settingSchemas.popup,
+  liveCalls: settingSchemas.liveCalls,
   security: z.object({ sessionIdleMinutes: z.number().int() }),
   recording: z.object({ consentText: z.string(), allowAgentPlayback: z.boolean() }),
   branding: settingSchemas.branding,

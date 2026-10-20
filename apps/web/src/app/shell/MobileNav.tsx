@@ -14,6 +14,7 @@ import { usePermissions } from '@/providers/permissions';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav';
 import { StatusDots } from './Sidebar';
+import { useSettings } from '@/providers/settings';
 
 export function MobileNav({
   open,
@@ -33,11 +34,13 @@ export function MobileNav({
   const path = useRouterState({ select: (s) => s.location.pathname });
 
   const { features } = useEntitlements();
+  const settings = useSettings();
   const items = NAV_ITEMS.filter(
     (n) =>
       n.roles.includes(me.role) &&
       (n.permission === undefined || perms.has(n.permission)) &&
-      (n.feature === undefined || features[n.feature]),
+      (n.feature === undefined || features[n.feature]) &&
+      (n.setting === undefined || settings[n.setting]?.enabled === true),
   );
 
   return (

@@ -604,12 +604,14 @@ function AgentBoard() {
 
 function TeamBoard() {
   const perms = usePermissions();
-  const { timezone } = useSettings();
+  const { timezone, liveCalls } = useSettings();
+  const liveCallsOn = liveCalls?.enabled === true;
   const range = useMemo(() => today(timezone), [timezone]);
   const now = useNow(true, 1000);
 
   const canTeam = perms.has('report:view_team') || perms.has('report:view_all');
-  const canPbx = perms.has('pbx:view_status');
+  // The live panel follows the workspace switch as well as the permission.
+  const canPbx = perms.has('pbx:view_status') && liveCallsOn;
 
   const summary = useCallsSummary(range, canTeam);
   const agents = useAgentPerformance(range, canTeam);

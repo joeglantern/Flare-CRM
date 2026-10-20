@@ -23,6 +23,8 @@ export interface PublicSettings {
   security: { sessionIdleMinutes: number };
   recording: { consentText: string; allowAgentPlayback: boolean };
   branding: BrandingSettings;
+  /** The live calls board; off unless an admin switches it on (Settings, Telephony). */
+  liveCalls?: { enabled: boolean };
   /** Entered by an admin in Settings; null means "ask whoever the plan names". */
   supportContact: OwnerContact | null;
   /** The CRM's own time zone (Settings, General). Older servers do not send it. */

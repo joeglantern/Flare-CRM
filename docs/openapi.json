@@ -3265,6 +3265,18 @@
                           ],
                           "additionalProperties": false
                         },
+                        "liveCalls": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "enabled"
+                          ],
+                          "additionalProperties": false
+                        },
                         "popup": {
                           "type": "object",
                           "properties": {
@@ -3561,6 +3573,7 @@
                         "defaultCountry",
                         "currency",
                         "dialRules",
+                        "liveCalls",
                         "popup",
                         "recording",
                         "retention",
@@ -3662,6 +3675,17 @@
                       "internalExtensionLength",
                       "e164ToDialable",
                       "dialPermissionExtension"
+                    ]
+                  },
+                  "liveCalls": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "enabled"
                     ]
                   },
                   "popup": {
@@ -4026,6 +4050,18 @@
                           ],
                           "additionalProperties": false
                         },
+                        "liveCalls": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "enabled"
+                          ],
+                          "additionalProperties": false
+                        },
                         "popup": {
                           "type": "object",
                           "properties": {
@@ -4322,6 +4358,7 @@
                         "defaultCountry",
                         "currency",
                         "dialRules",
+                        "liveCalls",
                         "popup",
                         "recording",
                         "retention",
@@ -4427,6 +4464,18 @@
                             "popOnInternalCalls",
                             "autoOpenProfileOnAnswer",
                             "suggestFollowUpAfterCall"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "liveCalls": {
+                          "type": "object",
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "enabled"
                           ],
                           "additionalProperties": false
                         },
@@ -4578,6 +4627,7 @@
                         "defaultCountry",
                         "currency",
                         "popup",
+                        "liveCalls",
                         "security",
                         "recording",
                         "branding",

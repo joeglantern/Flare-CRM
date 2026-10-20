@@ -48,6 +48,10 @@ export function LiveCallsBoard() {
   useSocketEvent('call:answered', refresh);
   useSocketEvent('call:ended', refresh);
   useSocketEvent('call:updated', refresh);
+  // The two that reach a manager watching the board, not only the agents on each call: without
+  // them the board only caught up on its fifteen-second refresh.
+  useSocketEvent('live-calls:snapshot', refresh);
+  useSocketEvent('calls:changed', refresh);
 
   if (!canView) {
     return (

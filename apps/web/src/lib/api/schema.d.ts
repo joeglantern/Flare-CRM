@@ -7987,6 +7987,9 @@ export interface paths {
                                         value: string;
                                     }[];
                                 };
+                                liveCalls: {
+                                    enabled: boolean;
+                                };
                                 matching: {
                                     allowSuffixMatch: boolean;
                                     suffixLength: number;
@@ -8081,6 +8084,9 @@ export interface paths {
                                 value: string;
                             }[];
                         };
+                        liveCalls?: {
+                            enabled: boolean;
+                        };
                         matching?: {
                             allowSuffixMatch: boolean;
                             suffixLength: number;
@@ -8165,6 +8171,9 @@ export interface paths {
                                         label?: string;
                                         value: string;
                                     }[];
+                                };
+                                liveCalls: {
+                                    enabled: boolean;
                                 };
                                 matching: {
                                     allowSuffixMatch: boolean;
@@ -8366,6 +8375,9 @@ export interface paths {
                                 };
                                 currency: string;
                                 defaultCountry: string;
+                                liveCalls: {
+                                    enabled: boolean;
+                                };
                                 popup: {
                                     autoOpenProfileOnAnswer: boolean;
                                     popOnInternalCalls: boolean;
