@@ -108,7 +108,18 @@ export class YeastarClient {
 
   constructor(private readonly opts: YeastarClientOptions) {
     const tls = buildPbxTlsOptions(opts.tls);
-    this.dispatcher = new Agent({ connect: { ...tls, timeout: 10_000 }, connections: 8 });
+    /*
+     * An idle connection is kept for a few seconds only, whatever the PBX offers. Left open longer,
+     * a NAT or firewall between here and the PBX drops it without a word, and the next request
+     * sent down it hangs until the timeout: seen on a VPS, where every phonebook read timed out
+     * while fresh connections answered in two seconds.
+     */
+    this.dispatcher = new Agent({
+      connect: { ...tls, timeout: 10_000 },
+      connections: 8,
+      keepAliveTimeout: 4_000,
+      keepAliveMaxTimeout: 5_000,
+    });
     this.apiBase = `${opts.baseUrl.replace(/\/+$/, '')}${opts.apiPath ?? '/openapi/v1.0'}`;
     this.timeoutMs = opts.timeoutMs ?? 10_000;
   }
@@ -128,9 +139,8 @@ export class YeastarClient {
     body: unknown,
     schema: T,
   ): Promise<z.infer<T>> {
-    let res: UndiciResponse;
-    try {
-      res = await undiciFetch(url, {
+    const attempt = () =>
+      undiciFetch(url, {
         method,
         headers: {
           'User-Agent': 'OpenAPI',
@@ -141,10 +151,24 @@ export class YeastarClient {
         signal: AbortSignal.timeout(this.timeoutMs),
         dispatcher: this.dispatcher,
       });
-    } catch (err) {
-      throw new PbxUnavailableError(`PBX request failed (${stripAccessToken(url)})`, {
-        cause: err,
-      });
+    let res: UndiciResponse;
+    try {
+      res = await attempt();
+    } catch (first) {
+      // A read that hung or lost its connection is tried once more, on a new connection: the
+      // failed one is gone from the pool by now. Never a write, which might have happened.
+      if (method !== 'GET') {
+        throw new PbxUnavailableError(`PBX request failed (${stripAccessToken(url)})`, {
+          cause: first,
+        });
+      }
+      try {
+        res = await attempt();
+      } catch (err) {
+        throw new PbxUnavailableError(`PBX request failed (${stripAccessToken(url)})`, {
+          cause: err,
+        });
+      }
     }
     if (!res.ok)
       throw new PbxUnavailableError(`PBX returned HTTP ${res.status} for ${stripAccessToken(url)}`);
