@@ -82,6 +82,8 @@ const EARLY_END_TTL_SEC = 120;
 /** How long after a dial the PBX is asked whether the call exists at all. */
 export const DIAL_CHECK_DELAY_MS = 10_000;
 const DIAL_CHECK_ATTEMPTS = 3;
+/** How long a hung-up call nobody was seen answering waits for its CDR before closing as missed. */
+export const END_CHECK_DELAY_MS = 30_000;
 
 type CancelPayload = ServerEventPayload<'call:cancelled'>;
 
@@ -554,19 +556,54 @@ export class CallStateMachine {
     const allExtBye = extStatuses.length > 0 && extStatuses.every((s) => s === 'BYE');
     if (!state.ended && (trunkBye || allExtBye)) {
       state.ended = true;
-      const reason = state.answeredExtension ? null : 'caller_hung_up';
-      // Nobody answered: every card closes and the call is logged as missed, queue or not.
-      for (const userId of state.poppedUsers) {
-        if (reason)
-          this.app.realtime
-            .to(rooms.user(userId))
-            .emit('call:cancelled', { at: nowIso(), callId: state.crmCallId, pbxCallId, reason });
-        else
-          this.app.realtime.to(rooms.user(userId)).emit('call:ended', {
+      const answeredBy = state.answeredUserId;
+      const takenByPhone =
+        answeredBy === null &&
+        state.answeredExtension !== null &&
+        !(await this.isQueue(state.answeredExtension));
+      if (answeredBy !== null || takenByPhone) {
+        // The agent who answered keeps the card to write the call up; nobody else does.
+        for (const userId of state.poppedUsers) {
+          if (userId === answeredBy)
+            this.app.realtime.to(rooms.user(userId)).emit('call:ended', {
+              at: nowIso(),
+              callId: state.crmCallId,
+              pbxCallId,
+              endedAt: nowIso(),
+            });
+          else
+            this.app.realtime.to(rooms.user(userId)).emit('call:cancelled', {
+              at: nowIso(),
+              callId: state.crmCallId,
+              pbxCallId,
+              reason: 'answered_elsewhere',
+            });
+        }
+      } else if (state.direction === 'inbound') {
+        /*
+         * Nobody was seen answering, which on this PBX proves nothing: it often reports a call
+         * only at hangup, every leg already BYE. Closing every card here closed the one the agent
+         * who did talk needed for the disposition, a second before the CDR said they answered.
+         * So the CDR decides, and this check closes the cards as missed if it never comes.
+         */
+        await this.app.queues.add(
+          QUEUES.ctiDialCheck,
+          'end-check',
+          { pbxCallId, attempt: 0 },
+          {
+            delay: END_CHECK_DELAY_MS,
+            jobId: `end-check-${pbxCallId}`,
+            removeOnComplete: true,
+            removeOnFail: true,
+          },
+        );
+      } else {
+        for (const userId of state.poppedUsers)
+          this.app.realtime.to(rooms.user(userId)).emit('call:cancelled', {
             at: nowIso(),
             callId: state.crmCallId,
             pbxCallId,
-            endedAt: nowIso(),
+            reason: 'caller_hung_up',
           });
       }
     }
@@ -915,7 +952,19 @@ export class CallStateMachine {
     // call whose only record came that way stayed on screen for good.
     if (source !== 'reconcile' || state !== null) {
       const targets = new Set<string>([...(state?.poppedUsers ?? []), ...(userId ? [userId] : [])]);
+      const answered = cdr.talk_duration > 0 || status === 'completed';
       for (const target of targets) {
+        // The CDR is the last word on who took the call. Only that agent is asked for a
+        // disposition; every other card closes, and says why.
+        if (direction === 'inbound' && (answered ? target !== userId : true)) {
+          this.app.realtime.to(rooms.user(target)).emit('call:cancelled', {
+            at: nowIso(),
+            callId,
+            pbxCallId: cdr.call_id,
+            reason: answered ? 'answered_elsewhere' : 'caller_hung_up',
+          });
+          if (answered) continue;
+        }
         this.app.realtime.to(rooms.user(target)).emit('call:logged', {
           at: nowIso(),
           callId,
@@ -1159,6 +1208,11 @@ export class CallStateMachine {
    * id with success and no data, so an empty answer means the call does not exist and the phone
    * never rang. If it does exist, its legs are fed in exactly like a 30011.
    */
+  /** A hung-up call whose CDR never came: its cards close as a missed call. */
+  async checkEnded(pbxCallId: string): Promise<void> {
+    await this.endUnconnected(pbxCallId, 'caller_hung_up');
+  }
+
   async checkDial(pbxCallId: string, attempt: number): Promise<void> {
     const state = await this.loadState(pbxCallId);
     if (!state || state.ended || state.answeredAt !== null) return;

@@ -124,7 +124,8 @@ export function startProcessors(app: FastifyInstance): RunningWorkers {
   });
 
   register(QUEUES.ctiDialCheck, 2, async (job) => {
-    await app.cti.machine.checkDial(job.data.pbxCallId, job.data.attempt);
+    if (job.name === 'end-check') await app.cti.machine.checkEnded(job.data.pbxCallId);
+    else await app.cti.machine.checkDial(job.data.pbxCallId, job.data.attempt);
   });
 
   register(QUEUES.recordingDownload, 2, async (job) => {

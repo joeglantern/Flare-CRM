@@ -342,9 +342,9 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     expect(pop.contact).toBeNull();
     expect(pop.callerDisplay).toContain('0733');
 
+    // The hangup alone closes nothing: the CDR says whether anybody answered.
     const cancelled = waitFor<{ reason: string }>(socket, 'call:cancelled');
     pbx.emit(inboundBye(callId, '0733999999', '1001'));
-    expect((await cancelled).reason).toBe('caller_hung_up');
     pbx.emit(
       cdr(callId, {
         from: '0733999999',
@@ -355,6 +355,7 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
         total: 12,
       }),
     );
+    expect((await cancelled).reason).toBe('caller_hung_up');
     await until(
       async () =>
         (await ctx.app.db.call.findFirst({ where: { pbxCallId: callId } }))?.status === 'missed',
@@ -1047,11 +1048,10 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
           'BYE',
         ),
       );
-      for (const c of closed) expect((await c).reason).toBe('caller_hung_up');
-
       pbx.emit(
         cdr(callId, { from: '0712000888', to: '6410', type: 'Inbound', status: 'NO ANSWER' }),
       );
+      for (const c of closed) expect((await c).reason).toBe('caller_hung_up');
       await until(async () =>
         Boolean(
           await ctx.app.db.call.findFirst({
@@ -1120,6 +1120,72 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       expect(
         await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: callId } }),
       ).toMatchObject({ status: 'completed', userId: third.id, extension: '1002' });
+    });
+
+    /*
+     * What Rani's PBX does: the phones ring, and the call itself is reported only at hangup with
+     * every leg BYE. The agent who talked must still get the disposition card, and keep it.
+     */
+    it('keeps the card for the agent who answered when the PBX reports the answer only in the CDR', async () => {
+      const [b, c] = [await agentSocket(agent), await agentSocket(third)];
+      const callId = nextCallId();
+      const rings = [b, c].map((s) => waitFor(s, 'call:ringing'));
+      pbx.emit(
+        queueCall(callId, '0712000222', '6410', [{ extension: '1001', status: 'RING' }], 'ALERT'),
+      );
+      await Promise.all(rings);
+
+      let thirdClosed = false;
+      c.on('call:cancelled', () => {
+        thirdClosed = true;
+      });
+      const otherClosed = waitFor<{ reason: string }>(b, 'call:cancelled');
+      pbx.emit(
+        queueCall(
+          callId,
+          '0712000222',
+          '6410',
+          [
+            { extension: '1001', status: 'BYE' },
+            { extension: '1002', status: 'BYE' },
+          ],
+          'BYE',
+        ),
+      );
+      await new Promise((r) => setTimeout(r, 300));
+      expect(thirdClosed).toBe(false);
+
+      const logged = waitFor<{ status: string }>(c, 'call:logged');
+      pbx.emit(
+        cdr(callId, {
+          from: '0712000222',
+          to: '1002',
+          type: 'Inbound',
+          status: 'ANSWERED',
+          talk: 30,
+        }),
+      );
+      expect((await logged).status).toBe('completed');
+      expect((await otherClosed).reason).toBe('answered_elsewhere');
+      await new Promise((r) => setTimeout(r, 300));
+      expect(thirdClosed).toBe(false);
+    });
+
+    it('closes the cards as missed when the CDR never comes', async () => {
+      const b = await agentSocket(agent);
+      const callId = nextCallId();
+      const ringing = waitFor(b, 'call:ringing');
+      pbx.emit(inboundRinging(callId, '0712000111', '1001'));
+      await ringing;
+      pbx.emit(inboundBye(callId, '0712000111', '1001'));
+      await until(async () => (await ctx.app.valkey.exists(`cti:call:${callId}`)) === 1);
+      const closed = waitFor<{ reason: string }>(b, 'call:cancelled');
+      // What the delayed check does once its wait is over.
+      await ctx.app.cti.machine.checkEnded(callId);
+      expect((await closed).reason).toBe('caller_hung_up');
+      expect(
+        (await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: callId } })).status,
+      ).toBe('missed');
     });
 
     it('records the phone that answered after the queue, even with no CRM user on it', async () => {
