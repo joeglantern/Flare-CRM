@@ -81,8 +81,17 @@ function TwoFactorRoute() {
     await Promise.resolve();
   };
 
+  /**
+   * Signing out has to forget who this was, or it goes nowhere: the sign-in page asks the cached
+   * profile whether someone is signed in, finds the one the guards on this page just loaded, and
+   * sends the person straight back here. Everything cached is dropped and the sign-in page is
+   * loaded afresh, whether or not the sign-out request itself succeeded.
+   */
   const signOut = () => {
-    void authClient.signOut().then(() => navigate({ to: '/sign-in' }));
+    void authClient.signOut().finally(() => {
+      queryClient.clear();
+      window.location.assign('/sign-in');
+    });
   };
 
   if (search.setup === true) {
