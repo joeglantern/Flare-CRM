@@ -7,7 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import type { CountryCode } from 'libphonenumber-js';
 import { z } from 'zod';
 import { QUEUES } from '../../jobs/queues.js';
-import { queueForCallPath } from './queue-directory.js';
+import { QUEUE_DIRECTORY_KEY, queueForCallPath } from './queue-directory.js';
 import { newId } from '../../lib/ids.js';
 import { nowIso, rooms } from '../../lib/realtime.js';
 import { contactSummarySelect, contactToSummary } from '../../modules/contacts/contacts.mappers.js';
@@ -304,6 +304,11 @@ export class CallStateMachine {
     return { deleted, closed };
   }
 
+  /** A queue's own number, as the PBX's queue list knows it. */
+  private async isQueue(number: string): Promise<boolean> {
+    return (await this.app.valkey.hexists(QUEUE_DIRECTORY_KEY, number)) === 1;
+  }
+
   private async normalizeOptions(): Promise<NormalizeOptions> {
     const settings = await this.app.settings.getAll();
     return {
@@ -476,13 +481,16 @@ export class CallStateMachine {
        * an extension that is no CRM user only holds the place until an agent picks up, and tells
        * nobody's popup that the call was taken.
        */
+      const talking = IS_TALKING.has(leg.status) && leg.number !== '';
       const claims =
-        IS_TALKING.has(leg.status) &&
-        leg.number !== '' &&
+        talking &&
+        leg.number !== state.answeredExtension &&
         (!state.answeredExtension ||
           (state.answeredUserId === null &&
-            mapped !== null &&
-            leg.number !== state.answeredExtension));
+            (mapped !== null ||
+              // A phone with no CRM account still answered, which the queue did not.
+              ((await this.isQueue(state.answeredExtension)) &&
+                !(await this.isQueue(leg.number))))));
       if (claims) {
         state.answeredExtension = leg.number;
         state.answeredUserId = mapped?.userId ?? null;
@@ -804,9 +812,13 @@ export class CallStateMachine {
      */
     const handledBy = direction === 'inbound' ? cdr.call_to : cdr.call_from;
     const handler = handledBy ? await this.deps.extMap.lookup(handledBy) : null;
-    const extension = handler
-      ? handledBy
-      : (state?.answeredExtension ?? existing?.extension ?? fromCdr.extension);
+    // An extension with no CRM user is still a better answer than the queue in front of it.
+    const handledByPhone =
+      handler === null && /^\d{2,6}$/.test(handledBy) && !(await this.isQueue(handledBy));
+    const extension =
+      handler || handledByPhone
+        ? handledBy
+        : (state?.answeredExtension ?? existing?.extension ?? fromCdr.extension);
     const mapped = extension ? await this.deps.extMap.lookup(extension) : null;
     const userId =
       handler?.userId ?? state?.answeredUserId ?? existing?.userId ?? mapped?.userId ?? null;

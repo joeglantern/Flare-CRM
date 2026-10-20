@@ -1122,6 +1122,44 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       ).toMatchObject({ status: 'completed', userId: third.id, extension: '1002' });
     });
 
+    it('records the phone that answered after the queue, even with no CRM user on it', async () => {
+      const callId = nextCallId();
+      pbx.emit(
+        queueCall(callId, '0712000333', '6410', [{ extension: '6410', status: 'ANSWERED' }]),
+      );
+      pbx.emit(
+        queueCall(callId, '0712000333', '6410', [
+          { extension: '6410', status: 'ANSWERED' },
+          { extension: '120', status: 'ANSWERED' },
+        ]),
+      );
+      await until(async () =>
+        Boolean(
+          await ctx.app.db.call.findFirst({ where: { pbxCallId: callId, extension: '120' } }),
+        ),
+      );
+      // The PBX's own record names only the queue; the phone that answered is kept.
+      pbx.emit(
+        cdr(callId, {
+          from: '0712000333',
+          to: '6410',
+          type: 'Inbound',
+          status: 'ANSWERED',
+          talk: 5,
+        }),
+      );
+      await until(async () =>
+        Boolean(
+          await ctx.app.db.call.findFirst({
+            where: { pbxCallId: callId, pbxCdrUid: { not: null } },
+          }),
+        ),
+      );
+      expect(
+        await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: callId } }),
+      ).toMatchObject({ status: 'completed', extension: '120', userId: null });
+    });
+
     it('gives a call to an agent whose extension is shorter than the dial rules expect', async () => {
       const short = await ctx.createUser({ role: 'agent', extension: '117' });
       await ctx.app.cti.extMap.refresh();

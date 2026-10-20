@@ -9,7 +9,8 @@
 import type { Redis } from 'ioredis';
 import type { YeastarClient } from './client.js';
 
-const KEY = 'cti:queues';
+export const QUEUE_DIRECTORY_KEY = 'cti:queues';
+const KEY = QUEUE_DIRECTORY_KEY;
 
 export interface QueueEntry {
   number: string;
