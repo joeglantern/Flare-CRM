@@ -175,7 +175,7 @@ describe('entitlements: the plan is enforced next to permissions', () => {
     ).toBe(2);
   });
 
-  it('caps pipelines, channels, recording retention and storage', async () => {
+  it('caps pipelines, channels and recording retention, but never storage', async () => {
     await apply(
       signer.document({
         limits: { pipelines: 1, channels: 0, recording_retention_days: 30, storage_gb: 1 },
@@ -214,24 +214,18 @@ describe('entitlements: the plan is enforced next to permissions', () => {
     });
     expect(ok.statusCode, ok.body).toBe(200);
 
-    // the running total says the store is already at the 1 GB ceiling
-    await ctx.app.valkey.hset('entitlements:usage:storage', {
-      attachments: String(1024 ** 3),
-      recordings: '0',
-      backups: '0',
-      refreshedAt: new Date().toISOString(),
-    });
+    // The plan says 1 GB, but storage is the customer's own disk: an upload goes through, and the
+    // usage is reported with no cap.
     const upload = await ctx.as(admin, {
       method: 'POST',
       url: '/api/v1/attachments',
       ...multipart('file', 'dot.png', 'image/png', PNG),
     });
-    expect(upload.statusCode, upload.body).toBe(409);
-    expect(upload.json<ErrorBody>().error.details?.limit).toBe('storage_gb');
+    expect(upload.statusCode, upload.body).toBe(201);
     const usage = (await ctx.as(admin, { method: 'GET', url: '/api/v1/entitlements' })).json<
       Envelope<{ usage: { storage: { usedBytes: number; maxBytes: number | null } } }>
     >().data.usage.storage;
-    expect(usage).toMatchObject({ usedBytes: 1024 ** 3, maxBytes: 1024 ** 3 });
+    expect(usage.maxBytes).toBeNull();
   });
 
   it('rejects a tampered, foreign, misaddressed or stale document without changing what is in force', async () => {

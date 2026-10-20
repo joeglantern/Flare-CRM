@@ -42,9 +42,16 @@ export class StorageUsage {
     await this.valkey.hincrby(KEY, kind, delta);
   }
 
-  async read(): Promise<StorageUsageSnapshot> {
+  /**
+   * The running total, recounted from scratch when it is older than `maxAgeMs`. The plan screen
+   * asks with a minute, so what it shows is what is actually stored, not last night's count.
+   */
+  async read(maxAgeMs?: number): Promise<StorageUsageSnapshot> {
     const hash = await this.valkey.hgetall(KEY);
     if (!hash.refreshedAt) return this.recompute();
+    if (maxAgeMs !== undefined && Date.now() - Date.parse(hash.refreshedAt) > maxAgeMs) {
+      return this.recompute();
+    }
     return snapshot(hash);
   }
 

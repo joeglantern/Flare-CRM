@@ -8,6 +8,7 @@
 import { FEATURES, LIMITS, featureKeys, limitKeys, type LimitKey } from '@crm/shared';
 import { CircleCheck, CircleMinus, RefreshCw } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/toast';
@@ -32,6 +33,15 @@ export function PlanSection() {
   const e = useEntitlements();
   const perms = usePermissions();
   const qc = useQueryClient();
+  // Usage moves while people work; keep this page current without a reload.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void qc.invalidateQueries({ queryKey: qk.entitlements() });
+    }, 30_000);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [qc]);
 
   const reload = useMutation({
     mutationFn: async () => unwrap(await api.POST('/api/v1/entitlements/reload')).data,
@@ -129,7 +139,7 @@ export function PlanSection() {
         </ul>
       </Panel>
 
-      <Panel title="Limits" note="Usage is counted live, except storage, which is checked nightly.">
+      <Panel title="Limits" note="Usage is counted live and refreshes while this page is open.">
         <div className="flex flex-col gap-3.5">
           {limitKeys.map((key) => (
             <LimitRow key={key} limitKey={key} />
@@ -164,16 +174,16 @@ export function PlanSection() {
 function LimitRow({ limitKey }: { limitKey: LimitKey }) {
   const e = useEntitlements();
   const def = LIMITS[limitKey];
-  const { used, max, label } = describe(limitKey, e);
+  const { used, max, label, detail } = describe(limitKey, e);
 
   if (max === null) {
     return (
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
           <div className="text-base">{def.label}</div>
-          <p className="text-sm text-muted">{def.description}</p>
+          <p className="text-sm text-muted">{detail ?? def.description}</p>
         </div>
-        <span className="shrink-0 text-base text-muted">{label}</span>
+        <span className="tnum shrink-0 text-base text-muted">{label}</span>
       </div>
     );
   }
@@ -208,7 +218,7 @@ function LimitRow({ limitKey }: { limitKey: LimitKey }) {
 function describe(
   key: LimitKey,
   e: ReturnType<typeof useEntitlements>,
-): { used: number; max: number | null; label: string } {
+): { used: number; max: number | null; label: string; detail?: string } {
   const none = 'No limit';
   switch (key) {
     case 'seats': {
@@ -220,14 +230,13 @@ function describe(
       };
     }
     case 'storage_gb': {
-      const { usedBytes, maxBytes } = e.usage.storage;
+      // Not capped: the CRM runs on the customer's own server, so only what is in use is shown.
+      const { usedBytes, breakdown } = e.usage.storage;
       return {
         used: usedBytes,
-        max: maxBytes,
-        label:
-          maxBytes === null
-            ? `${formatBytes(usedBytes)} · ${none}`
-            : `${formatBytes(usedBytes)} of ${formatBytes(maxBytes)}`,
+        max: null,
+        label: `${formatBytes(usedBytes)} in use`,
+        detail: `Attachments ${formatBytes(breakdown.attachments)} · Recordings ${formatBytes(breakdown.recordings)} · Backups ${formatBytes(breakdown.backups)}`,
       };
     }
     case 'recording_retention_days': {

@@ -222,24 +222,13 @@ export class EntitlementsService {
     throw new LimitReachedError(key, LIMITS[key].label, used, max);
   }
 
-  /** Storage is counted in bytes against a limit expressed in whole gigabytes. */
-  async assertStorage(bytesToAdd: number, ctx: AuditContext): Promise<void> {
-    const maxGb = await this.limit('storage_gb');
-    if (maxGb === null) return;
-    const maxBytes = maxGb * 1024 ** 3;
-    const used = await this.deps.usage.read();
-    if (used.total + bytesToAdd <= maxBytes) return;
-    await this.deps.audit.write(ctx, {
-      action: 'entitlements.limit_reached',
-      entity: 'entitlements',
-      after: { limit: 'storage_gb', usedBytes: used.total, addBytes: bytesToAdd, maxBytes },
-    });
-    throw new LimitReachedError(
-      'storage_gb',
-      LIMITS.storage_gb.label,
-      Math.ceil(used.total / 1024 ** 3),
-      maxGb,
-    );
+  /**
+   * Storage is not capped. Every customer runs the CRM on their own server, so the disk they use
+   * is theirs to size, and a storage figure in the plan is not applied here. Kept as the one place
+   * an upload asks, so the callers need not change if that ever differs.
+   */
+  async assertStorage(_bytesToAdd: number, _ctx: AuditContext): Promise<void> {
+    await Promise.resolve();
   }
 
   /**
@@ -404,17 +393,18 @@ export class EntitlementsService {
       db.user.count({ where: { isActive: true } }),
       db.channel.count({ where: { isActive: true } }),
       db.pipeline.count(),
-      this.deps.usage.read(),
+      // Recounted when more than a minute old, so the plan screen shows what is stored now.
+      this.deps.usage.read(60_000),
       this.deps.settings.get('recording'),
       this.getState(),
     ]);
     const limits = state.doc.limits;
-    const maxBytes = limits.storage_gb === null ? null : limits.storage_gb * 1024 ** 3;
     return {
       seats: { used: seats, max: limits.seats },
       storage: {
         usedBytes: storage.total,
-        maxBytes,
+        // No cap on a customer's own server; see assertStorage.
+        maxBytes: null,
         breakdown: {
           attachments: storage.attachments,
           recordings: storage.recordings,

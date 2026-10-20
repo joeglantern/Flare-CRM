@@ -35,7 +35,10 @@ describe('PlanSection', () => {
       },
     });
     expect(screen.getByText('3 of 5')).toBeInTheDocument();
-    expect(screen.getByText('5.0 GB of 10 GB')).toBeInTheDocument();
+    // Storage is the customer's own disk: what is in use, never a cap, even if the plan has one.
+    expect(screen.getByText('5.0 GB in use')).toBeInTheDocument();
+    expect(screen.queryByText(/of 10 GB/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('progressbar', { name: 'Storage' })).not.toBeInTheDocument();
     expect(screen.getByText('90 days, capped at 90')).toBeInTheDocument();
     expect(screen.getByText('2 · No limit')).toBeInTheDocument();
     const seats = screen.getByRole('progressbar', { name: 'Active users' });
