@@ -20,6 +20,7 @@ export type ErrorCode =
   | 'FEATURE_NOT_IN_PLAN'
   | 'PLAN_EXPIRED'
   | 'LIMIT_REACHED'
+  | 'IP_NOT_ALLOWED'
   | 'INTERNAL';
 
 export class AppError extends Error {
@@ -132,4 +133,16 @@ export class LimitReachedError extends AppError {
 
 export function isAppError(err: unknown): err is AppError {
   return err instanceof AppError;
+}
+
+/** The CRM is locked to a list of addresses (Settings, Security) and this one is not on it. */
+export class IpNotAllowedError extends AppError {
+  constructor(ip: string | null) {
+    super(
+      'IP_NOT_ALLOWED',
+      403,
+      `This CRM only accepts connections from approved addresses${ip ? `, and ${ip} is not one of them` : ''}. Ask an admin to add it.`,
+      { ip },
+    );
+  }
 }

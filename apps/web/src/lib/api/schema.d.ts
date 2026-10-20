@@ -138,6 +138,7 @@ export interface paths {
                     entity?: string;
                     entityId?: string;
                     from?: string;
+                    ip?: string;
                     page?: number;
                     pageSize?: number;
                     to?: string;
@@ -175,6 +176,7 @@ export interface paths {
                                 id: string;
                                 ip: string | null;
                                 requestId: string | null;
+                                userAgent: string | null;
                             }[];
                             page: {
                                 page: number;
@@ -7978,6 +7980,13 @@ export interface paths {
                                 extensionSync: {
                                     enabled: boolean;
                                 };
+                                ipAllowlist: {
+                                    enabled: boolean;
+                                    entries: {
+                                        label?: string;
+                                        value: string;
+                                    }[];
+                                };
                                 matching: {
                                     allowSuffixMatch: boolean;
                                     suffixLength: number;
@@ -8065,6 +8074,13 @@ export interface paths {
                         extensionSync?: {
                             enabled: boolean;
                         };
+                        ipAllowlist?: {
+                            enabled: boolean;
+                            entries: {
+                                label?: string;
+                                value: string;
+                            }[];
+                        };
                         matching?: {
                             allowSuffixMatch: boolean;
                             suffixLength: number;
@@ -8142,6 +8158,13 @@ export interface paths {
                                 };
                                 extensionSync: {
                                     enabled: boolean;
+                                };
+                                ipAllowlist: {
+                                    enabled: boolean;
+                                    entries: {
+                                        label?: string;
+                                        value: string;
+                                    }[];
                                 };
                                 matching: {
                                     allowSuffixMatch: boolean;
@@ -8260,6 +8283,45 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/my-address": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                ip: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;

@@ -1,6 +1,7 @@
 import { LIMITS, brandingSettings, dataResponse, generateBrandPalette } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
-import { LimitReachedError } from '../../lib/errors.js';
+import { LimitReachedError, ValidationError } from '../../lib/errors.js';
+import { ipAllowed, normalizeIp } from '../../lib/ip-allowlist.js';
 import { auditContext } from '../../lib/request.js';
 import { IMAGE_TYPES, storeUpload } from '../../lib/uploads.js';
 import {
@@ -8,12 +9,23 @@ import {
   settingsPatchSchema,
   settingsResponseSchema,
 } from './settings.schema.js';
+import { z } from 'zod';
 
 const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get('/settings', {
     config: { auth: { permission: 'settings:read' } },
     schema: { tags: ['settings'], response: { 200: dataResponse(settingsResponseSchema) } },
     handler: async () => ({ data: await app.settings.getAll() }),
+  });
+
+  /** The address this request came from, as the address lock sees it. */
+  app.get('/settings/my-address', {
+    config: { auth: { permission: 'settings:manage' } },
+    schema: {
+      tags: ['settings'],
+      response: { 200: dataResponse(z.object({ ip: z.string() })) },
+    },
+    handler: (request) => Promise.resolve({ data: { ip: normalizeIp(request.ip) } }),
   });
 
   app.get('/settings/public', {
@@ -47,6 +59,17 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
       response: { 200: dataResponse(settingsResponseSchema) },
     },
     handler: async (request) => {
+      // Switching the address lock on from an address that is not on the list would lock the
+      // person doing it out with everyone else, so it is refused until their own is added.
+      const lock = request.body.ipAllowlist;
+      if (lock?.enabled === true && !ipAllowed(lock.entries, request.ip)) {
+        throw new ValidationError([
+          {
+            path: 'ipAllowlist',
+            message: `Your own address, ${request.ip}, is not on the list. Add it first, or you would be locked out.`,
+          },
+        ]);
+      }
       const requestedRetention = request.body.recording?.retentionDays;
       if (requestedRetention !== undefined) {
         const max = await app.entitlements.limit('recording_retention_days');

@@ -34,6 +34,7 @@ import servicesPlugin from './plugins/services.js';
 import socketPlugin from './plugins/socket.js';
 import storagePlugin from './plugins/storage.js';
 import valkeyPlugin from './plugins/valkey.js';
+import ipAllowlistPlugin from './plugins/ip-allowlist.js';
 
 export type App = FastifyInstance<
   Server,
@@ -85,6 +86,8 @@ export async function buildApp(options: BuildAppOptions): Promise<App> {
   await app.register(queuesPlugin);
   await app.register(eventBusPlugin);
   await app.register(servicesPlugin);
+  // Before anything that answers a request, sign-in included (Settings, Security).
+  await app.register(ipAllowlistPlugin);
   await app.register(entitlementsPlugin);
   await app.register(securityPlugin);
   await app.register(requestContextPlugin);

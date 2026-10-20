@@ -14,6 +14,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { Server, type Socket } from 'socket.io';
+import { clientIpFrom } from '../lib/ip-allowlist.js';
 import { nowIso, rooms, validatedPayload, type Broadcaster } from '../lib/realtime.js';
 import { SHAPES, scopeWhere } from '../lib/scope.js';
 import { resolveScope } from '@crm/shared';
@@ -88,6 +89,17 @@ export default fp(
     io.use((socket, next) => {
       void (async () => {
         try {
+          // The address lock covers the live connection as much as the requests.
+          const ip = clientIpFrom(
+            socket.handshake.headers['x-forwarded-for'],
+            socket.request.socket.remoteAddress,
+            app.config.TRUST_PROXY_HOPS,
+          );
+          if (!(await app.addressAllowed(ip))) {
+            await app.recordRefusal(ip, 'socket', socket.handshake.headers['user-agent'] ?? null);
+            next(new Error('IP_NOT_ALLOWED'));
+            return;
+          }
           const session = await app.getSession(socket.handshake.headers);
           if (!session) {
             next(new Error('UNAUTHENTICATED'));
@@ -258,7 +270,7 @@ export default fp(
       ]);
     });
   },
-  { name: 'socket', dependencies: ['auth', 'event-bus', 'services'] },
+  { name: 'socket', dependencies: ['auth', 'event-bus', 'services', 'ip-allowlist'] },
 );
 
 /** Domain events → socket events (both processes). */

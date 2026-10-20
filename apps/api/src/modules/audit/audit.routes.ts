@@ -7,6 +7,8 @@ const auditQuery = z.object({
   entityId: uuid.optional(),
   actorId: uuid.optional(),
   action: z.string().max(80).optional(),
+  /** Everything done from one address, or from a range written with a trailing dot (41.90.). */
+  ip: z.string().trim().max(64).optional(),
   from: isoDateTime.optional(),
   to: isoDateTime.optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -27,6 +29,8 @@ const auditDto = z.object({
   /** False when the plan does not include change details; before and after are then null. */
   diffAvailable: z.boolean(),
   ip: z.string().nullable(),
+  /** The browser and system the request came from, as the browser itself reported it. */
+  userAgent: z.string().nullable(),
   requestId: z.string().nullable(),
   createdAt: isoDateTime,
 });
@@ -46,6 +50,7 @@ const auditRoutes: FastifyPluginAsyncZod = async (app) => {
         ...(q.entityId ? { entityId: q.entityId } : {}),
         ...(q.actorId ? { actorId: q.actorId } : {}),
         ...(q.action ? { action: { startsWith: q.action } } : {}),
+        ...(q.ip ? { ip: { startsWith: q.ip } } : {}),
         ...(q.from || q.to
           ? {
               createdAt: {
@@ -90,6 +95,7 @@ const auditRoutes: FastifyPluginAsyncZod = async (app) => {
           after: diffAvailable ? (r.after ?? null) : null,
           diffAvailable,
           ip: r.ip,
+          userAgent: r.userAgent,
           requestId: r.requestId,
           createdAt: r.createdAt.toISOString(),
         })),

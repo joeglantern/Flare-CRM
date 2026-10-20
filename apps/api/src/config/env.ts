@@ -57,6 +57,11 @@ const envSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
+    /**
+     * Ignores the address lock an admin set in Settings, Security. The way back in for someone who
+     * locked everyone out, from the server itself: set it, restart, fix the list, unset it.
+     */
+    IP_ALLOWLIST_DISABLED: bool,
     /** How often a live socket's session is re-validated (revocation, deactivation). */
     SOCKET_SESSION_RECHECK_MS: z.coerce.number().int().min(200).max(600_000).default(30_000),
     DEV_ORIGINS: csv,

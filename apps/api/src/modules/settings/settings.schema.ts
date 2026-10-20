@@ -10,6 +10,7 @@ import {
   valuesOf,
 } from '@crm/shared';
 import { z } from 'zod';
+import { entryProblem } from '../../lib/ip-allowlist.js';
 
 /** An IANA zone the runtime knows, e.g. Africa/Nairobi. */
 const timeZone = z
@@ -99,6 +100,29 @@ export const settingSchemas = {
    * agent should be calling about a locked screen.
    */
   supportContact: ownerContact.nullable(),
+  /**
+   * Lock the CRM to these addresses. Off by default; when on, every request and live connection
+   * from anywhere else is refused, apart from webhooks and public web forms, which come from the
+   * phone system, WhatsApp and the public.
+   */
+  ipAllowlist: z.object({
+    enabled: z.boolean(),
+    entries: z
+      .array(
+        z.object({
+          value: z
+            .string()
+            .trim()
+            .max(64)
+            .superRefine((v, ctx) => {
+              const problem = entryProblem(v);
+              if (problem !== null) ctx.addIssue({ code: 'custom', message: problem });
+            }),
+          label: z.string().trim().max(80).optional(),
+        }),
+      )
+      .max(200),
+  }),
 } as const;
 
 export type SettingKey = keyof typeof settingSchemas;
@@ -141,6 +165,7 @@ export const settingDefaults: Settings = {
   branding: brandingDefaults,
   security: { require2FAForPrivileged: true, require2FAForAll: false, sessionIdleMinutes: 60 },
   supportContact: null,
+  ipAllowlist: { enabled: false, entries: [] },
 };
 
 export const settingKeys = Object.keys(settingSchemas) as SettingKey[];

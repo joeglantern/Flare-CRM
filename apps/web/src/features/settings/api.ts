@@ -171,6 +171,7 @@ export interface AuditRow {
   before: unknown;
   after: unknown;
   ip: string | null;
+  userAgent: string | null;
   requestId: string | null;
   createdAt: string;
 }
@@ -180,6 +181,7 @@ export interface AuditFilters extends Query {
   entityId?: string;
   actorId?: string;
   action?: string;
+  ip?: string;
   from?: string;
   to?: string;
   page?: number;

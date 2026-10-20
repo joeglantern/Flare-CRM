@@ -57,6 +57,7 @@ import { EmptyState, ErrorState, ForbiddenState } from '@/components/data/states
 import { DetailList, Panel } from '@/components/entity/EntityHeader';
 import { OwnerPicker } from '@/components/entity/pickers';
 import { PageHeader } from '@/app/shell/TopBar';
+import { AddressLockPanel } from './AddressLockPanel';
 import { ConsoleLinkCard } from './ConsoleLinkCard';
 import { PbxConnectionCard } from './PbxConnectionCard';
 import { SmtpCard } from './SmtpCard';
@@ -101,6 +102,7 @@ import { usePermissions } from '@/providers/permissions';
 import { useFullSettings } from '@/providers/settings';
 import {
   useAuditLog,
+  type AuditRow,
   useBackupMutations,
   useBackups,
   useBrandingLogo,
@@ -116,6 +118,7 @@ import {
   type CustomFieldEntity,
 } from './api';
 import { TIMEZONES } from '@/lib/format/timezones';
+import { describeUserAgent } from '@/lib/user-agent';
 
 interface Section {
   id: string;
@@ -284,7 +287,12 @@ export function SettingsScreen() {
           )}
           {active === 'recording' && <RecordingSection />}
           {active === 'matching' && <MatchingSection />}
-          {active === 'security' && <SecuritySection />}
+          {active === 'security' && (
+            <>
+              <SecuritySection />
+              {perms.has('settings:manage') && <AddressLockPanel />}
+            </>
+          )}
           {active === 'retention' && <RetentionSection />}
           {active === 'backups' && <BackupsSection />}
           {active === 'fields' && <CustomFieldsSection />}
@@ -3452,12 +3460,18 @@ function UserDialog({
 function AuditSection() {
   const list = useListState<AuditFilters>();
   const [entityId] = useSearchParam('entityId');
+  const [ipFilter, setIpFilter] = useSearchParam('ip');
+  const [ipDraft, setIpDraft] = useState(ipFilter ?? '');
   const filters = useMemo(
-    () => ({ ...list.queryParams, ...(entityId !== undefined ? { entityId } : {}) }),
-    [list.queryParams, entityId],
+    () => ({
+      ...list.queryParams,
+      ...(entityId !== undefined ? { entityId } : {}),
+      ...(ipFilter !== undefined ? { ip: ipFilter } : {}),
+    }),
+    [list.queryParams, entityId, ipFilter],
   );
   const query = useAuditLog(filters);
-  const [inspecting, setInspecting] = useState<{ before: unknown; after: unknown } | null>(null);
+  const [inspecting, setInspecting] = useState<AuditRow | null>(null);
 
   const rows = query.data?.data ?? [];
 
@@ -3512,8 +3526,34 @@ function AuditSection() {
       header: 'IP',
       width: '1fr',
       hideable: true,
-      optional: true,
-      render: (r) => <span className="mono text-muted">{r.ip ?? '—'}</span>,
+      render: (r) =>
+        r.ip === null ? (
+          <span className="text-faint">—</span>
+        ) : (
+          <button
+            type="button"
+            className="mono text-muted hover:text-text hover:underline"
+            title="Show everything done from this address"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIpDraft(r.ip ?? '');
+              setIpFilter(r.ip ?? undefined);
+            }}
+          >
+            {r.ip}
+          </button>
+        ),
+    },
+    {
+      key: 'device',
+      header: 'Device',
+      width: '1fr',
+      hideable: true,
+      render: (r) => (
+        <span className="truncate text-muted" title={r.userAgent ?? undefined}>
+          {describeUserAgent(r.userAgent)}
+        </span>
+      ),
     },
     {
       key: 'requestId',
@@ -3532,6 +3572,37 @@ function AuditSection() {
 
   return (
     <>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setIpFilter(ipDraft.trim() === '' ? undefined : ipDraft.trim());
+        }}
+      >
+        <Input
+          label="From address"
+          mono
+          placeholder="102.205.237.244, or the start of one"
+          value={ipDraft}
+          onChange={(e) => {
+            setIpDraft(e.target.value);
+          }}
+        />
+        <Button type="submit" variant="secondary">
+          Filter
+        </Button>
+        {ipFilter !== undefined && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setIpDraft('');
+              setIpFilter(undefined);
+            }}
+          >
+            Clear
+          </Button>
+        )}
+      </form>
       <Panel title="Audit log" note="Append only, and never edited." padded={false}>
         <DataTable
           tableId="audit"
@@ -3560,7 +3631,7 @@ function AuditSection() {
             void query.refetch();
           }}
           onRowClick={(r) => {
-            setInspecting({ before: r.before, after: r.after });
+            setInspecting(r);
           }}
           emptyState={{
             object: 'shield',
@@ -3579,6 +3650,29 @@ function AuditSection() {
         title="What changed"
         width={640}
       >
+        {inspecting !== null && (
+          <dl className="mb-3 grid grid-cols-[90px_1fr] gap-x-3 gap-y-1 text-sm">
+            <dt className="text-muted">Who</dt>
+            <dd>{inspecting.actor?.name ?? inspecting.actorType}</dd>
+            <dt className="text-muted">When</dt>
+            <dd>
+              <DateTime value={inspecting.createdAt} />
+            </dd>
+            <dt className="text-muted">IP</dt>
+            <dd className="mono">{inspecting.ip ?? '—'}</dd>
+            <dt className="text-muted">Device</dt>
+            <dd>
+              {describeUserAgent(inspecting.userAgent)}
+              {inspecting.userAgent !== null && (
+                <span className="mono block break-all text-xs text-faint">
+                  {inspecting.userAgent}
+                </span>
+              )}
+            </dd>
+            <dt className="text-muted">Request</dt>
+            <dd className="mono break-all">{inspecting.requestId ?? '—'}</dd>
+          </dl>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <h4 className="mb-1.5 text-sm font-medium text-muted">Before</h4>

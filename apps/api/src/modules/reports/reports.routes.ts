@@ -25,7 +25,6 @@ import { scopeOf } from '../../lib/scope.js';
 import { CallsService } from '../calls/calls.service.js';
 import { ReportsService, type ReportRange } from './reports.service.js';
 
-
 const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = new ReportsService(app);
   const calls = new CallsService(app);
