@@ -140,7 +140,7 @@ export class YeastarClient {
     schema: T,
     timeoutMs = this.timeoutMs,
   ): Promise<z.infer<T>> {
-    const attempt = () =>
+    const attempt = (dispatcher: Dispatcher) =>
       undiciFetch(url, {
         method,
         headers: {
@@ -150,22 +150,42 @@ export class YeastarClient {
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         signal: AbortSignal.timeout(timeoutMs),
-        dispatcher: this.dispatcher,
+        dispatcher,
       });
     let res: UndiciResponse;
+    const started = Date.now();
     try {
-      res = await attempt();
+      res = await attempt(this.dispatcher);
     } catch (first) {
-      // A read that hung or lost its connection is tried once more, on a new connection: the
-      // failed one is gone from the pool by now. Never a write, which might have happened.
       if (method !== 'GET') {
         throw new PbxUnavailableError(`PBX request failed (${stripAccessToken(url)})`, {
           cause: first,
         });
       }
+      /*
+       * A read that hung is tried once more on a connection of its own, outside the pool. Seen on
+       * the Nairobi VPS: the pooled request to the phonebook hung every time while the same request
+       * on a fresh connection answered in two seconds. Never a write, which might have happened.
+       */
+      this.opts.log.warn(
+        { url: stripAccessToken(url), ms: Date.now() - started, err: first },
+        'PBX read failed on a pooled connection; retrying on a fresh one',
+      );
+      const fresh = new Agent({
+        connect: { ...buildPbxTlsOptions(this.opts.tls), timeout: 10_000 },
+      });
+      const retried = Date.now();
       try {
-        res = await attempt();
+        res = await attempt(fresh);
+        this.opts.log.warn(
+          { url: stripAccessToken(url), ms: Date.now() - retried },
+          'PBX read answered on a fresh connection',
+        );
+        const json: unknown = await res.json();
+        await fresh.close().catch(() => undefined);
+        return this.parse(url, json, schema);
       } catch (err) {
+        await fresh.destroy().catch(() => undefined);
         throw new PbxUnavailableError(`PBX request failed (${stripAccessToken(url)})`, {
           cause: err,
         });
@@ -174,6 +194,10 @@ export class YeastarClient {
     if (!res.ok)
       throw new PbxUnavailableError(`PBX returned HTTP ${res.status} for ${stripAccessToken(url)}`);
     const json: unknown = await res.json();
+    return this.parse(url, json, schema);
+  }
+
+  private parse<T extends z.ZodType>(url: string, json: unknown, schema: T): z.infer<T> {
     const parsed = schema.safeParse(json);
     if (!parsed.success) {
       this.opts.log.warn(
