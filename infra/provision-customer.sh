@@ -13,8 +13,17 @@
 #     [--extra-domains crm.acme.co.ke] \
 #     --console-url https://console.raniafrica.co.ke \
 #     --stack-id stk_... --stack-secret ... --console-public-key MCowBQ... \
-#     --acme-email ops@raniafrica.co.ke --admin-email jane@acme.co.ke \
-#     [--image-tag <git-sha>] [--repo-owner OWNER] [--dir /opt/crm]
+#     --acme-email ops@raniafrica.co.ke --admin-email jane@acme.co.ke [--admin-name "Jane W"] \
+#     [--image-tag <git-sha>] [--repo-owner OWNER] [--dir /opt/crm] [--build-local]
+#
+# The first admin: with ADMIN_PASSWORD set in the environment they can sign in with it straight
+# away and change it later under Your account; without it they use Forgot password to set one. It
+# is read from the environment so it never lands in shell history or the process list:
+#
+#   ADMIN_PASSWORD='...' sudo -E ./provision-customer.sh ... --admin-email jane@acme.co.ke
+#
+# --build-local builds the images on this server from this checkout instead of pulling them, and
+# runs the stack from the checkout's own infra/docker.
 set -euo pipefail
 
 SLUG=""
@@ -29,7 +38,9 @@ ADMIN_EMAIL=""
 ADMIN_NAME="Administrator"
 IMAGE_TAG="latest"
 REPO_OWNER="${REPO_OWNER:-OWNER}"
-TARGET_DIR="/opt/crm"
+TARGET_DIR=""
+BUILD_LOCAL=0
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -46,7 +57,8 @@ while [ $# -gt 0 ]; do
     --image-tag) IMAGE_TAG=$2; shift 2 ;;
     --repo-owner) REPO_OWNER=$2; shift 2 ;;
     --dir) TARGET_DIR=$2; shift 2 ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    --build-local) BUILD_LOCAL=1; shift ;;
+    -h|--help) sed -n '2,29p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -59,6 +71,10 @@ done
   echo "missing required option(s):$missing" >&2
   exit 2
 }
+if [ -n "$ADMIN_PASSWORD" ] && [ "${#ADMIN_PASSWORD}" -lt 8 ]; then
+  echo "ADMIN_PASSWORD must be at least 8 characters" >&2
+  exit 2
+fi
 
 # The console block is all or nothing: a stack with half of it set refuses to start, on purpose.
 console_args=0
@@ -78,11 +94,19 @@ command -v docker >/dev/null || {
 REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
 secret() { openssl rand -base64 36 | tr -d '\n/+=' | cut -c1-32; }
 
+# A local build needs the whole checkout beside the compose file (the web image builds from it),
+# so it runs from the checkout's own infra/docker; a pulled deploy gets a directory of its own.
+if [ -z "$TARGET_DIR" ]; then
+  if [ "$BUILD_LOCAL" -eq 1 ]; then TARGET_DIR="$REPO_DIR/infra/docker"; else TARGET_DIR="/opt/crm"; fi
+fi
+
 echo "== preparing $TARGET_DIR"
 install -d -m 750 "$TARGET_DIR" "$TARGET_DIR/secrets"
-cp -R "$REPO_DIR/infra/docker/." "$TARGET_DIR/"
-cp "$REPO_DIR/infra/deploy.sh" "$TARGET_DIR/deploy.sh"
-chmod +x "$TARGET_DIR/deploy.sh"
+if [ "$TARGET_DIR" != "$REPO_DIR/infra/docker" ]; then
+  cp -R "$REPO_DIR/infra/docker/." "$TARGET_DIR/"
+  cp "$REPO_DIR/infra/deploy.sh" "$TARGET_DIR/deploy.sh"
+  chmod +x "$TARGET_DIR/deploy.sh"
+fi
 
 if [ -f "$TARGET_DIR/.env" ]; then
   echo "$TARGET_DIR/.env already exists; leaving it alone and deploying with it"
@@ -161,6 +185,11 @@ IMAGE=ghcr.io/$REPO_OWNER/crm-api
 WEB_IMAGE=ghcr.io/$REPO_OWNER/crm-web:$IMAGE_TAG
 IMAGE_TAG=$IMAGE_TAG
 ENV
+  if [ "$BUILD_LOCAL" -eq 1 ]; then
+    # The names deploy.sh builds the images under on this server.
+    sed -i -e 's|^IMAGE=.*|IMAGE=crm-api|' -e 's|^WEB_IMAGE=.*|WEB_IMAGE=crm-web:local|' \
+      -e 's|^IMAGE_TAG=.*|IMAGE_TAG=local|' "$TARGET_DIR/.env"
+  fi
 
   if [ "$console_args" -eq 4 ]; then
     cat >> "$TARGET_DIR/.env" <<ENV
@@ -185,12 +214,30 @@ fi
 
 echo "== deploying"
 cd "$TARGET_DIR"
-IMAGE_TAG="$IMAGE_TAG" ./deploy.sh
+if [ "$BUILD_LOCAL" -eq 1 ]; then
+  IMAGE_TAG=local BUILD_LOCALLY=1 REPO_DIR="$REPO_DIR" COMPOSE_DIR="$TARGET_DIR" \
+    "$REPO_DIR/infra/deploy.sh"
+else
+  IMAGE_TAG="$IMAGE_TAG" ./deploy.sh
+fi
+
+# Reference data a fresh CRM needs: call outcomes and the default sales pipeline. Idempotent.
+echo "== seeding defaults"
+docker compose run --rm seed
+
+if [ -n "$ADMIN_PASSWORD" ]; then
+  echo "== first admin"
+  docker compose run --rm -e PROVISION_PASSWORD="$ADMIN_PASSWORD" provision-user \
+    "$ADMIN_EMAIL" "$ADMIN_NAME" admin
+  ADMIN_NOTE="the first administrator ($ADMIN_EMAIL) signs in with the password given and changes it under Your account"
+else
+  ADMIN_NOTE="the first administrator ($ADMIN_EMAIL) uses Forgot password on the sign-in page to set a password"
+fi
 
 cat <<DONE
 
 $SLUG is up at https://$DOMAIN
-  - the first administrator ($ADMIN_EMAIL) has been emailed a link to set their password
+  - $ADMIN_NOTE
   - passwords live in $TARGET_DIR/.env and $TARGET_DIR/secrets, and nowhere else
 $([ "$console_args" -eq 4 ] && echo "  - the console should show this stack as live within half a minute")
 $([ -n "$EXTRA_DOMAINS" ] && echo "  - $EXTRA_DOMAINS will get a certificate once its DNS points here")

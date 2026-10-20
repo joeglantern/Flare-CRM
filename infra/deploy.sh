@@ -1,8 +1,10 @@
 #!/bin/bash
 # Deploy/upgrade on the VPS (docs/12 §5): pull image → run migrations (expand/contract safe) → restart app.
 # Usage: IMAGE_TAG=<git-sha> ./deploy.sh      (run as the deploy user in /opt/crm)
+#        BUILD_LOCALLY=1 REPO_DIR=<checkout> COMPOSE_DIR=<checkout>/infra/docker ./deploy.sh
+#        builds the images on this server from the checkout instead of pulling them
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "${COMPOSE_DIR:-$(dirname "$0")}"
 export IMAGE_TAG=${IMAGE_TAG:-latest}
 
 [ -f .env ] || { echo ".env missing"; exit 1; }
@@ -10,8 +12,18 @@ export IMAGE_TAG=${IMAGE_TAG:-latest}
 [ -f secrets/valkey_password ] || { echo "secrets/valkey_password missing"; exit 1; }
 [ -f seaweedfs/s3.json ] || { echo "seaweedfs/s3.json missing (see s3.json.example)"; exit 1; }
 
-echo "== pulling ${IMAGE_TAG}"
-docker compose pull api worker caddy postgres valkey seaweedfs
+if [ "${BUILD_LOCALLY:-0}" = "1" ]; then
+  REPO_DIR=${REPO_DIR:?REPO_DIR must point at the checkout to build from}
+  echo "== building the images from $REPO_DIR"
+  docker build -t "crm-api:${IMAGE_TAG}" -f "$REPO_DIR/apps/api/Dockerfile" "$REPO_DIR"
+  docker compose pull caddy postgres valkey seaweedfs
+  # The web bundle is built from the same checkout and published into the volume Caddy serves.
+  docker compose build web
+  docker compose up web
+else
+  echo "== pulling ${IMAGE_TAG}"
+  docker compose pull api worker caddy postgres valkey seaweedfs
+fi
 docker compose build backup
 
 echo "== starting data services"
