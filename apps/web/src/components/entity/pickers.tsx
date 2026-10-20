@@ -13,6 +13,7 @@ import { Spinner } from '@/components/ui/Loading';
 import { useCompanies, useCompanyMutations, useCompanySearch } from '@/features/companies/api';
 import { useContact, useContactSearch } from '@/features/contacts/api';
 import { useAssignableUsers } from '@/features/users/api';
+import { useMeOptional } from '@/lib/auth/me';
 import { formatPhone } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -122,8 +123,16 @@ export function OwnerPicker({
 }) {
   const everyone = useAssignableUsers(people === undefined);
   const users = people ?? everyone;
+  const me = useMeOptional();
   const [q, setQ] = useState('');
-  const selected = (users.data ?? []).find((u) => u.id === value) ?? null;
+  // Someone who cannot list users (an agent) still owns what they create. Without this the box
+  // read "Unassigned" while the record was being saved as theirs.
+  const self =
+    me === undefined
+      ? null
+      : { id: me.id, name: me.name, avatarUrl: me.avatarUrl, extension: me.extension };
+  const selected =
+    (users.data ?? []).find((u) => u.id === value) ?? (self?.id === value ? self : null);
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return (users.data ?? []).filter((u) => needle === '' || u.name.toLowerCase().includes(needle));
