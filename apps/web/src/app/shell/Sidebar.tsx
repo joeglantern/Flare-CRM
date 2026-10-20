@@ -2,6 +2,7 @@
  * Sidebar (Component Inventory · App shell): collapsible nav filtered by role, with the PBX and
  * WhatsApp status dots and the user block. Collapsed state persists per user; Ctrl+B toggles it.
  */
+import { DEFAULT_ENTITLEMENTS } from '@crm/shared';
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
@@ -32,6 +33,8 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
   const settings = useSettings();
   const { branding } = settings;
   const [logoBroken, setLogoBroken] = useState(false);
+  // An unmanaged stack carries a placeholder, not a name; that one is not printed.
+  const workspaceName = customerName === DEFAULT_ENTITLEMENTS.customerName ? null : customerName;
   const items = NAV_ITEMS.filter(
     (n) =>
       n.roles.includes(me.role) &&
@@ -59,28 +62,42 @@ export function Sidebar({ collapsed, onToggle, counts, pbx, channel }: SidebarPr
           {branding.logoKey === null || logoBroken ? (
             <>
               <img src="/brand/mark.svg" alt="" width={20} height={20} className="shrink-0" />
-              {!collapsed && (
-                <span className="flex items-baseline gap-1.5 leading-none">
-                  <span className="text-lg font-extrabold tracking-[-0.03em] text-text">Flare</span>
-                  <span className="text-2xs font-medium tracking-[0.22em] text-muted">CRM</span>
+              {!collapsed &&
+                (workspaceName !== null ? (
+                  <span className="truncate text-lg font-semibold tracking-tight text-text">
+                    {workspaceName}
+                  </span>
+                ) : (
+                  <span className="flex items-baseline gap-1.5 leading-none">
+                    <span className="text-lg font-extrabold tracking-[-0.03em] text-text">
+                      Flare
+                    </span>
+                    <span className="text-2xs font-medium tracking-[0.22em] text-muted">CRM</span>
+                  </span>
+                ))}
+            </>
+          ) : (
+            <>
+              {/* Height-bounded and auto-width: a customer's logo is any shape, and the row is not. */}
+              <img
+                src={`/api/v1/files/${encodeURIComponent(branding.logoKey)}`}
+                alt={customerName}
+                className={cn('w-auto shrink-0 object-contain', collapsed ? 'max-h-6' : 'max-h-8')}
+                style={{ maxWidth: collapsed ? 32 : workspaceName !== null ? 72 : 168 }}
+                // A key can outlive its object, most easily when a database is restored without the
+                // bucket beside it. A broken image in the corner of every screen is a worse answer
+                // than our own mark, so the element removes itself and the fallback shows through.
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  setLogoBroken(true);
+                }}
+              />
+              {!collapsed && workspaceName !== null && (
+                <span className="min-w-0 truncate text-base font-semibold text-text">
+                  {workspaceName}
                 </span>
               )}
             </>
-          ) : (
-            /* Height-bounded and auto-width: a customer's logo is any shape, and the row is not. */
-            <img
-              src={`/api/v1/files/${encodeURIComponent(branding.logoKey)}`}
-              alt={customerName}
-              className={cn('w-auto shrink-0 object-contain', collapsed ? 'max-h-6' : 'max-h-7')}
-              style={{ maxWidth: collapsed ? 32 : 168 }}
-              // A key can outlive its object, most easily when a database is restored without the
-              // bucket beside it. A broken image in the corner of every screen is a worse answer
-              // than our own mark, so the element removes itself and the fallback shows through.
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                setLogoBroken(true);
-              }}
-            />
           )}
         </Link>
       </div>

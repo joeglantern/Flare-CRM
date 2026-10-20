@@ -1,4 +1,11 @@
-import { LIMITS, brandingSettings, dataResponse, generateBrandPalette } from '@crm/shared';
+import {
+  DEFAULT_ENTITLEMENTS,
+  LIMITS,
+  brandingSettings,
+  dataResponse,
+  generateBrandPalette,
+} from '@crm/shared';
+import { createHash } from 'node:crypto';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { LimitReachedError, ValidationError } from '../../lib/errors.js';
 import { ipAllowed, normalizeIp } from '../../lib/ip-allowlist.js';
@@ -16,6 +23,57 @@ const settingsRoutes: FastifyPluginAsyncZod = async (app) => {
     config: { auth: { permission: 'settings:read' } },
     schema: { tags: ['settings'], response: { 200: dataResponse(settingsResponseSchema) } },
     handler: async () => ({ data: await app.settings.getAll() }),
+  });
+
+  /**
+   * Whose CRM this is, for the signed-out screens: the customer's name and whether they uploaded a
+   * logo. Both are already on show to anyone who signs in, and the sign-in page is where people
+   * check they are in the right place, so this answers without a session.
+   */
+  app.get('/brand', {
+    config: { auth: { public: true }, rateLimit: { max: 120, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['settings'],
+      response: {
+        200: dataResponse(
+          z.object({ name: z.string().nullable(), logoUrl: z.string().nullable() }),
+        ),
+      },
+    },
+    handler: async () => {
+      const [settings, state] = await Promise.all([
+        app.settings.getAll(),
+        app.entitlements.getState(),
+      ]);
+      const name = state.doc.customerName;
+      const key = settings.branding.logoKey;
+      return {
+        data: {
+          // The placeholder an unmanaged stack carries is not a name worth printing.
+          name: name === DEFAULT_ENTITLEMENTS.customerName ? null : name,
+          // The version changes with the key, so a replaced logo is never served from a cache.
+          logoUrl:
+            key === null
+              ? null
+              : `/api/v1/brand/logo?v=${createHash('sha256').update(key).digest('hex').slice(0, 12)}`,
+        },
+      };
+    },
+  });
+
+  app.get('/brand/logo', {
+    config: { auth: { public: true }, rateLimit: { max: 120, timeWindow: '1 minute' } },
+    schema: { tags: ['settings'], hide: true },
+    handler: async (_request, reply) => {
+      const key = (await app.settings.getAll()).branding.logoKey;
+      const obj = key === null ? null : await app.storage.get(key);
+      if (!obj || !IMAGE_TYPES.has(obj.contentType)) return reply.status(404).send();
+      void reply.header('content-type', obj.contentType);
+      void reply.header('x-content-type-options', 'nosniff');
+      void reply.header('cache-control', 'public, max-age=300');
+      if (obj.contentLength !== undefined) void reply.header('content-length', obj.contentLength);
+      return reply.send(obj.body);
+    },
   });
 
   /** The address this request came from, as the address lock sees it. */

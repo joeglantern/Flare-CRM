@@ -2,6 +2,7 @@
  * TopBar (Component Inventory · App shell): breadcrumb, global search, notification bell,
  * presence and extension chip, theme toggle, user menu.
  */
+import { DEFAULT_ENTITLEMENTS } from '@crm/shared';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import {
   ChevronRight,
@@ -24,6 +25,7 @@ import { DropdownMenu } from '@/components/ui/Menu';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { authClient } from '@/lib/auth/client';
 import { useMe } from '@/lib/auth/me';
+import { useEntitlements } from '@/providers/entitlements';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { chapterForPath } from '@/features/help/context';
@@ -48,6 +50,8 @@ export function TopBar({
   onOpenNav: () => void;
 }) {
   const me = useMe();
+  const { customerName } = useEntitlements();
+  const workspaceName = customerName === DEFAULT_ENTITLEMENTS.customerName ? null : customerName;
   const theme = useTheme();
   const navigate = useNavigate();
   const crumbs = usePageMetaStore((s) => s.crumbs);
@@ -78,6 +82,16 @@ export function TopBar({
       <span className="hidden shrink-0 items-center md:flex" title="Flare CRM">
         <img src="/brand/mark.svg" alt="Flare CRM" width={16} height={16} className="opacity-80" />
       </span>
+
+      {/* Whose CRM this is. On a phone the breadcrumb is hidden, so this is the only title. */}
+      {workspaceName !== null && (
+        <span className="flex min-w-0 shrink items-center gap-3">
+          <span className="max-w-[16rem] truncate text-base font-semibold text-text">
+            {workspaceName}
+          </span>
+          <span aria-hidden className="hidden h-4 w-px shrink-0 bg-border md:block" />
+        </span>
+      )}
 
       <nav
         aria-label="Breadcrumb"

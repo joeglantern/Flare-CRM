@@ -10,8 +10,10 @@
  * column then centred itself against that taller row and sat well below the middle of the screen,
  * which read as a large gap above the wordmark.
  */
-import type { ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState, type ReactNode } from 'react';
 import { FlareWordmark } from '@/components/brand/Logo';
+import { http } from '@/lib/api/client';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
@@ -29,12 +31,46 @@ export function AuthLayout({
   wide?: boolean;
 }) {
   const resolved = useTheme((s) => s.resolved);
+  // Whose CRM this is. Public, so it is known before anybody signs in; while it loads, or if it
+  // fails, the page simply shows our own wordmark as it always did.
+  const { data: brand } = useQuery({
+    queryKey: ['public-brand'],
+    queryFn: () => http.get<{ name: string | null; logoUrl: string | null }>('/api/v1/brand'),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const [logoBroken, setLogoBroken] = useState(false);
+  const logoUrl = logoBroken ? null : (brand?.logoUrl ?? null);
 
   return (
     <main className="grid min-h-dvh bg-bg text-text lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="flex items-center justify-center p-6">
         <div className={cn('w-full', wide ? 'max-w-md' : 'max-w-sm')}>
-          <FlareWordmark size={22} />
+          {logoUrl !== null ? (
+            <div className="flex flex-col items-start gap-3">
+              {/* Bounded on both sides: a customer's logo can be any shape. */}
+              <img
+                src={logoUrl}
+                alt={brand?.name ?? 'Company logo'}
+                className="max-h-24 w-auto max-w-[260px] object-contain"
+                onError={() => {
+                  setLogoBroken(true);
+                }}
+              />
+              <span className="flex items-center gap-2 text-sm text-muted">
+                Powered by <FlareWordmark size={16} />
+              </span>
+            </div>
+          ) : brand?.name != null ? (
+            <div className="flex flex-col items-start gap-2">
+              <span className="text-3xl font-semibold tracking-tight">{brand.name}</span>
+              <span className="flex items-center gap-2 text-sm text-muted">
+                Powered by <FlareWordmark size={16} />
+              </span>
+            </div>
+          ) : (
+            <FlareWordmark size={22} />
+          )}
 
           <h1 className="mt-8 text-2xl font-semibold">{title}</h1>
           {description !== undefined && (
