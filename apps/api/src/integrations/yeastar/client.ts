@@ -138,6 +138,7 @@ export class YeastarClient {
     url: string,
     body: unknown,
     schema: T,
+    timeoutMs = this.timeoutMs,
   ): Promise<z.infer<T>> {
     const attempt = () =>
       undiciFetch(url, {
@@ -148,7 +149,7 @@ export class YeastarClient {
           Accept: 'application/json',
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
         dispatcher: this.dispatcher,
       });
     let res: UndiciResponse;
@@ -188,14 +189,20 @@ export class YeastarClient {
   async call<T extends z.ZodType>(
     method: 'GET' | 'POST',
     path: string,
-    opts: { query?: Record<string, string | number | undefined>; body?: unknown; schema: T },
+    opts: {
+      query?: Record<string, string | number | undefined>;
+      body?: unknown;
+      schema: T;
+      /** For the few reads the PBX takes its time over; everything else keeps the default. */
+      timeoutMs?: number;
+    },
   ): Promise<z.infer<T>> {
     const attempt = async (token: string) => {
       const url = new URL(`${this.apiBase}${path}`);
       url.searchParams.set('access_token', token);
       for (const [k, v] of Object.entries(opts.query ?? {}))
         if (v !== undefined) url.searchParams.set(k, String(v));
-      const data = await this.send(method, url.toString(), opts.body, baseResponse);
+      const data = await this.send(method, url.toString(), opts.body, baseResponse, opts.timeoutMs);
       if (data.errcode !== 0)
         throw new YeastarApiError(data.errcode, data.errmsg ?? 'FAILURE', path);
       const parsed = opts.schema.safeParse(data);
@@ -350,6 +357,9 @@ export class YeastarClient {
   companyContactList(query: { page?: number; page_size?: number } = {}) {
     return this.call('GET', '/company_contact/list', {
       query: { page: query.page ?? 1, page_size: query.page_size ?? 1000 },
+      // Building the phonebook is slow on the PBX side, and slower still over a long link: from a
+      // VPS in Nairobi it ran past the ten seconds every other request is given.
+      timeoutMs: 30_000,
       schema: z
         .object({
           total_number: z.coerce.number().optional(),

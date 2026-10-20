@@ -458,8 +458,8 @@ const MAX_PAGES = 1000;
 /**
  * Every page of the PBX's contacts.
  *
- * The API takes pages of up to 10 000, so for any real phonebook this is a single request, which is
- * what makes reading the whole PBX side every half minute affordable.
+ * Pages of a thousand: one request for any real phonebook, and small enough that the PBX answers
+ * inside the timeout over a slow link, where a page of ten thousand did not.
  *
  * Paged by the total the PBX reports, not by a short page. A PBX that quietly serves fewer rows
  * per page than asked would make the first page look like the last, and every contact past it
@@ -468,7 +468,7 @@ const MAX_PAGES = 1000;
  */
 export async function fetchAllPbxContacts(
   client: Pick<YeastarClient, 'companyContactList'>,
-  pageSize = 10_000,
+  pageSize = 1000,
 ): Promise<CompanyContactRow[]> {
   const all: CompanyContactRow[] = [];
   let total: number | undefined;
