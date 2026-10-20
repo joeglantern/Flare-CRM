@@ -41,7 +41,12 @@ docker compose build backup
 
 echo "== starting data services"
 docker compose up -d postgres valkey seaweedfs
-docker compose wait postgres 2>/dev/null || true
+# Until the database reports healthy. Not `docker compose wait`: that waits for it to stop, so on
+# a Docker new enough to have it, the deploy hung here for good.
+for i in $(seq 1 60); do
+  [ "$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q postgres)" 2>/dev/null)" = healthy ] && break
+  sleep 2
+done
 
 echo "== migrations (crm_migrate role)"
 docker compose run --rm migrate
