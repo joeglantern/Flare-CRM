@@ -11,6 +11,7 @@ import { useSocketEvent } from '@/lib/socket/client';
 import { usePlanState } from '@/providers/entitlements';
 import { useSettings } from '@/providers/settings';
 import { useSocketState } from '@/providers/socket';
+import { useSupportContact } from '@/providers/support-contact';
 
 export interface ChannelHealth {
   enabled: boolean;
@@ -41,6 +42,9 @@ export function Banners({
     }, []),
   );
 
+  // Who people here are told to contact: the admin's own support contact when one is set.
+  const support = useSupportContact();
+
   return (
     <>
       {!online && (
@@ -51,8 +55,8 @@ export function Banners({
       {plan.expired && (
         <Banner tone="danger" icon={CalendarClock} meta="plan">
           Your plan ended, so the CRM is read only. Everything is still here and nothing has been
-          deleted. Contact {plan.ownerContact.name} at{' '}
-          <a href={`mailto:${plan.ownerContact.email}`}>{plan.ownerContact.email}</a> to renew.
+          deleted. Contact {support.name} at <a href={`mailto:${support.email}`}>{support.email}</a>{' '}
+          to renew.
         </Banner>
       )}
       {plan.expiringSoon && (

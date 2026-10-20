@@ -23,6 +23,7 @@ import { api, unwrap } from '@/lib/api/client';
 import { qk } from '@/lib/query';
 import { useSocketEvent } from '@/lib/socket/client';
 import { usePermissions } from './permissions';
+import { useSettings } from './settings';
 
 export const entitlementsQuery = queryOptions({
   queryKey: qk.entitlements(),
@@ -175,10 +176,12 @@ export function usePlanState(): PlanState {
 /** Disables a create or save control while the plan is expired, with a reason for the tooltip. */
 export function useWriteGuard(): { disabled: boolean; reason: string | undefined } {
   const { expired, ownerContact } = usePlanState();
+  // The admin's own support contact when one is set in Settings, else whoever the plan names.
+  const contact = useSettings().supportContact ?? ownerContact;
   return expired
     ? {
         disabled: true,
-        reason: `Your plan has expired, so changes are refused. Contact ${ownerContact.name} (${ownerContact.email}) to renew.`,
+        reason: `Your plan has expired, so changes are refused. Contact ${contact.name} (${contact.email}) to renew.`,
       }
     : { disabled: false, reason: undefined };
 }

@@ -120,8 +120,9 @@ export function SupportContactCard({ children }: { children?: React.ReactNode })
           }}
         >
           <p className="text-sm text-muted">
-            Shown to everyone here whenever they need help or access, in place of your plan&apos;s
-            contact.
+            Shown to everyone here whenever they need help or something is switched off for them,
+            for example &quot;To add it, contact&quot; on a feature their plan does not include, and
+            on the plan renewal notices. Leave it to your provider by clearing it.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input

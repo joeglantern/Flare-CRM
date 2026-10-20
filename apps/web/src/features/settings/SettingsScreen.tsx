@@ -25,6 +25,7 @@ import {
   Database,
   HardDriveDownload,
   KeyRound,
+  LifeBuoy,
   Link2,
   Mail,
   Palette,
@@ -59,6 +60,7 @@ import { PageHeader } from '@/app/shell/TopBar';
 import { ConsoleLinkCard } from './ConsoleLinkCard';
 import { PbxConnectionCard } from './PbxConnectionCard';
 import { SmtpCard } from './SmtpCard';
+import { SupportContactCard } from './SupportContactCard';
 import { PlanSection } from './PlanSection';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { errorMessage } from '@/lib/api/errors';
@@ -140,6 +142,8 @@ const SECTIONS: Section[] = [
   // Its own entry: at the foot of Your plan it sat below four panels and went unseen.
   { id: 'console', label: 'Console link', icon: Link2, requires: 'settings:manage' },
   { id: 'email', label: 'Email', icon: Mail, requires: 'settings:manage' },
+  // Who people here are sent to whenever something is switched off or they need help.
+  { id: 'support', label: 'Support contact', icon: LifeBuoy, requires: 'settings:manage' },
   {
     id: 'telephony',
     label: 'Telephony',
@@ -270,6 +274,7 @@ export function SettingsScreen() {
             </>
           )}
           {active === 'email' && <SmtpCard />}
+          {active === 'support' && <SupportContactCard />}
           {active === 'telephony' && (
             <>
               {perms.has('settings:manage') && <PbxConnectionCard />}
