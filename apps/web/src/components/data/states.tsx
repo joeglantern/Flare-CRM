@@ -363,7 +363,9 @@ export function PlanLockedState({
   const { label, description } = FEATURES[feature];
   const title = `${label} is not part of your plan`;
   const contact =
-    owner === undefined ? null : (
+    owner === undefined ? (
+      ' To add it, ask your administrator.'
+    ) : (
       <>
         {' '}
         To add it, contact {owner.name} at{' '}

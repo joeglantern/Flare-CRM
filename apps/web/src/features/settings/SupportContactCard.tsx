@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/Input';
 import { toast } from '@/components/ui/toast';
 import { Panel } from '@/components/entity/EntityHeader';
 import { errorMessage } from '@/lib/api/errors';
-import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
 import { useSettings } from '@/providers/settings';
 import { useUpdateSettings } from './api';
@@ -36,15 +35,12 @@ function ContactLines({ contact }: { contact: OwnerContact }) {
 }
 
 export function SupportContactCard({ children }: { children?: React.ReactNode }) {
-  const { ownerContact: planContact } = useEntitlements();
   const { supportContact } = useSettings();
   const canEdit = usePermissions().has('settings:manage');
   const update = useUpdateSettings();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const shown = supportContact ?? planContact;
 
   const save = (value: OwnerContact | null) => {
     update.mutate(
@@ -55,7 +51,7 @@ export function SupportContactCard({ children }: { children?: React.ReactNode })
           setErrors({});
           toast({
             tone: 'success',
-            title: value === null ? 'Back to the plan contact' : 'Support contact saved',
+            title: value === null ? 'Support contact removed' : 'Support contact saved',
           });
         },
         onError: (e) => {
@@ -88,7 +84,7 @@ export function SupportContactCard({ children }: { children?: React.ReactNode })
   return (
     <Panel
       title="Who to contact"
-      note={supportContact === null ? 'from your plan' : 'set by your admin'}
+      note="shown to everyone here who needs help"
       actions={
         canEdit && !editing ? (
           <Button
@@ -122,7 +118,7 @@ export function SupportContactCard({ children }: { children?: React.ReactNode })
           <p className="text-sm text-muted">
             Shown to everyone here whenever they need help or something is switched off for them,
             for example &quot;To add it, contact&quot; on a feature their plan does not include, and
-            on the plan renewal notices. Leave it to your provider by clearing it.
+            on the plan renewal notices.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
@@ -162,7 +158,7 @@ export function SupportContactCard({ children }: { children?: React.ReactNode })
                   save(null);
                 }}
               >
-                Use the plan contact
+                Remove
               </Button>
             )}
             <Button
@@ -181,10 +177,12 @@ export function SupportContactCard({ children }: { children?: React.ReactNode })
         </form>
       ) : (
         <>
-          <ContactLines contact={shown} />
-          {supportContact !== null && (
-            <p className="mt-2 text-sm text-faint">
-              Your plan comes from {planContact.name} ({planContact.email}).
+          {supportContact !== null ? (
+            <ContactLines contact={supportContact} />
+          ) : (
+            <p className="text-base text-muted">
+              Not set yet.
+              {canEdit && ' Add who people here should contact for help or access.'}
             </p>
           )}
         </>

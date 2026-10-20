@@ -13,7 +13,7 @@ describe('FeatureGate', () => {
     expect(screen.getByText('Call history')).toBeInTheDocument();
   });
 
-  it('names the feature and who to contact when the plan does not include it', () => {
+  it('names the feature when the plan does not include it, but never the provider', () => {
     renderWithProviders(
       <FeatureGate feature="telephony" what="Call history">
         <p>Call history</p>
@@ -22,10 +22,10 @@ describe('FeatureGate', () => {
     );
     expect(screen.queryByText('Call history')).not.toBeInTheDocument();
     expect(screen.getByText('Call history is not available')).toBeInTheDocument();
-    expect(screen.getByText('support@example.com')).toHaveAttribute(
-      'href',
-      'mailto:support@example.com',
-    );
+    // No support contact set here: the screen sends people to their admin, and the plan's own
+    // contact (the provider) is not shown.
+    expect(screen.getByText(/ask your administrator/)).toBeInTheDocument();
+    expect(screen.queryByText('support@example.com')).not.toBeInTheDocument();
     // the only way out is the plan page, and only for someone who can open it
     expect(screen.getByRole('link', { name: 'See your plan' })).toHaveAttribute(
       'href',

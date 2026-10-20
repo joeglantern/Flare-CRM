@@ -55,8 +55,15 @@ export function Banners({
       {plan.expired && (
         <Banner tone="danger" icon={CalendarClock} meta="plan">
           Your plan ended, so the CRM is read only. Everything is still here and nothing has been
-          deleted. Contact {support.name} at <a href={`mailto:${support.email}`}>{support.email}</a>{' '}
-          to renew.
+          deleted.{' '}
+          {support === null ? (
+            'Ask your administrator to renew it.'
+          ) : (
+            <>
+              Contact {support.name} at <a href={`mailto:${support.email}`}>{support.email}</a> to
+              renew.
+            </>
+          )}
         </Banner>
       )}
       {plan.expiringSoon && (

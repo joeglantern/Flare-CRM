@@ -40,7 +40,7 @@ export function FeatureGate({
         <PlanLockedState
           feature={feature}
           {...(what !== undefined ? { what } : {})}
-          owner={ownerContact}
+          {...(ownerContact !== null ? { owner: ownerContact } : {})}
           showPlanLink={perms.has('settings:read')}
         />
       </div>

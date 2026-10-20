@@ -1,12 +1,11 @@
-import { useEntitlements } from './entitlements';
+import type { OwnerContact } from '@crm/shared';
 import { useSettings } from './settings';
 
 /**
- * Who to ask for help here: the person an admin entered in Settings, else the contact the plan
- * names. Used wherever someone is told to "contact" somebody about access; the plan's own renewal
- * and expiry notices keep naming the plan's contact, since that is who renews it.
+ * Who to ask for help here: the person an admin entered in Settings, Support contact. Null until
+ * one is set, and then the screens say "ask your administrator": the contact the plan names is
+ * the provider, whose name and address are not for the people using the CRM.
  */
-export function useSupportContact(): ReturnType<typeof useEntitlements>['ownerContact'] {
-  const { ownerContact } = useEntitlements();
-  return useSettings().supportContact ?? ownerContact;
+export function useSupportContact(): OwnerContact | null {
+  return useSettings().supportContact;
 }

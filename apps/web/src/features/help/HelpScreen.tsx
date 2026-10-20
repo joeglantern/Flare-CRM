@@ -182,7 +182,7 @@ export function HelpScreen() {
             <PlanLockedState
               feature={requested.feature}
               what={requested.title}
-              owner={ownerContact}
+              {...(ownerContact !== null ? { owner: ownerContact } : {})}
               showPlanLink={access.has('settings:read')}
             />
           ) : hiddenReason === 'permission' ? (
