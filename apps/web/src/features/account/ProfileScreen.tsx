@@ -27,6 +27,7 @@ import { focusFirstError } from '@/lib/forms';
 import { useTheme } from '@/lib/theme';
 import { useUpdateMe } from '@/features/users/api';
 import { useSettings } from '@/providers/settings';
+import { ChangePasswordPanel } from './ChangePasswordPanel';
 
 export function ProfileScreen() {
   usePageMeta([{ label: 'Your account' }]);
@@ -176,6 +177,8 @@ export function ProfileScreen() {
               </div>
             </div>
           </Panel>
+
+          <ChangePasswordPanel />
 
           <Panel
             title="Two-factor authentication"

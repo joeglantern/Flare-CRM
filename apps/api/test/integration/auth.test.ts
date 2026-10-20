@@ -28,6 +28,34 @@ describe('auth & authorization', () => {
     expect(me.permissions).not.toContain('settings:manage');
   });
 
+  it('lets a person change their own password, and only with the current one', async () => {
+    const admin = await ctx.createUser({ role: 'admin' });
+    const change = (currentPassword: string, newPassword: string) =>
+      ctx.app.inject({
+        method: 'POST',
+        url: '/api/auth/change-password',
+        headers: {
+          'content-type': 'application/json',
+          origin: ctx.env.APP_URL,
+          cookie: admin.cookie,
+        },
+        payload: { currentPassword, newPassword, revokeOtherSessions: true },
+      });
+
+    expect((await change('not-my-password', 'A-new-long-passw0rd')).statusCode).toBe(400);
+    expect((await change(admin.password, 'short')).statusCode).toBe(400);
+    const ok = await change(admin.password, 'A-new-long-passw0rd');
+    expect(ok.statusCode, ok.body).toBe(200);
+
+    await expect(ctx.signIn(admin.email, 'A-new-long-passw0rd')).resolves.toBeTruthy();
+    await expect(ctx.signIn(admin.email, admin.password)).rejects.toThrow();
+    expect(
+      await ctx.app.db.auditLog.count({
+        where: { action: 'auth.password_changed', actorId: admin.id },
+      }),
+    ).toBe(1);
+  });
+
   it('rejects wrong passwords and audits the failure', async () => {
     const agent = await ctx.createUser({ role: 'agent' });
     const res = await ctx.app.inject({
