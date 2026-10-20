@@ -3,6 +3,7 @@
 # Usage: IMAGE_TAG=<git-sha> ./deploy.sh      (run as the deploy user in /opt/crm)
 #        BUILD_LOCALLY=1 REPO_DIR=<checkout> COMPOSE_DIR=<checkout>/infra/docker ./deploy.sh
 #        builds the images on this server from the checkout instead of pulling them
+#        PREBUILT=1 COMPOSE_DIR=... ./deploy.sh   uses images already loaded on this server
 set -euo pipefail
 cd "${COMPOSE_DIR:-$(dirname "$0")}"
 export IMAGE_TAG=${IMAGE_TAG:-latest}
@@ -12,7 +13,19 @@ export IMAGE_TAG=${IMAGE_TAG:-latest}
 [ -f secrets/valkey_password ] || { echo "secrets/valkey_password missing"; exit 1; }
 [ -f seaweedfs/s3.json ] || { echo "seaweedfs/s3.json missing (see s3.json.example)"; exit 1; }
 
-if [ "${BUILD_LOCALLY:-0}" = "1" ]; then
+if [ "${PREBUILT:-0}" = "1" ]; then
+  # Images built on another machine and loaded here, for a host too small to build them: two
+  # gigabytes of memory is not enough for the api's type check. From the build machine:
+  #   docker save crm-api:local crm-web:local | gzip | ssh <host> 'gunzip | docker load'
+  for image in "crm-api:${IMAGE_TAG}" "${WEB_IMAGE:-crm-web:local}"; do
+    docker image inspect "$image" >/dev/null 2>&1 || {
+      echo "$image is not loaded on this host" >&2
+      exit 1
+    }
+  done
+  docker compose pull caddy postgres valkey seaweedfs
+  docker compose up web
+elif [ "${BUILD_LOCALLY:-0}" = "1" ]; then
   REPO_DIR=${REPO_DIR:?REPO_DIR must point at the checkout to build from}
   echo "== building the images from $REPO_DIR"
   docker build -t "crm-api:${IMAGE_TAG}" -f "$REPO_DIR/apps/api/Dockerfile" "$REPO_DIR"

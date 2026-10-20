@@ -23,7 +23,8 @@
 #   ADMIN_PASSWORD='...' sudo -E ./provision-customer.sh ... --admin-email jane@acme.co.ke
 #
 # --build-local builds the images on this server from this checkout instead of pulling them, and
-# runs the stack from the checkout's own infra/docker.
+# runs the stack from the checkout's own infra/docker. A server with 2 GB of memory cannot build
+# them: build crm-api:local and crm-web:local elsewhere, load them here, and add PREBUILT=1.
 set -euo pipefail
 
 SLUG=""
@@ -216,8 +217,9 @@ echo "== deploying"
 cd "$TARGET_DIR"
 if [ "$BUILD_LOCAL" -eq 1 ]; then
   # Through bash, not as a program: a fresh clone does not always keep the file executable.
-  IMAGE_TAG=local BUILD_LOCALLY=1 REPO_DIR="$REPO_DIR" COMPOSE_DIR="$TARGET_DIR" \
-    bash "$REPO_DIR/infra/deploy.sh"
+  # PREBUILT=1 in the environment uses images built elsewhere and loaded here (see deploy.sh).
+  IMAGE_TAG=local BUILD_LOCALLY=1 PREBUILT="${PREBUILT:-0}" REPO_DIR="$REPO_DIR" \
+    COMPOSE_DIR="$TARGET_DIR" bash "$REPO_DIR/infra/deploy.sh"
 else
   IMAGE_TAG="$IMAGE_TAG" ./deploy.sh
 fi
