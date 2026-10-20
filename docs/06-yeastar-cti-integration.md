@@ -352,9 +352,11 @@ The same number typed under two slots on a handset, as `07...` under mobile and 
 read as one number. The CRM can hold a number only once, and the next write empties the second
 slot.
 
-**Deleting is deliberately asymmetric.** Deleting in the CRM deletes on the PBX. Deleting on the
-PBX does not delete in the CRM; the contact is put back on the next run. A handset should not be
-able to destroy the business's own records.
+**Deleting goes both ways.** Deleting in the CRM deletes on the PBX. Deleting a synced contact on
+the PBX deletes them in the CRM on the next run, as a soft delete, so they can be restored from the
+CRM. A run that would delete more than a fifth of the synced contacts at once (and more than ten)
+deletes nothing and logs an error instead: that is what a reset PBX or a swapped phonebook looks
+like, not somebody tidying up.
 
 **Phonebook consistency.** The phonebook is created with `member_select: 'sel_all'`, so it holds
 every company contact by construction. A phonebook that named its members would need editing on

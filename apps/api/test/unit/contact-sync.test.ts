@@ -204,8 +204,7 @@ describe('planning a sync', () => {
     expect(plan.importToCrm).toHaveLength(0);
   });
 
-  /** A handset must not be able to delete the business's own records. */
-  it('puts back a contact deleted on the PBX rather than deleting it in the CRM', () => {
+  it('deletes in the CRM a synced contact that was deleted on the PBX', () => {
     const contact = crm();
     const link: ContactLink = {
       contactId: contact.id,
@@ -214,7 +213,8 @@ describe('planning a sync', () => {
       pbxFingerprint: '',
     };
     const plan = planSync({ ...empty, crm: [contact], pbx: [], links: [link] });
-    expect(plan.create).toEqual([contact]);
+    expect(plan.deleteInCrm).toEqual([{ contactId: contact.id, pbxContactId: 5 }]);
+    expect(plan.create).toHaveLength(0);
   });
 
   it('skips a contact with no phone number, which the PBX cannot hold', () => {

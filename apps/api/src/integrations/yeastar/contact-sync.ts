@@ -16,10 +16,11 @@
  * does not is imported rather than deleted: somebody typed them into a phone, and deleting their
  * work is not a sync, it is data loss.
  *
- * Deleting is deliberately asymmetric for the same reason. Deleting in the CRM deletes on the PBX,
- * because the CRM is where that decision is made. Deleting on the PBX does not delete in the CRM:
- * the contact is put back on the next run. A phone handset should not be able to destroy the
- * business's own records, and the alternative gives a misplaced tap on a desk phone that power.
+ * Deleting goes both ways. Deleting in the CRM deletes on the PBX, and deleting on the PBX someone
+ * both sides held deletes them in the CRM, because people tidy the phonebook from either side and
+ * expect it to stay tidy. The CRM's delete is a soft one, so a contact removed from a handset by
+ * mistake can still be restored. A run that would delete a large share of the CRM at once is
+ * refused instead (see the job), since that is what a reset or swapped phonebook looks like.
  *
  * Matching is by phone number, never by name. Numbers are compared as E.164, and the CRM already
  * guarantees one live contact per number, so a number identifies at most one person on each side.
@@ -259,6 +260,8 @@ export interface SyncPlan {
   }[];
   /** Deleted in the CRM, still on the PBX. */
   remove: { contactId: string; pbxContactId: number }[];
+  /** Linked, and the PBX no longer has them: somebody deleted them on the phone system. */
+  deleteInCrm: { contactId: string; pbxContactId: number }[];
   /** On the PBX, unknown to the CRM. */
   importToCrm: CompanyContactRow[];
   /** In the CRM with no phone number at all, so the PBX cannot hold them. */
@@ -287,6 +290,7 @@ export function planSync(input: {
     settle: [],
     adopt: [],
     remove: [],
+    deleteInCrm: [],
     importToCrm: [],
     skippedNoNumber: [],
   };
@@ -352,6 +356,12 @@ export function planSync(input: {
       continue;
     }
 
+    // Linked once and the PBX no longer lists them: deleted on the phone system, so deleted here.
+    if (link) {
+      plan.deleteInCrm.push({ contactId: contact.id, pbxContactId: link.pbxContactId });
+      continue;
+    }
+
     // No link, but the PBX already has somebody with one of these numbers. Adopt them rather than
     // create a second copy: this is the path that runs on the very first sync of a PBX that was
     // already in use, and getting it wrong doubles every contact.
@@ -375,8 +385,6 @@ export function planSync(input: {
       continue;
     }
 
-    // A link whose PBX contact is gone lands here too: somebody deleted them on the phone system,
-    // so they are created again. The CRM is the record.
     plan.create.push(contact);
   }
 
@@ -408,6 +416,8 @@ export interface SyncSummary {
   conflicts: number;
   adopted: number;
   removed: number;
+  /** Deleted in the CRM because they were deleted on the PBX. */
+  deletedInCrm: number;
   imported: number;
   /** On the PBX twice under the same number. Counted and left alone, never merged or deleted. */
   duplicatesOnPbx: number;

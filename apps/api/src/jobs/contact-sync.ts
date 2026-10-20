@@ -53,6 +53,10 @@ import { QUEUES } from './queues.js';
  * Whatever is left is simply the difference the next run finds.
  */
 const MAX_WRITES_PER_RUN = 300;
+/** A run may delete this many contacts the PBX dropped however few are synced... */
+const MIN_DELETE_CAP = 10;
+/** ...or this share of the synced ones, whichever is more. Past that the run refuses. */
+const MAX_DELETE_SHARE = 0.2;
 
 /** The scheduler that reads the PBX side between the ten-minute runs. */
 export const POLL_SCHEDULER = 'contact-sync-poll';
@@ -161,6 +165,7 @@ export async function runContactSync(app: FastifyInstance): Promise<SyncSummary 
     conflicts: 0,
     adopted: 0,
     removed: 0,
+    deletedInCrm: 0,
     imported: 0,
     duplicatesOnPbx: 0,
     skippedNoNumber: 0,
@@ -317,6 +322,29 @@ export async function runContactSync(app: FastifyInstance): Promise<SyncSummary 
     writes++;
   }
 
+  // Deleted on the PBX, so deleted here, unless the run would take out a large share of the CRM at
+  // once. That is what a reset PBX, a swapped phonebook or a misread looks like, not somebody
+  // tidying up, so nothing is deleted and nothing is created again until a person looks.
+  const deleteCap = Math.max(MIN_DELETE_CAP, Math.floor(links.length * MAX_DELETE_SHARE));
+  if (plan.deleteInCrm.length > deleteCap) {
+    app.log.error(
+      { wouldDelete: plan.deleteInCrm.length, cap: deleteCap, links: links.length },
+      'the PBX no longer lists many synced contacts; refusing to delete them in the CRM',
+    );
+  } else {
+    for (const { contactId, pbxContactId } of plan.deleteInCrm) {
+      if (!budgetLeft()) break;
+      try {
+        await deleteFromCrm(app, contactId, pbxContactId);
+        summary.deletedInCrm++;
+      } catch (err) {
+        app.log.warn({ err, contactId }, 'could not delete a contact the PBX deleted');
+        summary.failed++;
+      }
+      writes++;
+    }
+  }
+
   for (const row of plan.importToCrm) {
     if (!budgetLeft()) break;
     try {
@@ -338,7 +366,10 @@ export async function runContactSync(app: FastifyInstance): Promise<SyncSummary 
 
   if (pushPending) await nudgeContactSync(app);
 
-  if (summary.created + summary.removed + summary.imported + summary.pulled > 0) {
+  if (
+    summary.created + summary.removed + summary.deletedInCrm + summary.imported + summary.pulled >
+    0
+  ) {
     await app.audit.write(SYSTEM_AUDIT, {
       action: 'contact.sync',
       entity: 'contact',
@@ -734,4 +765,46 @@ async function importContact(
       return complete ? 'imported' : 'imported-partly';
     });
   }
+}
+
+/**
+ * The CRM side of a delete made on the PBX. The same soft delete a person makes in the CRM, so the
+ * contact can be restored, with its numbers and emails released and the link dropped so nothing
+ * tries to put them back on the PBX.
+ */
+async function deleteFromCrm(
+  app: FastifyInstance,
+  contactId: string,
+  pbxContactId: number,
+): Promise<void> {
+  const now = new Date();
+  await app.db.$transaction(async (tx) => {
+    const gone = await tx.contact.updateMany({
+      where: { id: contactId, deletedAt: null },
+      data: { deletedAt: now },
+    });
+    await tx.contactPhone.updateMany({
+      where: { contactId, deletedAt: null },
+      data: { deletedAt: now },
+    });
+    await tx.contactEmail.updateMany({
+      where: { contactId, deletedAt: null },
+      data: { deletedAt: now },
+    });
+    await tx.pbxContactLink.deleteMany({ where: { contactId } });
+    if (gone.count > 0) {
+      await app.audit.writeWith(tx, SYSTEM_AUDIT, {
+        action: 'contact.delete',
+        entity: 'contact',
+        entityId: contactId,
+        after: { reason: 'deleted on the PBX', pbxContactId },
+      });
+    }
+  });
+  app.events.emit('entity.changed', {
+    type: 'contact',
+    id: contactId,
+    updatedAt: now.toISOString(),
+    byUserId: null,
+  });
 }

@@ -213,19 +213,6 @@ describe('contact sync (fake PBX)', () => {
     expect(pbx.contacts.size).toBe(0);
   });
 
-  /** A handset must not be able to delete the business's own records. */
-  it('puts a contact back when the PBX loses it, instead of deleting it in the CRM', async () => {
-    const contact = await addContact('Jane', '0712000001');
-    await runContactSync(ctx.app);
-    pbx.contacts.clear();
-
-    const summary = await runContactSync(ctx.app);
-
-    expect(summary).toMatchObject({ created: 1 });
-    expect(pbx.contacts.size).toBe(1);
-    expect(await ctx.app.db.contact.count({ where: { id: contact.id, deletedAt: null } })).toBe(1);
-  });
-
   /*
    * A phone system with the same number entered twice used to make the link jump between the two
    * rows on every run, for ever, counting an import and writing an audit row each time. The audit
@@ -598,6 +585,48 @@ describe('contact sync (fake PBX)', () => {
         mobile: '+254722000002',
         business: '',
       });
+    });
+  });
+
+  describe('deletes made on the PBX', () => {
+    it('deletes the contact in the CRM, softly, and does not put it back', async () => {
+      const a = await addContact('Anne', '0712000001');
+      const b = await addContact('Ben', '0712000002');
+      await runContactSync(ctx.app);
+      const link = await ctx.app.db.pbxContactLink.findUniqueOrThrow({
+        where: { contactId: a.id },
+      });
+      pbx.contacts.delete(link.pbxContactId);
+
+      expect(await runContactSync(ctx.app)).toMatchObject({
+        deletedInCrm: 1,
+        created: 0,
+        failed: 0,
+      });
+      const anne = await ctx.app.db.contact.findUniqueOrThrow({ where: { id: a.id } });
+      expect(anne.deletedAt).not.toBeNull();
+      expect(
+        await ctx.app.db.contactPhone.count({ where: { contactId: a.id, deletedAt: null } }),
+      ).toBe(0);
+      expect(await ctx.app.db.pbxContactLink.count({ where: { contactId: a.id } })).toBe(0);
+      expect(
+        await ctx.app.db.auditLog.count({ where: { action: 'contact.delete', entityId: a.id } }),
+      ).toBe(1);
+      // Ben is untouched, and the next run neither recreates Anne nor deletes anything else.
+      expect((await ctx.app.db.contact.findUniqueOrThrow({ where: { id: b.id } })).deletedAt).toBe(
+        null,
+      );
+      expect(await runContactSync(ctx.app)).toMatchObject({ created: 0, deletedInCrm: 0 });
+      expect(pbx.contacts.size).toBe(1);
+    });
+
+    it('refuses to delete a large share of the CRM at once', async () => {
+      for (let i = 10; i < 22; i++) await addContact(`P${String(i)}`, `07120000${String(i)}`);
+      await runContactSync(ctx.app);
+      pbx.contacts.clear();
+
+      expect(await runContactSync(ctx.app)).toMatchObject({ deletedInCrm: 0, created: 0 });
+      expect(await ctx.app.db.contact.count({ where: { deletedAt: null } })).toBe(12);
     });
   });
 
