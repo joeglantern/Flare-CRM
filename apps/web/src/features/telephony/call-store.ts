@@ -57,6 +57,8 @@ interface CallStore {
    * that was already over, and nothing would ever close it.
    */
   endedIds: string[];
+  /** Cards closed here, newest last, so they are never offered again. */
+  closedIds: string[];
   onRinging: (payload: RingingPayload, now?: number) => void;
   onDialing: (payload: ServerEventPayload<'call:dialing'>, now?: number) => void;
   onAnswered: (payload: ServerEventPayload<'call:answered'>, myUserId: string) => void;
@@ -71,6 +73,28 @@ interface CallStore {
   reset: () => void;
 }
 
+/**
+ * Cards this browser has closed, so a write-up offered again (by the pending check, or a repeated
+ * event) does not reopen one the agent already dealt with. Kept per browser; it can be empty.
+ */
+const CLOSED_KEY = 'crm.closedCallCards';
+function readClosed(): string[] {
+  try {
+    const raw = localStorage.getItem(CLOSED_KEY);
+    const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+function writeClosed(ids: string[]): void {
+  try {
+    localStorage.setItem(CLOSED_KEY, JSON.stringify(ids));
+  } catch {
+    // private window or blocked storage: the card may be offered again, which is harmless
+  }
+}
+
 function patch(cards: CallCard[], pbxCallId: string, fn: (c: CallCard) => CallCard): CallCard[] {
   return cards.map((c) => (c.pbxCallId === pbxCallId ? fn(c) : c));
 }
@@ -79,6 +103,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   cards: [],
   lastCancelled: null,
   endedIds: [],
+  closedIds: readClosed(),
 
   onRinging: (payload, now = Date.now()) => {
     if (get().cards.some((c) => c.pbxCallId === payload.pbxCallId)) return; // duplicate delivery
@@ -200,6 +225,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
          * dial) has its own toast and needs no card.
          */
         if (payload.status !== 'completed' || payload.direction === undefined) return s;
+        if (s.closedIds.includes(payload.pbxCallId)) return s;
         const card: CallCard = {
           pbxCallId: payload.pbxCallId,
           callId: payload.callId,
@@ -231,7 +257,11 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   close: (pbxCallId) => {
-    set((s) => ({ cards: s.cards.filter((c) => c.pbxCallId !== pbxCallId) }));
+    set((s) => {
+      const closedIds = [...s.closedIds.filter((id) => id !== pbxCallId), pbxCallId].slice(-100);
+      writeClosed(closedIds);
+      return { cards: s.cards.filter((c) => c.pbxCallId !== pbxCallId), closedIds };
+    });
   },
   clearCancelled: () => {
     set({ lastCancelled: null });

@@ -1220,6 +1220,25 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       expect((await otherClosed).reason).toBe('answered_elsewhere');
       await new Promise((r) => setTimeout(r, 300));
       expect(thirdClosed).toBe(false);
+
+      // The same card is offered to that agent alone until it is written up.
+      const pendingFor = async (user: TestUser) =>
+        (await ctx.as(user, { method: 'GET', url: '/api/v1/calls/pending-write-ups' })).json<{
+          data: { pbxCallId: string; callId: string }[];
+        }>().data;
+      const waiting = await pendingFor(third);
+      expect(waiting.map((w) => w.pbxCallId)).toEqual([callId]);
+      expect(await pendingFor(agent)).toEqual([]);
+      const dispositionId = (
+        await ctx.as(admin, { method: 'GET', url: '/api/v1/call-dispositions' })
+      ).json<{ data: { id: string }[] }>().data[0]?.id;
+      const saved = await ctx.as(third, {
+        method: 'PATCH',
+        url: `/api/v1/calls/${waiting[0]?.callId ?? ''}/disposition`,
+        payload: { dispositionId },
+      });
+      expect(saved.statusCode, saved.body).toBe(200);
+      expect(await pendingFor(third)).toEqual([]);
     });
 
     it('closes the cards as missed when the CDR never comes', async () => {

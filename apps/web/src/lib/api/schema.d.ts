@@ -1070,6 +1070,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/calls/pending-write-ups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: uuid */
+                                callId: string;
+                                contactId: string | null;
+                                /** @enum {string} */
+                                direction?: "inbound" | "outbound" | "internal";
+                                partyDisplay?: string | null;
+                                pbxCallId: string;
+                                /** @enum {string} */
+                                recordingStatus: "none" | "pending" | "downloading" | "stored" | "failed";
+                                /** @enum {string} */
+                                status: "ringing" | "answered" | "completed" | "missed" | "busy" | "failed" | "voicemail" | "abandoned";
+                                suggestFollowUp: boolean;
+                                talkDurationSec: number | null;
+                                totalDurationSec: number | null;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/channels": {
         parameters: {
             query?: never;

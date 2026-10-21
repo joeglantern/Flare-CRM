@@ -8,11 +8,13 @@
  * - a single 401 handler that sends the user to sign-in once
  */
 import type { ServerToClientEvents } from '@crm/shared';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { useCallStore } from '@/features/telephony/call-store';
-import { onUnauthenticated } from '@/lib/api/client';
+import { useCallStore, type LoggedPayload } from '@/features/telephony/call-store';
+import { http, onUnauthenticated } from '@/lib/api/client';
+import { useEntitlements } from '@/providers/entitlements';
+import { usePermissions } from '@/providers/permissions';
 import { authClient } from '@/lib/auth/client';
 import { ME_QUERY_KEY, useMe } from '@/lib/auth/me';
 import { useIdleLogout } from '@/lib/idle';
@@ -49,6 +51,29 @@ export function AuthenticatedRuntime({ children }: { children: ReactNode }) {
         void navigate({ to: '/sign-in', search: { redirect: href } });
       }),
     [queryClient, navigate, href],
+  );
+
+  /*
+   * The end-of-call card must never depend on one socket event arriving. Calls this agent took
+   * and has not written up yet are asked for on load, on every reconnect and every 20 seconds,
+   * and each one still waiting opens its card. The store skips cards already open or closed here.
+   */
+  const { features } = useEntitlements();
+  const perms = usePermissions();
+  const pending = useQuery({
+    queryKey: ['calls', 'pending-write-ups'],
+    queryFn: () => http.get<LoggedPayload[]>('/api/v1/calls/pending-write-ups'),
+    enabled: features.telephony && perms.has('call:set_disposition'),
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
+  });
+  useEffect(() => {
+    for (const p of pending.data ?? []) useCallStore.getState().onLogged(p);
+  }, [pending.data]);
+  useOnSocketConnect(
+    useCallback(() => {
+      void queryClient.invalidateQueries({ queryKey: ['calls', 'pending-write-ups'] });
+    }, [queryClient]),
   );
 
   // call state machine

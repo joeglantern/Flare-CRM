@@ -22,6 +22,9 @@ import {
   recordingHistoryEntryDto,
   updateDispositionBody,
   popupPreviewBody,
+  serverEvents,
+  type CallDirection,
+  type RecordingStatus,
 } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
@@ -38,6 +41,9 @@ import { newId } from '../../lib/ids.js';
 import { auditContext, requireUser } from '../../lib/request.js';
 import { scopeOf } from '../../lib/scope.js';
 import { CallsService } from './calls.service.js';
+
+/** How long after a call ends its card is still offered, if nobody has written it up. */
+const PENDING_WRITE_UP_MINUTES = 15;
 
 const callsRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = new CallsService(app);
@@ -56,6 +62,76 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
     handler: async (request) => {
       const { actor, scope } = await scopeOf(app, request);
       return service.list(scope, actor.id, request.query);
+    },
+  });
+
+  /*
+   * The caller's own answered calls of the last few minutes that nobody has written up yet. The
+   * end-of-call card normally arrives as a socket event, and one missed event (a reconnect, a
+   * reload, a laptop waking up) used to lose the card for good. The browser asks this on load,
+   * on every reconnect and every few seconds, and opens a card for anything still waiting.
+   */
+  app.get('/calls/pending-write-ups', {
+    config: { auth: { permission: 'call:set_disposition', feature: 'telephony' } },
+    schema: {
+      tags: ['calls'],
+      response: {
+        200: dataResponse(z.array(serverEvents['call:logged'])),
+      },
+    },
+    handler: async (request) => {
+      const me = requireUser(request);
+      const settings = await app.settings.getAll();
+      const rows = await app.db.call.findMany({
+        where: {
+          userId: me.id,
+          status: 'completed',
+          dispositionId: null,
+          endedAt: { gte: new Date(Date.now() - PENDING_WRITE_UP_MINUTES * 60_000) },
+        },
+        orderBy: { endedAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          pbxCallId: true,
+          endedAt: true,
+          talkDurationSec: true,
+          totalDurationSec: true,
+          contactId: true,
+          recordingStatus: true,
+          direction: true,
+          externalE164: true,
+          fromNumber: true,
+          toNumber: true,
+        },
+      });
+      const contactIds = rows.flatMap((r) => (r.contactId ? [r.contactId] : []));
+      const names = new Map(
+        (
+          await app.db.contact.findMany({
+            where: { id: { in: contactIds } },
+            select: { id: true, displayName: true },
+          })
+        ).map((c) => [c.id, c.displayName]),
+      );
+      return {
+        data: rows.map((r) => ({
+          at: (r.endedAt ?? new Date()).toISOString(),
+          callId: r.id,
+          pbxCallId: r.pbxCallId,
+          status: 'completed' as const,
+          talkDurationSec: r.talkDurationSec,
+          totalDurationSec: r.totalDurationSec,
+          contactId: r.contactId,
+          suggestFollowUp: settings.popup.suggestFollowUpAfterCall,
+          recordingStatus: r.recordingStatus as RecordingStatus,
+          direction: r.direction as CallDirection,
+          partyDisplay:
+            (r.contactId ? names.get(r.contactId) : undefined) ??
+            r.externalE164 ??
+            (r.direction === 'inbound' ? r.fromNumber : r.toNumber),
+        })),
+      };
     },
   });
 
