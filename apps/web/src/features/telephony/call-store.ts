@@ -100,9 +100,14 @@ function writeClosed(ids: string[]): void {
   }
 }
 
-/** A completed call sent to the agent who handled it: the one they are asked to write up. */
+/**
+ * A call this agent is asked to write up: one they answered, or one they placed, whether or not it
+ * connected ("No answer" is worth logging too). The server sends a call with its direction only to
+ * the agent it belongs to; a missed incoming call is nobody's and only gets its notice.
+ */
 export function isOwnWriteUp(p: LoggedPayload): boolean {
-  return p.status === 'completed' && p.direction !== undefined;
+  if (p.direction === undefined) return false;
+  return p.status === 'completed' || p.direction !== 'inbound';
 }
 
 function patch(cards: CallCard[], pbxCallId: string, fn: (c: CallCard) => CallCard): CallCard[] {

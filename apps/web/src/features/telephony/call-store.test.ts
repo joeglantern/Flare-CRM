@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { activeCall, talkSeconds, useCallStore, type RingingPayload } from './call-store';
+import {
+  activeCall,
+  isOwnWriteUp,
+  talkSeconds,
+  useCallStore,
+  type RingingPayload,
+} from './call-store';
 
 const ME = '01a00000-0000-7000-8000-000000000001';
 const OTHER = '01a00000-0000-7000-8000-000000000002';
@@ -174,6 +180,25 @@ describe('call store state machine', () => {
     expect(useCallStore.getState().cards).toHaveLength(0);
     expect(s.claimWriteUp('late')).toBe(true);
     expect(useCallStore.getState().claimWriteUp('late')).toBe(false);
+  });
+
+  it('asks for a write-up of calls answered or placed, never of a missed incoming call', () => {
+    const base = {
+      at: '2026-09-05T12:02:06Z',
+      callId: CALL_ID,
+      pbxCallId: 'w',
+      talkDurationSec: 0,
+      totalDurationSec: 10,
+      contactId: null,
+      suggestFollowUp: false,
+      recordingStatus: 'none' as const,
+    };
+    expect(isOwnWriteUp({ ...base, status: 'completed', direction: 'inbound' })).toBe(true);
+    expect(isOwnWriteUp({ ...base, status: 'failed', direction: 'outbound' })).toBe(true);
+    expect(isOwnWriteUp({ ...base, status: 'busy', direction: 'outbound' })).toBe(true);
+    expect(isOwnWriteUp({ ...base, status: 'missed', direction: 'inbound' })).toBe(false);
+    // no direction: an older server, or not this agent's call
+    expect(isOwnWriteUp({ ...base, status: 'completed' })).toBe(false);
   });
 
   it('tracks outbound dialing cards', () => {

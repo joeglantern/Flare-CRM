@@ -24,6 +24,7 @@ import {
   popupPreviewBody,
   serverEvents,
   type CallDirection,
+  type CallStatus,
   type RecordingStatus,
 } from '@crm/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -85,14 +86,23 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
       const rows = await app.db.call.findMany({
         where: {
           userId: me.id,
-          status: 'completed',
           dispositionId: null,
+          // Answered calls, and calls this agent placed that never connected: "No answer" is
+          // worth logging. An unanswered incoming call is nobody's to write up.
+          OR: [
+            { status: 'completed' },
+            {
+              direction: { not: 'inbound' },
+              status: { in: ['failed', 'busy', 'missed', 'abandoned', 'voicemail'] },
+            },
+          ],
           endedAt: { gte: new Date(Date.now() - PENDING_WRITE_UP_MINUTES * 60_000) },
         },
         orderBy: { endedAt: 'desc' },
         take: 5,
         select: {
           id: true,
+          status: true,
           pbxCallId: true,
           endedAt: true,
           talkDurationSec: true,
@@ -119,7 +129,7 @@ const callsRoutes: FastifyPluginAsyncZod = async (app) => {
           at: (r.endedAt ?? new Date()).toISOString(),
           callId: r.id,
           pbxCallId: r.pbxCallId,
-          status: 'completed' as const,
+          status: r.status as CallStatus,
           talkDurationSec: r.talkDurationSec,
           totalDurationSec: r.totalDurationSec,
           contactId: r.contactId,
