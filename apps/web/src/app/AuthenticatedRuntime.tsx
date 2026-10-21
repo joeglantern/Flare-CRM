@@ -11,7 +11,12 @@ import type { ServerToClientEvents } from '@crm/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { useCallStore, type LoggedPayload } from '@/features/telephony/call-store';
+import {
+  activeCall,
+  isOwnWriteUp,
+  useCallStore,
+  type LoggedPayload,
+} from '@/features/telephony/call-store';
 import { http, onUnauthenticated } from '@/lib/api/client';
 import { useEntitlements } from '@/providers/entitlements';
 import { usePermissions } from '@/providers/permissions';
@@ -67,9 +72,29 @@ export function AuthenticatedRuntime({ children }: { children: ReactNode }) {
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
+  /*
+   * When an agent's answered call ends, its page opens so they can set the disposition and take
+   * notes. Once per call, and never while they are on another call: then it waits for the next
+   * pending check, which still offers it for fifteen minutes.
+   */
+  const openWriteUp = useCallback(
+    (p: LoggedPayload) => {
+      const store = useCallStore.getState();
+      store.onLogged(p);
+      if (!isOwnWriteUp(p)) return;
+      if (activeCall(store.cards) !== undefined) return;
+      if (!store.claimWriteUp(p.pbxCallId)) return;
+      void navigate({ to: '/calls/$callId', params: { callId: p.callId } });
+    },
+    [navigate],
+  );
   useEffect(() => {
-    for (const p of pending.data ?? []) useCallStore.getState().onLogged(p);
-  }, [pending.data]);
+    // Newest first from the server; open the newest still waiting, one at a time.
+    const next = (pending.data ?? []).find(
+      (p) => !useCallStore.getState().closedIds.includes(p.pbxCallId),
+    );
+    if (next) openWriteUp(next);
+  }, [pending.data, openWriteUp]);
   useOnSocketConnect(
     useCallback(() => {
       void queryClient.invalidateQueries({ queryKey: ['calls', 'pending-write-ups'] });
@@ -95,12 +120,12 @@ export function AuthenticatedRuntime({ children }: { children: ReactNode }) {
     'call:logged',
     useCallback<ServerToClientEvents['call:logged']>(
       (p) => {
-        calls.onLogged(p);
+        openWriteUp(p);
         void queryClient.invalidateQueries({ queryKey: qk.list('calls') });
         if (p.contactId)
           void queryClient.invalidateQueries({ queryKey: qk.timeline('contact', p.contactId) });
       },
-      [calls, queryClient],
+      [openWriteUp, queryClient],
     ),
   );
 

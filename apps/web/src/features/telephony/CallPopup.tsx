@@ -435,7 +435,34 @@ function CallCardView({
           </>
         )}
 
-        {ended && card.callId !== null ? (
+        {card.status === 'ended' && card.callId !== null ? (
+          // The call's own page opens next, with the disposition and notes; this is the moment
+          // between the hangup and that page.
+          <div className="flex flex-col gap-2">
+            <p role="status" className="text-sm text-muted">
+              Opening the call to write it up...
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  close(card.pbxCallId);
+                  void navigate({ to: '/calls/$callId', params: { callId: card.callId ?? '' } });
+                }}
+              >
+                Open now
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  close(card.pbxCallId);
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : ended && card.callId !== null ? (
           <DispositionForm
             callId={card.callId}
             contactId={payload?.contact?.id ?? card.logged?.contactId ?? null}

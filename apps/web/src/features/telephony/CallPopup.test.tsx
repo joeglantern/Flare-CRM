@@ -12,54 +12,27 @@ describe('CallPopupHost', () => {
     useCallStore.setState({ closedIds: [] });
   });
 
-  it('shows the write-up for a call that only arrived at its end', () => {
+  it('says the call page is opening between the hangup and the write-up', () => {
     renderWithProviders(<CallPopupHost />);
     act(() => {
-      useCallStore.getState().onLogged({
-        at: '2026-09-05T12:02:06Z',
+      const store = useCallStore.getState();
+      store.onDialing({
+        at: '2026-09-05T12:00:00Z',
         callId: CALL_ID,
-        pbxCallId: 'late',
-        status: 'completed',
-        talkDurationSec: 30,
-        totalDurationSec: 40,
-        contactId: null,
-        suggestFollowUp: false,
-        recordingStatus: 'none',
-        direction: 'inbound',
-        partyDisplay: '0745 150974',
+        pbxCallId: 'p1',
+        callee: '+254745150974',
+      });
+      store.onEnded({
+        at: '2026-09-05T12:01:00Z',
+        callId: CALL_ID,
+        pbxCallId: 'p1',
+        endedAt: '2026-09-05T12:01:00Z',
       });
     });
-    expect(screen.getByText('Call ended')).toBeInTheDocument();
-    expect(screen.getByText('0745 150974')).toBeInTheDocument();
-  });
-
-  it('shows the next card after the agent skips one, and never reopens the skipped one', () => {
-    renderWithProviders(<CallPopupHost />);
-    const logged = (pbxCallId: string, partyDisplay: string) => ({
-      at: '2026-10-21T18:00:00Z',
-      callId: CALL_ID,
-      pbxCallId,
-      status: 'completed' as const,
-      talkDurationSec: 5,
-      totalDurationSec: 9,
-      contactId: null,
-      suggestFollowUp: false,
-      recordingStatus: 'stored' as const,
-      direction: 'inbound' as const,
-      partyDisplay,
-    });
-    act(() => {
-      useCallStore.getState().onLogged(logged('a', 'First caller'));
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
-    expect(screen.queryByText('First caller')).not.toBeInTheDocument();
-
-    act(() => {
-      // offered again by the pending check: stays closed
-      useCallStore.getState().onLogged(logged('a', 'First caller'));
-      useCallStore.getState().onLogged(logged('b', 'Second caller'));
-    });
-    expect(screen.queryByText('First caller')).not.toBeInTheDocument();
-    expect(screen.getByText('Second caller')).toBeInTheDocument();
+    expect(screen.getByText('Opening the call to write it up...')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByText('Opening the call to write it up...')).not.toBeInTheDocument();
+    // Closed here, so the pending check will not open it again.
+    expect(useCallStore.getState().claimWriteUp('p1')).toBe(false);
   });
 });

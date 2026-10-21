@@ -152,28 +152,28 @@ describe('call store state machine', () => {
     expect(useCallStore.getState().cards).toHaveLength(1);
   });
 
-  it('opens a write-up card for a call the agent took but never saw ring', () => {
+  it('leaves an answered call to its page, and opens that page only once', () => {
     const s = useCallStore.getState();
-    const logged = {
+    useCallStore.setState({ closedIds: [] });
+    s.onRinging(ringing('late'));
+    expect(useCallStore.getState().cards).toHaveLength(1);
+    s.onLogged({
       at: '2026-09-05T12:02:06Z',
       callId: CALL_ID,
       pbxCallId: 'late',
+      status: 'completed',
       talkDurationSec: 30,
       totalDurationSec: 40,
       contactId: null,
       suggestFollowUp: false,
-      recordingStatus: 'none' as const,
-      direction: 'inbound' as const,
+      recordingStatus: 'none',
+      direction: 'inbound',
       partyDisplay: 'Jane Doe',
-    };
-    // A missed call needs no card; its toast says so.
-    s.onLogged({ ...logged, pbxCallId: 'missed', status: 'missed' });
+    });
+    // The card is gone: the call's own page takes over.
     expect(useCallStore.getState().cards).toHaveLength(0);
-
-    s.onLogged({ ...logged, status: 'completed' });
-    const card = useCallStore.getState().cards[0];
-    expect(card).toMatchObject({ pbxCallId: 'late', status: 'logged', callId: CALL_ID });
-    expect(card?.logged?.partyDisplay).toBe('Jane Doe');
+    expect(s.claimWriteUp('late')).toBe(true);
+    expect(useCallStore.getState().claimWriteUp('late')).toBe(false);
   });
 
   it('tracks outbound dialing cards', () => {

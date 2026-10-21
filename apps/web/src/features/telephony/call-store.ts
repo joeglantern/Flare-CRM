@@ -65,7 +65,12 @@ interface CallStore {
   onCancelled: (payload: ServerEventPayload<'call:cancelled'>) => void;
   onUpdated: (payload: ServerEventPayload<'call:updated'>) => void;
   onEnded: (payload: ServerEventPayload<'call:ended'>) => void;
-  onLogged: (payload: LoggedPayload, now?: number) => void;
+  onLogged: (payload: LoggedPayload) => void;
+  /**
+   * Marks a call's page as opened for its write-up. False when it already was, in this browser,
+   * so a call is only ever opened once however often it is offered.
+   */
+  claimWriteUp: (pbxCallId: string) => boolean;
   /** An unknown caller was just saved as a contact from the popup itself. */
   onContactLinked: (pbxCallId: string, contact: NonNullable<RingingPayload['contact']>) => void;
   close: (pbxCallId: string) => void;
@@ -74,8 +79,8 @@ interface CallStore {
 }
 
 /**
- * Cards this browser has closed, so a write-up offered again (by the pending check, or a repeated
- * event) does not reopen one the agent already dealt with. Kept per browser; it can be empty.
+ * Calls this browser has already opened for a write-up or closed, so one offered again (by the
+ * pending check, or a repeated event) is not opened twice. Kept per browser; it can be empty.
  */
 const CLOSED_KEY = 'crm.closedCallCards';
 function readClosed(): string[] {
@@ -93,6 +98,11 @@ function writeClosed(ids: string[]): void {
   } catch {
     // private window or blocked storage: the card may be offered again, which is harmless
   }
+}
+
+/** A completed call sent to the agent who handled it: the one they are asked to write up. */
+export function isOwnWriteUp(p: LoggedPayload): boolean {
+  return p.status === 'completed' && p.direction !== undefined;
 }
 
 function patch(cards: CallCard[], pbxCallId: string, fn: (c: CallCard) => CallCard): CallCard[] {
@@ -214,37 +224,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }));
   },
 
-  onLogged: (payload, now = Date.now()) => {
+  onLogged: (payload) => {
     set((s) => {
-      const exists = s.cards.some((c) => c.pbxCallId === payload.pbxCallId);
-      if (!exists) {
-        /*
-         * The server sends a completed call only to the agent who handled it. The PBX often
-         * reports the call only at hangup, so that agent may never have had a ringing card; they
-         * still get one now, to write the call up on. Anything else (a missed call, a failed
-         * dial) has its own toast and needs no card.
-         */
-        if (payload.status !== 'completed' || payload.direction === undefined) return s;
-        if (s.closedIds.includes(payload.pbxCallId)) return s;
-        const card: CallCard = {
-          pbxCallId: payload.pbxCallId,
-          callId: payload.callId,
-          status: 'logged',
-          direction: payload.direction,
-          ringing: null,
-          callee: null,
-          answeredAt: null,
-          answeredByMe: true,
-          hold: false,
-          muted: false,
-          transferredTo: null,
-          endedAt: payload.at,
-          logged: payload,
-          receivedAt: now,
-          popLatencyMs: null,
-        };
-        return { cards: [card, ...s.cards] };
+      // The agent's own answered call is written up on its page, which the runtime opens; the
+      // card has done its job. The server sends a completed call with a direction only to them.
+      if (isOwnWriteUp(payload)) {
+        return { cards: s.cards.filter((c) => c.pbxCallId !== payload.pbxCallId) };
       }
+      // Anything else (a failed dial) stays on its card; a missed call has its own toast.
+      if (!s.cards.some((c) => c.pbxCallId === payload.pbxCallId)) return s;
       return {
         cards: patch(s.cards, payload.pbxCallId, (c) => ({
           ...c,
@@ -254,6 +242,16 @@ export const useCallStore = create<CallStore>((set, get) => ({
         })),
       };
     });
+  },
+
+  claimWriteUp: (pbxCallId) => {
+    if (get().closedIds.includes(pbxCallId)) return false;
+    set((s) => {
+      const closedIds = [...s.closedIds, pbxCallId].slice(-100);
+      writeClosed(closedIds);
+      return { closedIds };
+    });
+    return true;
   },
 
   close: (pbxCallId) => {
