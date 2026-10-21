@@ -562,9 +562,19 @@ export class CallStateMachine {
         state.answeredExtension !== null &&
         !(await this.isQueue(state.answeredExtension));
       if (answeredBy !== null || takenByPhone) {
-        // The agent who answered keeps the card to write the call up; nobody else does.
+        // An inbound call is the answering agent's; one going out is whoever placed it, which is
+        // who the call was recorded against when it started. Only they keep the card.
+        const owner =
+          state.direction === 'inbound'
+            ? answeredBy
+            : ((
+                await this.app.db.call.findUnique({
+                  where: { id: state.crmCallId },
+                  select: { userId: true },
+                })
+              )?.userId ?? answeredBy);
         for (const userId of state.poppedUsers) {
-          if (userId === answeredBy)
+          if (userId === owner)
             this.app.realtime.to(rooms.user(userId)).emit('call:ended', {
               at: nowIso(),
               callId: state.crmCallId,
@@ -576,7 +586,7 @@ export class CallStateMachine {
               at: nowIso(),
               callId: state.crmCallId,
               pbxCallId,
-              reason: 'answered_elsewhere',
+              reason: state.direction === 'inbound' ? 'answered_elsewhere' : 'ended',
             });
         }
       } else if (state.direction === 'inbound') {
@@ -966,16 +976,24 @@ export class CallStateMachine {
         state?.externalDisplay ??
         (externalRaw ? displayFor(null, externalRaw) : null);
       for (const target of targets) {
-        // The CDR is the last word on who took the call. Only that agent is asked for a
-        // disposition; every other card closes, and says why.
-        if (direction === 'inbound' && (answered ? target !== userId : true)) {
+        /*
+         * The CDR is the last word on whose call this was. Only that agent gets the end-of-call
+         * card; every other card closes, and says why. An unanswered inbound call is nobody's, so
+         * every card closes and the "Missed call" notice is all anybody sees.
+         */
+        const missedInbound = direction === 'inbound' && !answered;
+        if (target !== userId || missedInbound) {
           this.app.realtime.to(rooms.user(target)).emit('call:cancelled', {
             at: nowIso(),
             callId,
             pbxCallId: cdr.call_id,
-            reason: answered ? 'answered_elsewhere' : 'caller_hung_up',
+            reason: missedInbound
+              ? 'caller_hung_up'
+              : direction === 'inbound'
+                ? 'answered_elsewhere'
+                : 'ended',
           });
-          if (answered) continue;
+          if (!missedInbound) continue;
         }
         this.app.realtime.to(rooms.user(target)).emit('call:logged', {
           at: nowIso(),

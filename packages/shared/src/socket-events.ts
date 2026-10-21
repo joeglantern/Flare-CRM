@@ -73,6 +73,8 @@ export const serverEvents = {
       'no_ring',
       /** The agent gave up on a call that never connected. */
       'abandoned',
+      /** The call is over and belongs to another agent, who is the one asked to write it up. */
+      'ended',
     ]),
     /** What happened, in words an agent can act on. */
     detail: z.string().optional(),

@@ -390,6 +390,52 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     expect(unmatched.json<Envelope<unknown[]>>().data).toHaveLength(0);
   });
 
+  it('gives the end-of-call card only to the agent whose call it was', async () => {
+    const popup = (await ctx.app.settings.getAll()).popup;
+    await ctx.app.settings.patch({ popup: { ...popup, popOnInternalCalls: true } }, null);
+    const [mine, theirs] = [await agentSocket(admin), await agentSocket(agent)];
+    const callId = nextCallId();
+    const leg = (number: string, status: string) => ({
+      extension: { number, channel_id: `PJSIP/${number}-${callId}`, member_status: status },
+    });
+    // The one being called rings; the caller's own leg does not pop a card.
+    const ring = waitFor(theirs, 'call:ringing');
+    pbx.emit({
+      type: 30011,
+      sn: 'FAKE0001',
+      msg: {
+        call_id: callId,
+        members: [
+          {
+            internal: {
+              from: '1000',
+              to: '1001',
+              channel_id: `PJSIP/int-${callId}`,
+              member_status: 'RING',
+            },
+          },
+          leg('1000', 'RING'),
+          leg('1001', 'RING'),
+        ],
+      },
+    });
+    await ring;
+
+    const logged = waitFor<{ status: string }>(mine, 'call:logged');
+    const closed = waitFor<{ reason: string }>(theirs, 'call:cancelled');
+    let theirsLogged = false;
+    theirs.on('call:logged', () => {
+      theirsLogged = true;
+    });
+    pbx.emit(
+      cdr(callId, { from: '1000', to: '1001', type: 'Internal', status: 'ANSWERED', talk: 12 }),
+    );
+    expect((await logged).status).toBe('completed');
+    expect((await closed).reason).toBe('ended');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(theirsLogged).toBe(false);
+  });
+
   it('click-to-call dials through the PBX in national format and the outbound call is logged', async () => {
     const contact = (
       await ctx.as(agent, {

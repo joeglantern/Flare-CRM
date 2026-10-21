@@ -5,6 +5,7 @@ import { useCallStore } from './call-store';
 describe('what an agent is told when a call ends before connecting', () => {
   it('never calls a refused or unrung dial "Nobody answered"', () => {
     expect(cancelledCopy({ reason: 'refused', outbound: true }).title).toBe('Call not placed');
+    expect(cancelledCopy({ reason: 'ended', outbound: false }).title).toBe('Call ended');
     expect(cancelledCopy({ reason: 'no_ring', outbound: true }).title).toBe(
       'Your phone never rang',
     );

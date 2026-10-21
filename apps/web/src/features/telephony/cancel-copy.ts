@@ -21,6 +21,8 @@ export function cancelledCopy(c: { reason: CancelledEvent['reason']; outbound: b
       return { title: 'Call cancelled', tone: 'neutral' };
     case 'answered_elsewhere':
       return { title: 'Answered by a colleague', tone: 'neutral' };
+    case 'ended':
+      return { title: 'Call ended', tone: 'neutral' };
     case 'timeout':
       return { title: c.outbound ? 'Call not connected' : 'Nobody answered', tone: 'warning' };
     case 'caller_hung_up':
