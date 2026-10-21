@@ -106,6 +106,12 @@ export const serverEvents = {
     contactId: uuid.nullable(),
     suggestFollowUp: z.boolean(),
     recordingStatus: z.enum(valuesOf(RecordingStatus)),
+    /**
+     * Enough to open a card from this event alone. The PBX often reports a call only at hangup,
+     * so the agent who took it may never have had a ringing card to write the call up on.
+     */
+    direction: z.enum(['inbound', 'outbound', 'internal']).optional(),
+    partyDisplay: z.string().nullable().optional(),
   }),
   'call:recording': z.object({
     at,

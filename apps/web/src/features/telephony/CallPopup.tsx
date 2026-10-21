@@ -216,7 +216,10 @@ function CallCardView({
 
   const number = payload?.callerNumber ?? card.callee ?? null;
   const display =
-    payload?.callerDisplay ?? (number !== null ? formatPhone(number) : 'Unknown number');
+    payload?.callerDisplay ??
+    // A card opened from the end-of-call event alone: the server's own words for the other party.
+    (payload === null ? card.logged?.partyDisplay : null) ??
+    (number !== null && formatPhone(number) !== '' ? formatPhone(number) : 'Unknown number');
 
   // Focus only while ringing, so the popup never steals typing later.
   useEffect(() => {
@@ -435,7 +438,7 @@ function CallCardView({
         {ended && card.callId !== null ? (
           <DispositionForm
             callId={card.callId}
-            contactId={payload?.contact?.id ?? null}
+            contactId={payload?.contact?.id ?? card.logged?.contactId ?? null}
             suggestFollowUp={
               card.logged?.suggestFollowUp ?? settings.popup.suggestFollowUpAfterCall
             }

@@ -1155,7 +1155,10 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
       await new Promise((r) => setTimeout(r, 300));
       expect(thirdClosed).toBe(false);
 
-      const logged = waitFor<{ status: string }>(c, 'call:logged');
+      const logged = waitFor<{ status: string; direction?: string; partyDisplay?: string | null }>(
+        c,
+        'call:logged',
+      );
       pbx.emit(
         cdr(callId, {
           from: '0712000222',
@@ -1165,7 +1168,9 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
           talk: 30,
         }),
       );
-      expect((await logged).status).toBe('completed');
+      // Enough for the browser to open a card even if it never had a ringing one.
+      expect(await logged).toMatchObject({ status: 'completed', direction: 'inbound' });
+      expect((await logged).partyDisplay).toBeTruthy();
       expect((await otherClosed).reason).toBe('answered_elsewhere');
       await new Promise((r) => setTimeout(r, 300));
       expect(thirdClosed).toBe(false);

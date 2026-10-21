@@ -953,6 +953,18 @@ export class CallStateMachine {
     if (source !== 'reconcile' || state !== null) {
       const targets = new Set<string>([...(state?.poppedUsers ?? []), ...(userId ? [userId] : [])]);
       const answered = cdr.talk_duration > 0 || status === 'completed';
+      const partyDisplay =
+        state?.contactName ??
+        (contactId
+          ? ((
+              await this.app.db.contact.findUnique({
+                where: { id: contactId },
+                select: { displayName: true },
+              })
+            )?.displayName ?? null)
+          : null) ??
+        state?.externalDisplay ??
+        (externalRaw ? displayFor(null, externalRaw) : null);
       for (const target of targets) {
         // The CDR is the last word on who took the call. Only that agent is asked for a
         // disposition; every other card closes, and says why.
@@ -975,6 +987,8 @@ export class CallStateMachine {
           contactId,
           suggestFollowUp: settings.popup.suggestFollowUpAfterCall && status === 'completed',
           recordingStatus,
+          direction,
+          partyDisplay,
         });
       }
     }

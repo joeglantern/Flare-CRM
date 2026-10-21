@@ -63,7 +63,7 @@ interface CallStore {
   onCancelled: (payload: ServerEventPayload<'call:cancelled'>) => void;
   onUpdated: (payload: ServerEventPayload<'call:updated'>) => void;
   onEnded: (payload: ServerEventPayload<'call:ended'>) => void;
-  onLogged: (payload: LoggedPayload) => void;
+  onLogged: (payload: LoggedPayload, now?: number) => void;
   /** An unknown caller was just saved as a contact from the popup itself. */
   onContactLinked: (pbxCallId: string, contact: NonNullable<RingingPayload['contact']>) => void;
   close: (pbxCallId: string) => void;
@@ -189,10 +189,36 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }));
   },
 
-  onLogged: (payload) => {
+  onLogged: (payload, now = Date.now()) => {
     set((s) => {
       const exists = s.cards.some((c) => c.pbxCallId === payload.pbxCallId);
-      if (!exists) return s; // logged for a call this user never saw ring (e.g. reconciled CDR)
+      if (!exists) {
+        /*
+         * The server sends a completed call only to the agent who handled it. The PBX often
+         * reports the call only at hangup, so that agent may never have had a ringing card; they
+         * still get one now, to write the call up on. Anything else (a missed call, a failed
+         * dial) has its own toast and needs no card.
+         */
+        if (payload.status !== 'completed' || payload.direction === undefined) return s;
+        const card: CallCard = {
+          pbxCallId: payload.pbxCallId,
+          callId: payload.callId,
+          status: 'logged',
+          direction: payload.direction,
+          ringing: null,
+          callee: null,
+          answeredAt: null,
+          answeredByMe: true,
+          hold: false,
+          muted: false,
+          transferredTo: null,
+          endedAt: payload.at,
+          logged: payload,
+          receivedAt: now,
+          popLatencyMs: null,
+        };
+        return { cards: [card, ...s.cards] };
+      }
       return {
         cards: patch(s.cards, payload.pbxCallId, (c) => ({
           ...c,
