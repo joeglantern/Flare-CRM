@@ -836,12 +836,27 @@ export class CallStateMachine {
             orderBy: { createdAt: 'desc' },
           }));
 
-    const startedAt = parsePbxTime(cdr.time_start, this.deps.pbxTimeZone);
-    const endedAt = new Date(startedAt.getTime() + cdr.call_duration * 1000);
-    const answeredAt =
-      cdr.talk_duration > 0 ? new Date(endedAt.getTime() - cdr.talk_duration * 1000) : null;
+    /*
+     * An answered queue call reaches us as two rows with one uid: "Queue Main<6400>", which has the
+     * true start and total, and the agent who took it, which has who handled it. Either can come
+     * first and either can come from the event or the reconciliation, so the two are merged here
+     * into the one call the PBX really had. Reading them separately is what left total durations
+     * and start times disagreeing with the PBX.
+     */
+    const sameCall = existing?.pbxCdrUid === cdr.uid ? existing : null;
+    const legStart = parsePbxTime(cdr.time_start, this.deps.pbxTimeZone);
+    const legEnd = new Date(legStart.getTime() + cdr.call_duration * 1000);
+    const startedAt = sameCall && sameCall.startedAt < legStart ? sameCall.startedAt : legStart;
+    const endedAt = sameCall?.endedAt && sameCall.endedAt > legEnd ? sameCall.endedAt : legEnd;
+    const talkSec = Math.max(cdr.talk_duration, sameCall?.talkDurationSec ?? 0);
+    const totalSec = Math.max(cdr.call_duration, sameCall?.totalDurationSec ?? 0);
+    const answeredAt = talkSec > 0 ? new Date(endedAt.getTime() - talkSec * 1000) : null;
     const fromCdr = externalFromCdr(cdr, opts);
-    const direction: Direction = state?.direction ?? fromCdr.direction;
+    // The CDR's own type is the PBX's verdict. Live state starts as "internal" until it sees a
+    // trunk leg, and letting that win filed nearly every answered outbound call as internal.
+    const direction: Direction = fromCdr.known
+      ? fromCdr.direction
+      : (state?.direction ?? fromCdr.direction);
     const externalRaw = state?.externalRaw ?? fromCdr.externalRaw;
     const externalE164 =
       state?.externalE164 ?? (externalRaw ? normalizeE164(externalRaw, opts) : null);
@@ -850,31 +865,50 @@ export class CallStateMachine {
       existing?.contactId ??
       (await this.matchContact(externalE164))?.id ??
       null;
+    const status = strongerStatus(
+      mapCdrStatus(cdr.status, direction),
+      sameCall ? (sameCall.status as CallStatus) : null,
+    );
+
     /*
-     * The CDR names who handled the call: the agent who answered an inbound call (`call_to`, not
-     * the queue it came through once somebody picked up) and the extension that placed an
-     * outbound one (`call_from`). When that is a CRM user it wins over anything recorded while
-     * the call was live. It is looked up as-is, whatever its length: extensions here are not all
-     * the length the dial rules expect, and a 3-digit agent was being read as "no extension".
+     * Who the call belongs to. The CDR names the agent who answered an inbound call (`call_to`) and
+     * the extension that placed anything else (`call_from`). When that is a CRM user it wins, and
+     * it is looked up as-is, whatever its length: extensions here are not all the length the dial
+     * rules expect. A phone with no CRM user is still a better answer than the queue in front of it.
+     * An inbound call nobody answered belongs to nobody: the PBX names only the queue, and giving it
+     * to whichever phone rang last counted misses against agents that the PBX does not.
      */
     const handledBy = direction === 'inbound' ? cdr.call_to : cdr.call_from;
     const handler = handledBy ? await this.deps.extMap.lookup(handledBy) : null;
-    // An extension with no CRM user is still a better answer than the queue in front of it.
-    const handledByPhone =
-      handler === null && /^\d{2,6}$/.test(handledBy) && !(await this.isQueue(handledBy));
-    const extension =
-      handler || handledByPhone
+    const legIsQueue = handledBy !== '' && (await this.isQueue(handledBy));
+    const legIsPhone = handler === null && !legIsQueue && /^\d{2,6}$/.test(handledBy);
+    const known = state?.answeredExtension ?? existing?.extension ?? null;
+    const knownIsQueue = known !== null && (await this.isQueue(known));
+    const noAgent =
+      direction === 'inbound' && status !== 'completed' && handler === null && !legIsPhone;
+    const takesPhone = legIsPhone && (sameCall === null || known === null || knownIsQueue);
+    const extension = noAgent
+      ? legIsQueue
         ? handledBy
-        : (state?.answeredExtension ?? existing?.extension ?? fromCdr.extension);
+        : null
+      : handler || takesPhone
+        ? handledBy
+        : (known ?? fromCdr.extension);
     const mapped = extension ? await this.deps.extMap.lookup(extension) : null;
-    const userId =
-      handler?.userId ?? state?.answeredUserId ?? existing?.userId ?? mapped?.userId ?? null;
-    const status = mapCdrStatus(cdr.status, direction);
-    const recordingStatus = cdr.recording
-      ? existing?.recordingStatus === 'stored'
-        ? 'stored'
+    const userId = noAgent
+      ? null
+      : (handler?.userId ??
+        (takesPhone
+          ? null
+          : (mapped?.userId ?? state?.answeredUserId ?? existing?.userId ?? null)));
+    const recordingFileName = nonEmpty(cdr.recording) ?? sameCall?.recordingFileName ?? null;
+    const recordingStatus = recordingFileName
+      ? existing?.recordingStatus === 'stored' || existing?.recordingStatus === 'failed'
+        ? existing.recordingStatus
         : 'pending'
       : 'none';
+    // The agent's row is the one worth keeping; a queue row must not overwrite it.
+    const keptRow = sameCall !== null && handler === null && !takesPhone ? sameCall : null;
 
     const data = {
       pbxCallId: cdr.call_id,
@@ -882,30 +916,52 @@ export class CallStateMachine {
       direction,
       status,
       fromNumber: cdr.call_from,
-      toNumber: cdr.call_to,
+      toNumber: keptRow ? keptRow.toNumber : cdr.call_to,
       externalE164,
       contactId,
       userId,
       extension,
       trunkName:
-        nonEmpty(cdr.src_trunk_name) ?? nonEmpty(cdr.dst_trunk_name) ?? state?.trunkName ?? null,
-      didNumber: nonEmpty(cdr.did_number) ?? state?.didNumber ?? null,
+        nonEmpty(cdr.src_trunk_name) ??
+        nonEmpty(cdr.dst_trunk_name) ??
+        state?.trunkName ??
+        existing?.trunkName ??
+        null,
+      didNumber: nonEmpty(cdr.did_number) ?? state?.didNumber ?? existing?.didNumber ?? null,
       callPath: state?.callPath ?? existing?.callPath ?? null,
       startedAt,
       answeredAt,
       endedAt,
-      ringDurationSec: Math.max(0, cdr.call_duration - cdr.talk_duration),
-      talkDurationSec: cdr.talk_duration,
-      totalDurationSec: cdr.call_duration,
-      recordingFileName: cdr.recording || null,
+      ringDurationSec: Math.max(0, totalSec - talkSec),
+      talkDurationSec: talkSec,
+      totalDurationSec: totalSec,
+      recordingFileName,
       recordingStatus,
-      pbxRawCdr: cdr as object,
+      pbxRawCdr:
+        keptRow && keptRow.pbxRawCdr !== null ? (keptRow.pbxRawCdr as object) : (cdr as object),
     };
+
+    // A leg already applied, seen again by the reconciliation: nothing to write and nobody to tell.
+    const unchanged =
+      sameCall !== null &&
+      sameCall.direction === direction &&
+      sameCall.status === status &&
+      sameCall.userId === userId &&
+      sameCall.extension === extension &&
+      sameCall.contactId === contactId &&
+      sameCall.toNumber === data.toNumber &&
+      sameCall.startedAt.getTime() === startedAt.getTime() &&
+      sameCall.endedAt?.getTime() === endedAt.getTime() &&
+      sameCall.talkDurationSec === talkSec &&
+      sameCall.totalDurationSec === totalSec &&
+      sameCall.recordingFileName === recordingFileName;
+    if (unchanged) return 'updated';
+    // The second leg of a call only speaks up when it changed whose call this is.
+    const announce = sameCall?.userId !== userId;
 
     let callId: string;
     let outcome: 'inserted' | 'updated';
     if (existing) {
-      if (existing.pbxCdrUid === cdr.uid && source === 'reconcile') return 'updated';
       await this.app.db.call.update({ where: { id: existing.id }, data });
       callId = existing.id;
       outcome = 'updated';
@@ -933,14 +989,14 @@ export class CallStateMachine {
         companyId: contact?.companyId ?? null,
         actorId: userId,
         occurredAt: startedAt,
-        summary: summarizeCall(direction, status, cdr.talk_duration, externalRaw),
+        summary: summarizeCall(direction, status, talkSec, externalRaw),
         refTable: 'calls',
         refId: callId,
         meta: {
           direction,
           status,
-          talkDurationSec: cdr.talk_duration,
-          totalDurationSec: cdr.call_duration,
+          talkDurationSec: talkSec,
+          totalDurationSec: totalSec,
           external: externalE164 ?? externalRaw,
           extension,
           recording: Boolean(cdr.recording),
@@ -949,20 +1005,25 @@ export class CallStateMachine {
       });
     }
 
-    if (cdr.recording && recordingStatus === 'pending') {
+    // Once per recording: a repeated leg no longer returns early, so this would download it again.
+    if (
+      recordingFileName &&
+      recordingStatus === 'pending' &&
+      existing?.recordingStatus !== 'pending'
+    ) {
       await this.app.queues.add(
         QUEUES.recordingDownload,
         'download',
-        { callId, fileName: cdr.recording },
+        { callId, fileName: recordingFileName },
         { jobId: `recording-${callId}`, delay: 5_000 },
       );
     }
 
     // A CDR found by the reconciliation still ends a card somebody has open: without this, a
     // call whose only record came that way stayed on screen for good.
-    if (source !== 'reconcile' || state !== null) {
+    if (announce && (source !== 'reconcile' || state !== null)) {
       const targets = new Set<string>([...(state?.poppedUsers ?? []), ...(userId ? [userId] : [])]);
-      const answered = cdr.talk_duration > 0 || status === 'completed';
+      const answered = talkSec > 0 || status === 'completed';
       const partyDisplay =
         state?.contactName ??
         (contactId
@@ -1000,8 +1061,8 @@ export class CallStateMachine {
           callId,
           pbxCallId: cdr.call_id,
           status,
-          talkDurationSec: cdr.talk_duration,
-          totalDurationSec: cdr.call_duration,
+          talkDurationSec: talkSec,
+          totalDurationSec: totalSec,
           contactId,
           suggestFollowUp: settings.popup.suggestFollowUpAfterCall && status === 'completed',
           recordingStatus,
@@ -1012,7 +1073,7 @@ export class CallStateMachine {
     }
     // Every list of calls, on every screen, including a callback ticking off a missed call.
     this.app.realtime.to(rooms.all).emit('calls:changed', { at: nowIso(), callId, direction });
-    if (source !== 'reconcile' || state !== null) {
+    if (announce && (source !== 'reconcile' || state !== null)) {
       if (
         direction === 'inbound' &&
         (status === 'missed' || status === 'abandoned' || status === 'voicemail')
@@ -1320,6 +1381,20 @@ function normalizePhoneSafe(raw: string, opts: NormalizeOptions) {
   // lazy import to keep this module free of a top-level shared import cycle
   return classifyMembers([{ inbound: { from: raw, channel_id: 'x', member_status: 'RING' } }], opts)
     .external;
+}
+
+/** Two rows of one call can disagree ("NO ANSWER" then "FAILED"): the more informative one wins. */
+const STATUS_STRENGTH: Partial<Record<CallStatus, number>> = {
+  completed: 5,
+  voicemail: 4,
+  busy: 3,
+  missed: 2,
+  abandoned: 2,
+  failed: 1,
+};
+function strongerStatus(next: CallStatus, previous: CallStatus | null): CallStatus {
+  if (previous === null) return next;
+  return (STATUS_STRENGTH[previous] ?? 0) > (STATUS_STRENGTH[next] ?? 0) ? previous : next;
 }
 
 export function mapCdrStatus(status: string, direction: Direction): CallStatus {

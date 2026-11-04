@@ -18,6 +18,7 @@ export interface ReconcileResult {
   unreadable: number;
 }
 
+const LOOK_BACK_MS = 2 * 60 * 60 * 1000;
 const LAST_CDR_KEY = 'cti:last_cdr_at';
 const LAST_RECONCILE_KEY = 'cti:last_reconcile_at';
 
@@ -32,9 +33,12 @@ export async function reconcileCdrs(
   sinceOverride?: Date,
 ): Promise<ReconcileResult> {
   const lastSeen = await deps.valkey.get(LAST_CDR_KEY);
+  // Rows are searched by when the call began, and the marker is when the last one ended. A long
+  // call's queue row starts well before the marker, so the look-back has to outlast a long call or
+  // that row is never read. Going over a row twice costs nothing: an unchanged one writes nothing.
   const since =
     sinceOverride ??
-    new Date((lastSeen ? Date.parse(lastSeen) : Date.now() - 24 * 60 * 60 * 1000) - 5 * 60 * 1000);
+    new Date((lastSeen ? Date.parse(lastSeen) : Date.now() - 24 * 60 * 60 * 1000) - LOOK_BACK_MS);
   const until = new Date(Date.now() + 60 * 1000);
   let page = 1;
   let scanned = 0;

@@ -104,24 +104,27 @@ export function classifyMembers(
 export function externalFromCdr(
   cdr: { type: string; call_from: string; call_to: string },
   opts: NormalizeOptions,
-): { direction: Direction; externalRaw: string | null; extension: string | null } {
+): { direction: Direction; externalRaw: string | null; extension: string | null; known: boolean } {
   const type = cdr.type.toLowerCase();
   if (type === 'inbound')
     return {
       direction: 'inbound',
       externalRaw: cdr.call_from,
       extension: isExtension(cdr.call_to, opts) ? cdr.call_to : null,
+      known: true,
     };
   if (type === 'outbound')
     return {
       direction: 'outbound',
       externalRaw: cdr.call_to,
       extension: isExtension(cdr.call_from, opts) ? cdr.call_from : null,
+      known: true,
     };
   return {
     direction: 'internal',
     externalRaw: null,
     extension: isExtension(cdr.call_from, opts) ? cdr.call_from : null,
+    known: type === 'internal',
   };
 }
 
