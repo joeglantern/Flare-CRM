@@ -264,6 +264,14 @@ IMAGE_TAG=<git-sha> ./deploy.sh
 docker compose run --rm create-owner you@example.com "Your Name"
 ```
 
+An owner who has lost their authenticator is reset by another owner: Owners, the row's menu, Reset
+two-factor. If no owner can sign in, the same reset runs from the server. It ends their sessions,
+emails them and writes an audit row as a system action:
+
+```
+docker compose run --rm reset-owner-two-factor you@example.com
+```
+
 Customers are created from the screens. The one exception is the provider's own stack on a console
 nobody can sign in to yet, which has a script for it; it records itself as a system action rather
 than putting an owner's name on something an owner did not do:

@@ -3,11 +3,9 @@
  *
  * There is no administrator above an owner here, so these are the only way back in for somebody who
  * has lost their phone and their backup codes. Better Auth has no admin endpoint that clears
- * another account's second factor, so the row goes through Prisma and the sessions through the
- * admin API, exactly as the CRM does it for its own users.
+ * another account's second factor, so the row goes through Prisma. When no owner can sign in at all,
+ * scripts/reset-owner-two-factor.ts runs the same reset from the server.
  */
-import type { IncomingHttpHeaders } from 'node:http';
-import { fromNodeHeaders } from 'better-auth/node';
 import type { Auth } from '../auth/auth.js';
 import type { Mailer } from '../plugins/mailer.js';
 import { consoleSender, ownerTwoFactorResetEmail } from '../lib/email.js';
@@ -71,17 +69,13 @@ export class OwnersService {
    * Clears an owner's second factor so they can enrol again. Their sessions go with it: an account
    * that can no longer prove a second factor should not keep the ones it already proved.
    */
-  async resetTwoFactor(
-    id: string,
-    actorHeaders: IncomingHttpHeaders,
-    ctx: AuditContext,
-  ): Promise<OwnerDto> {
+  async resetTwoFactor(id: string, ctx: AuditContext): Promise<OwnerDto> {
     const before = await this.get(id);
     await this.deps.db.$transaction(async (tx) => {
       await tx.twoFactor.deleteMany({ where: { userId: id } });
       await tx.user.update({ where: { id }, data: { twoFactorEnabled: false } });
     });
-    await this.revokeSessionsOf(id, actorHeaders);
+    await this.revokeSessionsOf(id);
     await this.deps.audit.write(ctx, {
       action: 'owner.two_factor_reset',
       entity: 'owner',
@@ -112,7 +106,8 @@ export class OwnersService {
       await mailer.send(
         ownerTwoFactorResetEmail({
           to: owner.email,
-          doneBy: actor ? `${actor.name} (${actor.email})` : 'Another owner',
+          doneBy: actor ? `${actor.name} (${actor.email})` : 'An administrator, on the server',
+          byServer: actor === null,
           contactName: actor?.name ?? null,
           url: `${consoleUrl.replace(/\/+$/, '')}/sign-in`,
           sender: consoleSender(consoleUrl, this.deps.markUrl),
@@ -131,13 +126,7 @@ export class OwnersService {
    * The last active owner cannot be demoted: a console whose every account is support is a console
    * nobody can issue a document from, and there is nobody above an owner here to put it right.
    */
-  async setRole(
-    id: string,
-    role: string,
-    actorId: string,
-    actorHeaders: IncomingHttpHeaders,
-    ctx: AuditContext,
-  ): Promise<OwnerDto> {
+  async setRole(id: string, role: string, actorId: string, ctx: AuditContext): Promise<OwnerDto> {
     if (id === actorId) throw new ConflictError('You cannot change your own role');
     const before = await this.get(id);
     if (before.role === role) return before;
@@ -152,7 +141,7 @@ export class OwnersService {
       }
     }
     await this.deps.db.user.update({ where: { id }, data: { role } });
-    await this.revokeSessionsOf(id, actorHeaders);
+    await this.revokeSessionsOf(id);
     await this.deps.audit.write(ctx, {
       action: 'owner.role_change',
       entity: 'owner',
@@ -221,13 +210,9 @@ export class OwnersService {
     return owner;
   }
 
-  async revokeSessions(
-    id: string,
-    actorHeaders: IncomingHttpHeaders,
-    ctx: AuditContext,
-  ): Promise<OwnerDto> {
+  async revokeSessions(id: string, ctx: AuditContext): Promise<OwnerDto> {
     await this.get(id);
-    await this.revokeSessionsOf(id, actorHeaders);
+    await this.revokeSessionsOf(id);
     await this.deps.audit.write(ctx, {
       action: 'owner.sessions_revoked',
       entity: 'owner',
@@ -237,14 +222,13 @@ export class OwnersService {
   }
 
   /**
-   * Better Auth keeps sessions in secondary storage as well as the table, so the admin endpoint is
-   * the only thing that clears both. A failure here must not leave the caller thinking the second
-   * factor survived, so it is logged by the route rather than swallowed.
+   * Better Auth keeps sessions in secondary storage as well as the table, and its adapter clears
+   * both. It is used directly rather than through the admin endpoint because the server script has
+   * no signed-in owner to send that endpoint; the routes have already checked permission. A failure
+   * here must not leave the caller thinking the sessions ended, so it is not swallowed.
    */
-  private async revokeSessionsOf(id: string, actorHeaders: IncomingHttpHeaders): Promise<void> {
-    await this.deps.auth.api.revokeUserSessions({
-      headers: fromNodeHeaders(actorHeaders),
-      body: { userId: id },
-    });
+  private async revokeSessionsOf(id: string): Promise<void> {
+    const { internalAdapter } = await this.deps.auth.$context;
+    await internalAdapter.deleteUserSessions(id);
   }
 }

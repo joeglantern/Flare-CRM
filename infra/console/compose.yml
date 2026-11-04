@@ -114,6 +114,22 @@ services:
     cap_drop: [ALL]
     logging: *logging
 
+  # clears an owner's second factor when no owner can sign in to do it from the Owners screen:
+  #   docker compose run --rm reset-owner-two-factor you@example.com
+  reset-owner-two-factor:
+    image: ${CONSOLE_IMAGE:-ghcr.io/OWNER/crm-console-api}:${IMAGE_TAG:-latest}
+    profiles: [ops]
+    restart: 'no'
+    env_file: [.env]
+    entrypoint: ['node', 'dist/reset-owner-two-factor.js']
+    command: []
+    networks: [edge, internal]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+
   # registers a customer and their first stack, printing the four lines their server needs:
   #   docker compose run --rm register-customer acme "Acme Ltd" "Jane Doe" jane@acme.example
   register-customer:

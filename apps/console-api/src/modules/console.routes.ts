@@ -1960,7 +1960,6 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
         request.params.id,
         request.body.role,
         requireUser(request).id,
-        request.headers,
         auditContext(request),
       ),
     }),
@@ -2012,11 +2011,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
       response: { 200: dataResponse(ownerDto) },
     },
     handler: async (request) => ({
-      data: await app.owners.resetTwoFactor(
-        request.params.id,
-        request.headers,
-        auditContext(request),
-      ),
+      data: await app.owners.resetTwoFactor(request.params.id, auditContext(request)),
     }),
   });
 
@@ -2044,11 +2039,7 @@ const consoleRoutes: FastifyPluginAsyncZod = async (app) => {
       response: { 200: dataResponse(ownerDto) },
     },
     handler: async (request) => ({
-      data: await app.owners.revokeSessions(
-        request.params.id,
-        request.headers,
-        auditContext(request),
-      ),
+      data: await app.owners.revokeSessions(request.params.id, auditContext(request)),
     }),
   });
 

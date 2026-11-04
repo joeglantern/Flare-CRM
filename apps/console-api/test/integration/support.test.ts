@@ -226,6 +226,27 @@ describe('an owner locked out of the console', () => {
     expect(notice?.text).toContain('no longer work');
   });
 
+  it('can be let back in from the server when no owner can sign in', async () => {
+    const stuck = await ctx.createOwner({ email: 'alone@example.com' });
+    expect((await ctx.as(stuck, { method: 'GET', url: '/api/v1/me' })).statusCode).toBe(200);
+    ctx.app.mailer.outbox.length = 0;
+
+    const after = await ctx.app.owners.resetTwoFactor(stuck.id, {
+      actorId: null,
+      actorType: 'system',
+    });
+
+    expect(after.twoFactorEnabled).toBe(false);
+    expect(await ctx.app.db.twoFactor.count({ where: { userId: stuck.id } })).toBe(0);
+    expect((await ctx.as(stuck, { method: 'GET', url: '/api/v1/me' })).statusCode).toBe(401);
+    const row = await ctx.app.db.auditLog.findFirstOrThrow({
+      where: { action: 'owner.two_factor_reset', entityId: stuck.id },
+    });
+    expect(row.actorType).toBe('system');
+    const notice = ctx.app.mailer.outbox.find((m) => m.to === stuck.email);
+    expect(notice?.text).toContain('on the server');
+  });
+
   it('is sent a link to choose a new password, never a password', async () => {
     const stuck = await ctx.createOwner({ email: 'forgot@example.com' });
     ctx.app.mailer.outbox.length = 0;

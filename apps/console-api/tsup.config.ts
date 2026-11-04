@@ -9,6 +9,8 @@ export default defineConfig({
     'entry/api': 'src/entry/api.ts',
     seed: 'prisma/seed.ts',
     'create-owner': 'src/scripts/create-owner.ts',
+    // The way back in when no owner can sign in to press the button on the Owners screen.
+    'reset-owner-two-factor': 'src/scripts/reset-owner-two-factor.ts',
     // register-customer ships for the same reason: the provider's own stack has to be registered
     // on a console nobody can sign in to yet, and issue-document is how that stack is then served.
     'register-customer': 'src/scripts/register-customer.ts',

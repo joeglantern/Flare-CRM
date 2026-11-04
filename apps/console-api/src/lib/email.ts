@@ -88,18 +88,23 @@ export function ownerTwoFactorResetEmail(input: {
   contactName: string | null;
   url: string;
   sender: EmailSender;
+  /** Run from the server rather than by an owner signed in to the console. */
+  byServer?: boolean;
   when?: Date;
 }): RenderedEmail {
   const when = input.when ?? new Date();
   return renderEmail({
     to: input.to,
     subject: 'Your console two-factor was reset',
-    preheader:
-      'Another owner removed the authenticator from your console account. Here is who and when.',
+    preheader: input.byServer
+      ? 'The authenticator was removed from your console account on the server. Here is when.'
+      : 'Another owner removed the authenticator from your console account. Here is who and when.',
     heading: 'Two-factor was reset on your console account.',
     paragraphs: [
       'The authenticator app on your Flare console account has been removed, and your old backup codes no longer work. You will be asked to set up a new one the next time you sign in to the console.',
-      'This was done by another owner. The details are below, exactly as recorded.',
+      input.byServer
+        ? 'This was done on the server by someone with access to it. The details are below, exactly as recorded.'
+        : 'This was done by another owner. The details are below, exactly as recorded.',
     ],
     facts: [
       { label: 'Done by', value: input.doneBy },
