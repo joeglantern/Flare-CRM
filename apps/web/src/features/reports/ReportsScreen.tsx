@@ -42,6 +42,7 @@ import {
   type AgentPerformanceRow,
 } from './api';
 import { useSettings } from '@/providers/settings';
+import { AttendanceReport } from './AttendanceReport';
 
 const REPORTS = [
   { id: 'calls', label: 'Call volume' },
@@ -50,6 +51,7 @@ const REPORTS = [
   { id: 'pipeline', label: 'Pipeline' },
   { id: 'conversion', label: 'Conversion' },
   { id: 'forecast', label: 'Forecast' },
+  { id: 'attendance', label: 'Attendance' },
 ] as const;
 
 const percent = (rate: number): string => `${String(Math.round(rate * 100))}%`;
@@ -80,7 +82,8 @@ export function ReportsScreen() {
         title="Reports"
         description={scopeLine}
         actions={
-          perms.has('report:export') ? (
+          // Attendance has its own export, of the report itself rather than the rows behind a chart.
+          perms.has('report:export') && active !== 'attendance' ? (
             <Button
               variant="secondary"
               icon={Download}
@@ -119,6 +122,7 @@ export function ReportsScreen() {
       {active === 'pipeline' && <PipelineReport filters={filters} />}
       {active === 'conversion' && <ConversionReport filters={filters} />}
       {active === 'forecast' && <ForecastReport />}
+      {active === 'attendance' && <AttendanceReport filters={filters} />}
 
       <ExportDialog
         open={exportOpen}

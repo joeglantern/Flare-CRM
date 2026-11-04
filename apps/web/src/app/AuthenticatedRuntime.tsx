@@ -184,7 +184,9 @@ export function AuthenticatedRuntime({ children }: { children: ReactNode }) {
       useSessionWarning.getState().setWarning(false);
     },
     onLogout: () => {
-      void authClient.signOut().finally(() => {
+      // The attendance report tells the idle timer apart from a person choosing to sign out.
+      const fetchOptions = { headers: { 'x-sign-out-reason': 'idle' } };
+      void authClient.signOut({ fetchOptions }).finally(() => {
         disconnectSocket();
         queryClient.clear();
         void navigate({ to: '/sign-in', search: { redirect: href, reason: 'idle' } });

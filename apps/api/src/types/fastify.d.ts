@@ -7,6 +7,7 @@ import type { QUEUES } from '../jobs/queues.js';
 import type { CustomFieldsValidator } from '../lib/custom-fields.js';
 import type { ActivityService } from '../modules/activity/activity.service.js';
 import type { AuditService } from '../modules/audit/audit.service.js';
+import type { PresenceRecorder } from '../modules/reports/presence.recorder.js';
 import type { NotificationsService } from '../modules/notifications/notifications.service.js';
 import type { SettingsService } from '../modules/settings/settings.service.js';
 import type { EntitlementsService } from '../modules/entitlements/entitlements.service.js';
@@ -40,6 +41,7 @@ declare module 'fastify' {
     entitlements: EntitlementsService;
     storageUsage: StorageUsage;
     audit: AuditService;
+    presence: PresenceRecorder;
     activity: ActivityService;
     notifications: NotificationsService;
     customFields: CustomFieldsValidator;

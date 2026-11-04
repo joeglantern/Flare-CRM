@@ -353,6 +353,23 @@ id, key (object storage) [uq], file_name, mime_type, size_bytes, sha256, message
 
 DB trigger `audit_logs_immutable` raises on UPDATE/DELETE; the application role has no `DELETE` grant on this table.
 
+### agent_presence_events (append-only)
+
+| column    | type        | notes                                                                                   |
+| --------- | ----------- | --------------------------------------------------------------------------------------- |
+| id        | uuid        | PK                                                                                      |
+| user_id   | uuid        | FK users, cascade [idx (user_id, channel, at)]                                          |
+| channel   | text        | `crm\|phone`                                                                            |
+| state     | text        | crm: `signed_in\|online\|offline\|signed_out`. phone: `offline\|idle\|ringing\|on_call` |
+| reason    | text?       | on sign-out: `sign_out\|idle\|session_ended`. `server_restart` on a closed connection   |
+| extension | text?       | phone channel                                                                           |
+| inferred  | boolean     | the server worked this out rather than seeing it happen                                 |
+| at        | timestamptz | [idx]                                                                                   |
+
+The attendance record. Sessions live in Valkey and expire silently, so they cannot answer when someone signed out; this table can. A trigger raises on UPDATE. DELETE stays open only for the cascade from `users`.
+
+The reports derive everything from these rows at read time (`modules/reports/attendance.logic.ts`): a dropped connection under 15 minutes is folded into the same stretch, a longer one closes it at the moment of the drop, and a connection with no disconnect and no heartbeat (`users.last_seen_at`, refreshed about once a minute by the socket) closes at its last sign of life. Those closes are marked as inferred on screen and in the CSV. There is no history from before capture shipped.
+
 ### notifications / notification_preferences
 
 **notifications**: id, user_id [fk, idx (user_id, read_at, created_at desc)], type `call_incoming|call_missed|message_new|task_due|deal_stage|mention|system`, title, body, data jsonb, read_at?, created_at.

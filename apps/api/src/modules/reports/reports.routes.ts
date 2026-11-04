@@ -23,11 +23,14 @@ import { FeatureNotInPlanError, ForbiddenError } from '../../lib/errors.js';
 import { auditContext, requireUser } from '../../lib/request.js';
 import { scopeOf } from '../../lib/scope.js';
 import { CallsService } from '../calls/calls.service.js';
+import attendanceRoutes from './attendance.routes.js';
 import { ReportsService, type ReportRange } from './reports.service.js';
 
 const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = new ReportsService(app);
   const calls = new CallsService(app);
+
+  await app.register(attendanceRoutes);
 
   /** Report scope derives from report:* permissions, not from agentVisibility. */
   const reportScope = async (request: FastifyRequest): Promise<VisibilityScope> => {

@@ -56,6 +56,7 @@ model User {
   conversations    Conversation[]
   notifications    Notification[]
   notificationPref NotificationPreference[]
+  presenceEvents   AgentPresenceEvent[]
 
   @@index([teamId])
   @@index([role])
@@ -714,6 +715,26 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+/// Append-only attendance record. Written by PresenceRecorder, read by the attendance report.
+model AgentPresenceEvent {
+  id        String   @id @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  /// crm: signed_in, online, offline, signed_out. phone: offline, idle, ringing, on_call.
+  channel   String
+  state     String
+  reason    String?
+  extension String?
+  /// True when the server worked this out rather than seeing it happen.
+  inferred  Boolean  @default(false)
+  at        DateTime @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, channel, at])
+  @@index([at])
+  @@map("agent_presence_events")
 }
 
 model Notification {

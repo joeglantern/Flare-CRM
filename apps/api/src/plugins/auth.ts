@@ -25,6 +25,21 @@ const AUDITED: Record<string, string> = {
 // Nothing under /api/auth/admin/ is listed, because nothing under it is reachable: the handler
 // refuses that prefix outright. Entries here would say the door exists and is merely watched.
 
+/*
+ * Where a person ends up signed in. With a second factor on, the password step leaves no session, so
+ * counting that step would record a sign-in for someone who then failed the code.
+ */
+const COMPLETES_SIGN_IN = new Set([
+  '/api/auth/sign-in/email',
+  '/api/auth/two-factor/verify-totp',
+  '/api/auth/two-factor/verify-backup-code',
+]);
+// The verify step is also how an already signed-in person turns the second factor on.
+const SECOND_FACTOR_STEP = new Set([
+  '/api/auth/two-factor/verify-totp',
+  '/api/auth/two-factor/verify-backup-code',
+]);
+
 const bodyEmail = z.object({ email: z.string().max(254).optional() });
 
 export default fp(
@@ -85,6 +100,13 @@ export default fp(
           throw new NotFoundError('Route');
         }
 
+        // Afterwards the session is gone, and with it who just signed out.
+        const isSignOut = request.method === 'POST' && url.pathname === '/api/auth/sign-out';
+        const sessionBefore =
+          isSignOut || (request.method === 'POST' && SECOND_FACTOR_STEP.has(url.pathname))
+            ? await app.getSession(request.headers).catch(() => null)
+            : null;
+
         const headers = fromNodeHeaders(request.headers);
         headers.set('x-forwarded-for', request.ip);
         const init: RequestInit = { method: request.method, headers };
@@ -106,13 +128,23 @@ export default fp(
 
         const path = url.pathname;
         const action = AUDITED[path];
-        if (action !== undefined && request.method === 'POST') {
-          const session = response.ok
+        const completesSignIn = COMPLETES_SIGN_IN.has(path) && sessionBefore === null;
+        const session =
+          request.method === 'POST' && response.ok && (action !== undefined || completesSignIn)
             ? await app.getSession({
                 ...request.headers,
                 cookie: mergeCookies(request.headers.cookie, cookies),
               })
             : null;
+        if (completesSignIn && session !== null) {
+          await app.presence.crm(session.user.id, 'signed_in');
+        }
+        if (isSignOut && response.ok && sessionBefore !== null) {
+          // Only the browser knows it was the idle timer rather than the person who signed out.
+          const idle = request.headers['x-sign-out-reason'] === 'idle';
+          await app.presence.crm(sessionBefore.user.id, 'signed_out', idle ? 'idle' : 'sign_out');
+        }
+        if (action !== undefined && request.method === 'POST') {
           const parsedBody = bodyEmail.safeParse(request.body ?? {});
           const email = parsedBody.success ? parsedBody.data.email : undefined;
           const outcome = response.ok ? action : `${action}_failed`;

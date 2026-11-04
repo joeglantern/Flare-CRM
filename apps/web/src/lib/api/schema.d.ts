@@ -7595,6 +7595,187 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    format?: "json" | "csv";
+                    from?: string;
+                    teamId?: string;
+                    to?: string;
+                    userId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                days: {
+                                    calls: {
+                                        answered: number;
+                                        inbound: number;
+                                        missed: number;
+                                        outbound: number;
+                                        talkSec: number;
+                                        total: number;
+                                    };
+                                    continuedNextDay: boolean;
+                                    /** Format: date */
+                                    date: string;
+                                    /** Format: date-time */
+                                    dayEnd: string;
+                                    /** Format: date-time */
+                                    dayStart: string;
+                                    extension: string | null;
+                                    firstCallAt: string | null;
+                                    firstLoginAt: string | null;
+                                    firstLoginInferred: boolean;
+                                    lastLogoutAt: string | null;
+                                    lastLogoutInferred: boolean;
+                                    lastLogoutReason: ("sign_out" | "idle" | "session_ended" | "disconnected" | "no_signal") | null;
+                                    name: string;
+                                    signedInBeforeDay: boolean;
+                                    stillSignedIn: boolean;
+                                    /** Format: uuid */
+                                    userId: string;
+                                }[];
+                                recordingSince: string | null;
+                                timeZone: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/attendance/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/attendance/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    channel?: "crm" | "phone";
+                    format?: "json" | "csv";
+                    from?: string;
+                    page?: number;
+                    pageSize?: number;
+                    teamId?: string;
+                    to?: string;
+                    userId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                /** Format: date-time */
+                                at: string;
+                                /** @enum {string} */
+                                channel: "crm" | "phone";
+                                durationSec: number | null;
+                                from: ("online" | "disconnected" | "signed_out" | "phone_offline" | "phone_idle" | "phone_ringing" | "phone_on_call") | null;
+                                id: string;
+                                inferred: boolean;
+                                name: string;
+                                /** @enum {string} */
+                                to: "online" | "disconnected" | "signed_out" | "phone_offline" | "phone_idle" | "phone_ringing" | "phone_on_call";
+                                /** Format: uuid */
+                                userId: string;
+                            }[];
+                            page: {
+                                page: number;
+                                pageSize: number;
+                                total: number;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/calls/agents": {
         parameters: {
             query?: never;

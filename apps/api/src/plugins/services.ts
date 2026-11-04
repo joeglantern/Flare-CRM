@@ -8,6 +8,7 @@ import { CustomFieldsValidator } from '../lib/custom-fields.js';
 import { ActivityService } from '../modules/activity/activity.service.js';
 import { AuditService } from '../modules/audit/audit.service.js';
 import { NotificationsService } from '../modules/notifications/notifications.service.js';
+import { PresenceRecorder } from '../modules/reports/presence.recorder.js';
 import { SettingsService } from '../modules/settings/settings.service.js';
 
 export default fp(
@@ -17,6 +18,7 @@ export default fp(
     app.decorate('settings', settings);
     app.decorate('audit', new AuditService(app.db));
     app.decorate('activity', new ActivityService(app.db));
+    app.decorate('presence', new PresenceRecorder(app.db, app.log));
     app.decorate(
       'notifications',
       new NotificationsService(app.db, app.queues, app.events, app.config.APP_URL),

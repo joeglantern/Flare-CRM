@@ -108,6 +108,7 @@ Messaging (P2)             GET/POST /channels, PATCH /channels/:id (secrets encr
 Activity                   GET /activity?contactId=|dealId=&types=&q=&cursor=   (timeline)
 Notifications              GET /notifications, POST /notifications/read-all, POST /notifications/:id/read, GET/PUT /notifications/preferences
 Reports                    GET /reports/calls/summary, /reports/calls/agents, /reports/calls/missed, /reports/pipeline/summary, /reports/pipeline/conversion, /reports/pipeline/forecast  (+ ?format=csv)
+Attendance                 GET /reports/attendance, /reports/attendance/presence (+ ?format=csv), /reports/attendance/agents. Days are always the workspace time zone's
 Import/Export              POST /imports (multipart csv + mapping), GET /imports/:id, GET /exports/:entity?format=csv (streamed)
 Web forms                  GET/POST /web-forms, PATCH/DELETE /web-forms/:id;  PUBLIC: POST /public/forms/:token
 Settings                   GET /settings, PATCH /settings (admin), GET /settings/public (theme, country, currency — for the SPA)

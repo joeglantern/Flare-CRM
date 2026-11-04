@@ -27,6 +27,7 @@ export * from './schemas/activity.js';
 export * from './schemas/notification.js';
 export * from './schemas/call.js';
 export * from './schemas/report.js';
+export * from './schemas/attendance.js';
 export * from './schemas/import-export.js';
 export * from './schemas/web-form.js';
 export * from './schemas/messaging.js';

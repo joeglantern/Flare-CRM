@@ -38,6 +38,7 @@ type AppSocket = Socket<
 
 const MAX_SOCKETS_PER_USER = 3;
 const EVENTS_PER_SECOND = 20;
+const LAST_SEEN_EVERY_MS = 60_000;
 
 export default fp(
   async function socketPlugin(app: FastifyInstance) {
@@ -85,6 +86,8 @@ export default fp(
     });
 
     const perUser = new Map<string, Set<string>>();
+
+    await app.presence.closeConnectionsLostInRestart();
 
     io.use((socket, next) => {
       void (async () => {
@@ -138,6 +141,7 @@ export default fp(
       const set = perUser.get(userId) ?? new Set<string>();
       set.add(socket.id);
       perUser.set(userId, set);
+      if (set.size === 1) void app.presence.crm(userId, 'online');
 
       void socket.join(rooms.user(userId));
       void socket.join(rooms.all);
@@ -158,6 +162,7 @@ export default fp(
        * A check that cannot run (Valkey or the database briefly unreachable) keeps the socket:
        * a dropped connection loses events, while a revocation is caught on the next check.
        */
+      let lastSeenWritten = 0;
       const recheck = setInterval(() => {
         void (async () => {
           let valid: boolean;
@@ -175,7 +180,24 @@ export default fp(
             app.log.warn({ err, userId }, 'could not re-check a socket session; keeping it');
             return;
           }
-          if (!valid) socket.disconnect(true);
+          if (!valid) {
+            // An expired or revoked session says nothing when it ends. This is the only witness.
+            await app.presence.crm(userId, 'signed_out', 'session_ended');
+            socket.disconnect(true);
+            return;
+          }
+          /*
+           * The attendance report's proof of life: without it, a connection the server lost in a
+           * crash would look the same as one still open. Raw because a heartbeat is not an edit, and
+           * must not move `updated_at` on the user.
+           */
+          if (Date.now() - lastSeenWritten >= LAST_SEEN_EVERY_MS) {
+            lastSeenWritten = Date.now();
+            await app.db
+              .$executeRaw`UPDATE users SET last_seen_at = now() WHERE id = ${userId}::uuid`.catch(
+              () => undefined,
+            );
+          }
         })();
       }, app.config.SOCKET_SESSION_RECHECK_MS);
       recheck.unref();
@@ -240,7 +262,10 @@ export default fp(
         const s = perUser.get(userId);
         if (s) {
           s.delete(socket.id);
-          if (s.size === 0) perUser.delete(userId);
+          if (s.size === 0) {
+            perUser.delete(userId);
+            void app.presence.crm(userId, 'offline');
+          }
         }
       });
     });
