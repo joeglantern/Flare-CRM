@@ -15,7 +15,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from '../../lib/errors
 import { newId } from '../../lib/ids.js';
 import { decodeCursor, pageOf } from '../../lib/pagination.js';
 import { auditContext } from '../../lib/request.js';
-import { SHAPES, scopeOf, scopeWhere } from '../../lib/scope.js';
+import { SHAPES, callReadWhere, scopeOf, scopeWhere } from '../../lib/scope.js';
 import { hasRole } from '../../plugins/authorize.js';
 
 const noteSelect = {
@@ -58,10 +58,11 @@ const notesRoutes: FastifyPluginAsyncZod = async (app) => {
       ? {}
       : {
           OR: [
-            { contact: scopeWhere(scope, SHAPES.contact) },
+            // `is`: the shared address book makes this filter `{}`, which an OR would otherwise drop.
+            { contact: { is: scopeWhere(scope, SHAPES.contact) } },
             { deal: scopeWhere(scope, SHAPES.deal) },
             { company: scopeWhere(scope, SHAPES.company) },
-            { call: scopeWhere(scope, SHAPES.call) },
+            { call: { is: callReadWhere(scope) } },
             ...(scope.kind === 'own' ? [{ authorId: scope.userId }] : []),
           ],
         };
@@ -124,7 +125,10 @@ const notesRoutes: FastifyPluginAsyncZod = async (app) => {
         where: {
           AND: [
             parentVisibility(scope),
-            ...(q.contactId ? [{ contactId: q.contactId }] : []),
+            // A note written on a call names only the call, and it is part of that contact's story.
+            ...(q.contactId
+              ? [{ OR: [{ contactId: q.contactId }, { call: { contactId: q.contactId } }] }]
+              : []),
             ...(q.dealId ? [{ dealId: q.dealId }] : []),
             ...(q.companyId ? [{ companyId: q.companyId }] : []),
             ...(q.callId ? [{ callId: q.callId }] : []),

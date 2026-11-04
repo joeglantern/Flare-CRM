@@ -29,7 +29,7 @@ import {
 import { QUEUES } from '../../jobs/queues.js';
 import { newId } from '../../lib/ids.js';
 import { isoOrNull } from '../../lib/object.js';
-import { SHAPES, scopeWhere } from '../../lib/scope.js';
+import { SHAPES, callReadWhere, scopeWhere } from '../../lib/scope.js';
 import type { AuditContext } from '../audit/audit.service.js';
 import { rooms } from '../../lib/realtime.js';
 
@@ -118,8 +118,14 @@ export class CallsService {
 
   private callScope(scope: VisibilityScope): Prisma.CallWhereInput {
     if (scope.kind === 'all') return {};
-    // a call is visible if the agent handled it, or the contact it belongs to is visible
-    return { OR: [scopeWhere(scope, SHAPES.call), { contact: scopeWhere(scope, SHAPES.contact) }] };
+    /*
+     * The calls a caller works on: their Calls list, and everything that changes a call. With the
+     * shared address book on, being able to see a contact says nothing about a relationship with
+     * it, so it gives no claim on a colleague's calls. Reading a contact's journal is callReadWhere.
+     */
+    const contact = scopeWhere(scope, SHAPES.contact);
+    if (Object.keys(contact).length === 0) return scopeWhere(scope, SHAPES.call);
+    return { OR: [scopeWhere(scope, SHAPES.call), { contact }] };
   }
 
   /**
@@ -173,7 +179,8 @@ export class CallsService {
     const digits = q.number?.replace(/\D/g, '') ?? '';
     const where: Prisma.CallWhereInput = {
       AND: [
-        this.callScope(scope),
+        // Naming a contact asks for that contact's journal; without one this is the caller's list.
+        q.contactId ? callReadWhere(scope) : this.callScope(scope),
         ...(q.direction ? [{ direction: q.direction }] : []),
         ...(q.status ? [{ status: q.status }] : []),
         ...(q.userId ? [{ userId: q.userId }] : []),
@@ -233,8 +240,17 @@ export class CallsService {
     return row;
   }
 
+  private async getReadable(scope: VisibilityScope, id: string): Promise<CallRow> {
+    const row = await this.db.call.findFirst({
+      where: { id, ...(callReadWhere(scope) as Prisma.CallWhereInput) },
+      select: callSelect,
+    });
+    if (!row) throw new NotFoundError('Call');
+    return row;
+  }
+
   async get(scope: VisibilityScope, id: string): Promise<CallDto> {
-    return callToDto(await this.getVisible(scope, id));
+    return callToDto(await this.getReadable(scope, id));
   }
 
   async setDisposition(
@@ -352,8 +368,12 @@ export class CallsService {
        * call may have been linked to a contact by hand, which is what linkContact is for, or the
        * number may have changed since. Asking those two screens to send a number and a contact made
        * a claim the server could only refuse.
+       *
+       * Reading is enough: this places a new call and leaves the old one untouched, and the call
+       * page offers it on any call the caller can open, a colleague's included. Do-not-call still
+       * applies below.
        */
-      const call = await this.getVisible(scope, body.callId);
+      const call = await this.getReadable(scope, body.callId);
       if (!call.externalE164)
         throw new ValidationError([{ path: 'callId', message: 'That call has no number to dial' }]);
       e164 = call.externalE164;

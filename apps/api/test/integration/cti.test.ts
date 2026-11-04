@@ -540,6 +540,50 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
     );
   });
 
+  it("redials from a colleague's call of a shared contact, but never from a call with no contact", async () => {
+    const colleague = await ctx.createUser({ role: 'agent', extension: '1002' });
+    const contact = (
+      await ctx.as(colleague, {
+        method: 'POST',
+        url: '/api/v1/contacts',
+        payload: { firstName: 'Shared', phones: [{ number: '0745000333' }] },
+      })
+    ).json<Envelope<{ id: string }>>().data;
+    const callOf = async (contactId: string | null) => {
+      const id = crypto.randomUUID();
+      await ctx.app.db.call.create({
+        data: {
+          id,
+          pbxCallId: crypto.randomUUID(),
+          direction: 'inbound',
+          status: 'completed',
+          fromNumber: '+254745000333',
+          toNumber: '1002',
+          externalE164: '+254745000333',
+          contactId,
+          userId: colleague.id,
+          startedAt: new Date(),
+        },
+      });
+      return id;
+    };
+    const redial = (callId: string, lane: string) =>
+      ctx.as(agent, {
+        method: 'POST',
+        url: '/api/v1/calls/dial',
+        payload: { callId },
+        headers: { 'x-forwarded-for': `10.78.0.${lane}` },
+      });
+
+    const shared = await redial(await callOf(contact.id), '1');
+    expect(shared.statusCode, shared.body).toBe(202);
+
+    const before = pbx.dialCounter;
+    const orphan = await redial(await callOf(null), '2');
+    expect(orphan.statusCode, orphan.body).toBe(404);
+    expect(pbx.dialCounter).toBe(before);
+  });
+
   /**
    * A call's number is frequently not one of its contact's saved phones: somebody linked a call from
    * an unsaved number to a contact, or the number changed afterwards. Redial sends the call, so the

@@ -30,7 +30,9 @@ import { TaskFormDialog } from '@/features/tasks/TaskForm';
 import { errorMessage, isApiError } from '@/lib/api/errors';
 import { linkTo } from '@/lib/links';
 import { usePermissions } from '@/providers/permissions';
+import { useSettings } from '@/providers/settings';
 import { recordingUrl, useCall, useDeleteRecording, useRecordingHistory } from './api';
+import { callHandler } from './handler';
 
 export function CallDetailScreen({ callId }: { callId: string }) {
   const perms = usePermissions();
@@ -38,8 +40,17 @@ export function CallDetailScreen({ callId }: { callId: string }) {
   const call = query.data;
   const link = useLinkCallContact();
   const deleteRecording = useDeleteRecording();
+  const settings = useSettings();
+  // Opening a colleague's call to read it changes nothing about who may play or edit it, and the
+  // server refuses both, so neither is offered only to fail.
+  const privileged = perms.isAdmin || perms.isManager;
+  const isMine = call?.userId === perms.userId;
   const canListen =
-    call !== undefined && perms.has('call:listen_recording') && call.recordingStatus === 'stored';
+    call !== undefined &&
+    perms.has('call:listen_recording') &&
+    call.recordingStatus === 'stored' &&
+    (privileged || (settings.recording.allowAgentPlayback && isMine));
+  const canWrite = privileged || isMine;
   const history = useRecordingHistory(call?.id ?? null, canListen);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkTarget, setLinkTarget] = useState<string | null>(null);
@@ -232,7 +243,7 @@ export function CallDetailScreen({ callId }: { callId: string }) {
             <Panel title="Recording">
               <p className="text-base text-muted">
                 {call.recordingStatus === 'stored'
-                  ? 'You do not have permission to listen to recordings.'
+                  ? 'You do not have permission to listen to this recording.'
                   : call.recordingStatus === 'pending'
                     ? 'The recording has not arrived from the PBX yet.'
                     : call.recordingStatus === 'failed'
@@ -243,7 +254,7 @@ export function CallDetailScreen({ callId }: { callId: string }) {
           )}
 
           <Panel title="Disposition">
-            {perms.has('call:set_disposition') ? (
+            {perms.has('call:set_disposition') && canWrite ? (
               <DispositionForm
                 callId={call.id}
                 contactId={call.contactId}
@@ -272,7 +283,11 @@ export function CallDetailScreen({ callId }: { callId: string }) {
           </Panel>
 
           <Panel title="Notes on this call" note="{callId}.">
-            <NotesPanel parent="call" id={call.id} canCreate={perms.has('note:create')} />
+            <NotesPanel
+              parent="call"
+              id={call.id}
+              canCreate={perms.has('note:create') && canWrite}
+            />
           </Panel>
 
           <Panel
@@ -358,7 +373,7 @@ export function CallDetailScreen({ callId }: { callId: string }) {
                   label: 'Handled by',
                   value:
                     call.user === null ? (
-                      <span className="text-faint">Nobody answered</span>
+                      (callHandler(call) ?? <span className="text-faint">Nobody answered</span>)
                     ) : (
                       <span className="flex items-center gap-1.5">
                         <Avatar name={call.user.name} seed={call.user.id} size={18} />

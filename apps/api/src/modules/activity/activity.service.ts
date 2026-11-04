@@ -114,10 +114,33 @@ export class ActivityService {
     return rows.map((r) => this.toDto(r, names));
   }
 
+  /**
+   * Notes written on this contact's calls. Such a note records no contact of its own, and the call
+   * may only have been linked to one later, so looking it up when reading covers notes already
+   * written and calls linked after the fact, which a value stored at write time would miss.
+   */
+  private async callNotesOf(
+    contactId: string,
+    contactScope: Record<string, unknown>,
+  ): Promise<string[]> {
+    const rows = await this.db.note.findMany({
+      where: { contactId: null, call: { contactId, contact: { is: contactScope } } },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
   async timeline(scope: VisibilityScope, query: z.infer<typeof timelineQuery>) {
     const cursor = decodeCursor(query.cursor);
+    const contactScope = scopeWhere(scope, SHAPES.contact);
+    const callNotes = query.contactId ? await this.callNotesOf(query.contactId, contactScope) : [];
+    const ofCallNotes = { refTable: 'notes', refId: { in: callNotes } };
     const where: Record<string, unknown> = {
-      ...(query.contactId ? { contactId: query.contactId } : {}),
+      ...(query.contactId
+        ? callNotes.length > 0
+          ? { AND: [{ OR: [{ contactId: query.contactId }, ofCallNotes] }] }
+          : { contactId: query.contactId }
+        : {}),
       ...(query.dealId ? { dealId: query.dealId } : {}),
       ...(query.companyId ? { companyId: query.companyId } : {}),
       ...(query.types ? { type: { in: query.types } } : {}),
@@ -140,9 +163,23 @@ export class ActivityService {
     };
     // visibility: the activity is visible if its contact (or deal) is visible to the caller
     if (scope.kind !== 'all') {
-      const contactScope = scopeWhere(scope, SHAPES.contact);
       const dealScope = scopeWhere(scope, SHAPES.deal);
-      where.AND = [{ OR: [{ contact: contactScope }, { deal: dealScope }] }];
+      /*
+       * `is`: the shared address book makes the contact filter `{}`, and an OR drops a bare empty
+       * relation filter, which left an agent seeing nothing of a contact's journal but deals. Only
+       * for one named contact: with the book on, an unfiltered feed would otherwise become every
+       * contact's activity.
+       */
+      const viaContact =
+        query.contactId || Object.keys(contactScope).length > 0
+          ? [{ contact: { is: contactScope } }]
+          : [];
+      where.AND = [
+        ...((where.AND as unknown[] | undefined) ?? []),
+        {
+          OR: [...viaContact, { deal: dealScope }, ...(callNotes.length > 0 ? [ofCallNotes] : [])],
+        },
+      ];
     }
 
     if (query.q) {

@@ -30,6 +30,7 @@ import { EmptyState, ErrorState } from '@/components/data/states';
 import { cn } from '@/lib/utils';
 import { sameZonedDay, startOfZonedDay, zonedParts } from '@/lib/format/zoned';
 import { useSettings } from '@/providers/settings';
+import { extensionHandler } from '@/features/calls/handler';
 
 const ICON: Record<string, { icon: LucideIcon; tone: string; label: string }> = {
   call: { icon: PhoneIncoming, tone: 'text-muted', label: 'Call' },
@@ -197,6 +198,12 @@ export function TimelineItem({
   const Icon = activity.type === 'call' && direction === 'outbound' ? PhoneOutgoing : meta.icon;
   const detail = detailLine(activity);
   const href = linkFor(activity);
+  // Most calls are answered on phones with no CRM account, so the actor alone would name nobody.
+  const handler =
+    activity.actor?.name ??
+    (activity.type === 'call'
+      ? extensionHandler(activity.meta.extension, activity.meta.direction, activity.meta.status)
+      : null);
 
   const body = (
     <>
@@ -204,7 +211,7 @@ export function TimelineItem({
         <span className="font-medium">{activity.summary}</span>
         <span className="text-sm text-muted">
           <DateTime value={activity.occurredAt} bare />
-          {activity.actor !== null && ` · ${activity.actor.name}`}
+          {handler !== null && ` · ${handler}`}
         </span>
       </div>
       {detail !== null && <div className="text-sm text-muted">{detail}</div>}
@@ -243,6 +250,8 @@ function detailLine(a: ActivityDto): React.ReactNode {
     const bits: string[] = [];
     const disposition = meta.disposition;
     if (typeof disposition === 'string') bits.push(`Disposition: ${disposition}`);
+    const dispositionNote = meta.dispositionNote;
+    if (typeof dispositionNote === 'string' && dispositionNote !== '') bits.push(dispositionNote);
     const recording = meta.recordingStatus;
     if (recording === 'stored') {
       return (

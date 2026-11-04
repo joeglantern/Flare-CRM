@@ -212,6 +212,12 @@ than duplicated. It widens reading only: editing a contact still needs ownership
 above. With it off, contacts and companies follow `agentVisibility` like everything else. The popup
 is never `restricted` while it is on.
 
+**Contact call journal.** Anyone who can open a contact can read all of its calls, whoever handled
+them: the Calls tab, the timeline, call notes, dispositions and the call page. It stops there. An
+agent's own Calls list is still theirs, a call with no contact stays with its handler, recording
+playback keeps its own rule (`recording.allowAgentPlayback`, audited), and writes do not widen.
+Redialing from a call's page counts as reading, since it places a new call; do-not-call still applies.
+
 Applies to: contacts, companies (unless shared, above), leads, deals, tasks, notes, calls, conversations, activities, reports. Does **not** apply to: dispositions, pipelines, custom field definitions, settings (global config).
 
 Unknown caller pop: the popup is shown to the ringing agent regardless of visibility (they are receiving the call); if a matched contact is outside their scope, the payload is reduced to `{ displayName, company }` with `restricted: true` (no history) unless `agentVisibility=all`.

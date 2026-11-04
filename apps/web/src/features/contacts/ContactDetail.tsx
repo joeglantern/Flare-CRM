@@ -48,6 +48,7 @@ import { Timeline, typesForFilter } from '@/components/entity/Timeline';
 import { usePageMeta } from '@/app/shell/page-meta';
 import { useNotes, useTimeline } from '@/features/activity/api';
 import { useCalls } from '@/features/calls/api';
+import { callHandler } from '@/features/calls/handler';
 import {
   useChannels,
   useConversationMutations,
@@ -649,6 +650,10 @@ function CallsTab({ contactId }: { contactId: string }) {
               <CallStatusBadge status={c.status} />
               <span className="min-w-0 flex-1 truncate text-muted">
                 {c.disposition?.name ?? '—'}
+                {c.dispositionNote !== null && ` · ${c.dispositionNote}`}
+              </span>
+              <span className="w-32 shrink-0 truncate text-muted">
+                {callHandler(c) ?? <span className="text-faint">Nobody answered</span>}
               </span>
               <Duration seconds={c.talkDurationSec} className="shrink-0" />
               <span className="w-28 shrink-0 text-right text-muted">

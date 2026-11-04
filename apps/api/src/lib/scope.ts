@@ -78,6 +78,23 @@ export function scopeWhere(scope: VisibilityScope, shape: ScopeShape): Record<st
   }
 }
 
+/**
+ * The calls a caller may read: their own, plus every call of a contact they can open, because
+ * whoever answers a customer needs to know what happened on earlier calls. A call with no contact
+ * has no journal to belong to and stays with its handler.
+ *
+ * `is` is required. The shared address book turns the contact filter into `{}`, and Prisma drops a
+ * bare `{ contact: {} }` from an OR, so without it no contact's calls matched at all.
+ *
+ * Reading only: lists of the caller's own work and every write use a narrower rule.
+ */
+export function callReadWhere(scope: VisibilityScope): Record<string, unknown> {
+  if (scope.kind === 'all') return {};
+  return {
+    OR: [scopeWhere(scope, SHAPES.call), { contact: { is: scopeWhere(scope, SHAPES.contact) } }],
+  };
+}
+
 /** Resolve the caller's scope from settings + role in one place. */
 export async function scopeOf(
   app: FastifyInstance,
