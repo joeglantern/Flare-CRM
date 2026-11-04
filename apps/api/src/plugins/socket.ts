@@ -16,7 +16,7 @@ import fp from 'fastify-plugin';
 import { Server, type Socket } from 'socket.io';
 import { clientIpFrom } from '../lib/ip-allowlist.js';
 import { nowIso, rooms, validatedPayload, type Broadcaster } from '../lib/realtime.js';
-import { SHAPES, scopeWhere } from '../lib/scope.js';
+import { conversationReadWhere } from '../lib/scope.js';
 import { resolveScope } from '@crm/shared';
 import { hasRole } from './authorize.js';
 import { createValkeyClient } from './valkey.js';
@@ -228,7 +228,8 @@ export default fp(
             await app.settings.get('sharedDirectory'),
           );
           const conv = await app.db.conversation.findFirst({
-            where: { id: parsed.data.conversationId, ...scopeWhere(scope, SHAPES.conversation) },
+            // The same rule as opening it, or a colleague's thread would load and then sit still.
+            where: { id: parsed.data.conversationId, ...conversationReadWhere(scope) },
             select: { id: true },
           });
           if (conv) await socket.join(rooms.conv(conv.id));

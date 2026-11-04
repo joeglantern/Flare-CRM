@@ -35,7 +35,7 @@ import { newId } from '../../lib/ids.js';
 import { isoOrNull } from '../../lib/object.js';
 import { decodeCursor, pageOf } from '../../lib/pagination.js';
 import { nowIso, rooms } from '../../lib/realtime.js';
-import { SHAPES, assertCanAssign, scopeWhere } from '../../lib/scope.js';
+import { SHAPES, assertCanAssign, conversationReadWhere, scopeWhere } from '../../lib/scope.js';
 import { ATTACHMENT_TYPES } from '../../lib/uploads.js';
 import type { AuditContext } from '../audit/audit.service.js';
 
@@ -171,14 +171,7 @@ export class MessagingService {
   }
 
   private convScope(scope: VisibilityScope): Prisma.ConversationWhereInput {
-    if (scope.kind === 'all') return {};
-    return {
-      OR: [
-        scopeWhere(scope, SHAPES.conversation),
-        { contact: scopeWhere(scope, SHAPES.contact) },
-        ...(scope.kind === 'team' ? [{ assigneeId: null }] : []),
-      ],
-    };
+    return conversationReadWhere(scope);
   }
 
   // ── queries ──────────────────────────────────────────────────────────────────────────

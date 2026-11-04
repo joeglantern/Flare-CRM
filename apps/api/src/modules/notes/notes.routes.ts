@@ -61,7 +61,7 @@ const notesRoutes: FastifyPluginAsyncZod = async (app) => {
             // `is`: the shared address book makes this filter `{}`, which an OR would otherwise drop.
             { contact: { is: scopeWhere(scope, SHAPES.contact) } },
             { deal: scopeWhere(scope, SHAPES.deal) },
-            { company: scopeWhere(scope, SHAPES.company) },
+            { company: { is: scopeWhere(scope, SHAPES.company) } },
             { call: { is: callReadWhere(scope) } },
             ...(scope.kind === 'own' ? [{ authorId: scope.userId }] : []),
           ],

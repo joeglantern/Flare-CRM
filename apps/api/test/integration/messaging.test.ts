@@ -288,6 +288,34 @@ describe('messaging: WhatsApp channel end to end', () => {
     ).toHaveLength(1);
   });
 
+  it("works as a shared inbox: a colleague can open and answer a contact's conversation, but not close it", async () => {
+    await ctx.as(admin, {
+      method: 'POST',
+      url: '/api/v1/contacts',
+      payload: { firstName: 'Shared', phones: [{ number: '0712000077' }], ownerId: agent.id },
+    });
+    await webhook(inboundText(PHONE_ID, '254712000077', 'Anyone there?'));
+    await drainInbound();
+    const colleague = await ctx.createUser({ role: 'agent' });
+
+    const list = await ctx.as(colleague, { method: 'GET', url: '/api/v1/conversations' });
+    const conv = list.json<Envelope<{ id: string; assigneeId: string | null }[]>>().data[0];
+    expect(conv?.id).toBeDefined();
+    const reply = await ctx.as(colleague, {
+      method: 'POST',
+      url: `/api/v1/conversations/${conv!.id}/messages`,
+      payload: { body: 'Yes, covering for a colleague.' },
+    });
+    expect(reply.statusCode, reply.body).toBeLessThan(300);
+    expect(conv?.assigneeId).toBe(agent.id);
+    const close = await ctx.as(colleague, {
+      method: 'POST',
+      url: `/api/v1/conversations/${conv!.id}/close`,
+      payload: {},
+    });
+    expect(close.statusCode, close.body).toBe(403);
+  });
+
   it('enforces the 24-hour window (template required) and surfaces provider failures', async () => {
     const contact = (
       await ctx.as(agent, {

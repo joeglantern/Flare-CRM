@@ -95,6 +95,21 @@ export function callReadWhere(scope: VisibilityScope): Record<string, unknown> {
   };
 }
 
+/**
+ * The conversations a caller may open: their own, plus any with a contact they can open, so a
+ * shared inbox works and anyone can cover for a colleague. `is` for the reason in callReadWhere.
+ */
+export function conversationReadWhere(scope: VisibilityScope): Record<string, unknown> {
+  if (scope.kind === 'all') return {};
+  return {
+    OR: [
+      scopeWhere(scope, SHAPES.conversation),
+      { contact: { is: scopeWhere(scope, SHAPES.contact) } },
+      ...(scope.kind === 'team' ? [{ assigneeId: null }] : []),
+    ],
+  };
+}
+
 /** Resolve the caller's scope from settings + role in one place. */
 export async function scopeOf(
   app: FastifyInstance,

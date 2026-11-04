@@ -263,3 +263,5 @@ Every role holds `task:assign`, so an agent can give a task to any active user. 
 - Password reset tokens: single-use, 15 min expiry (Better Auth `resetPasswordTokenExpiresIn: 900`).
 - Email enumeration protection: identical responses for known/unknown emails (Better Auth default).
 - All auth emails go through the `email` queue with templates in `modules/notifications/templates`.
+
+**Shared inbox.** Anyone who can open a contact can open and reply to that contact's conversations, so a colleague can cover. Closing, reopening or archiving one assigned to someone else stays with the assignee, a manager or an admin. A conversation from an unknown number with no assignee stays with managers and admins. Notes on a company are readable by everyone who can open the company; editing stays with the author, a manager or an admin. Redialing from a colleague's call places a new call, and do-not-call still applies.

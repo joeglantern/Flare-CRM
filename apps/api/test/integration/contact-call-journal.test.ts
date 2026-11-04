@@ -271,4 +271,54 @@ describe('contact call journal', () => {
     expect(off.statusCode, off.body).toBe(403);
     expect(await plays()).toBe(1);
   });
+
+  it('opens company notes to everyone who can open the company, and leaves editing to the author', async () => {
+    await ctx.app.settings.patch({ sharedDirectory: true }, null);
+    const company = (
+      await ctx.as(agentB, {
+        method: 'POST',
+        url: '/api/v1/companies',
+        payload: { name: 'Acme Kenya' },
+      })
+    ).json<Envelope<{ id: string }>>().data;
+    const note = (
+      await ctx.as(agentB, {
+        method: 'POST',
+        url: '/api/v1/notes',
+        payload: { body: 'Pays on the 30th', companyId: company.id },
+      })
+    ).json<Envelope<{ id: string }>>().data;
+
+    expect(await idsAt(agentA, `/api/v1/notes?companyId=${company.id}`)).toContain(note.id);
+    const edit = await ctx.as(agentA, {
+      method: 'PATCH',
+      url: `/api/v1/notes/${note.id}`,
+      payload: { body: 'Changed by someone else' },
+    });
+    expect(edit.statusCode, edit.body).toBe(403);
+  });
+
+  it("exports a colleague's calls on a contact to a team manager, and not a call with no contact", async () => {
+    await ctx.app.settings.patch({ sharedDirectory: true }, null);
+    const team = await ctx.app.db.team.create({ data: { id: crypto.randomUUID(), name: 'Floor' } });
+    const manager = await ctx.createUser({ role: 'manager', teamId: team.id });
+    await call();
+    await ctx.app.db.call.create({
+      data: {
+        id: crypto.randomUUID(),
+        pbxCallId: crypto.randomUUID(),
+        direction: 'inbound',
+        status: 'completed',
+        fromNumber: '+254722000099',
+        toNumber: '1002',
+        externalE164: '+254722000099',
+        userId: agentB.id,
+        startedAt: new Date(),
+      },
+    });
+    const csv = await ctx.as(manager, { method: 'GET', url: '/api/v1/exports/calls' });
+    expect(csv.statusCode, csv.body).toBe(200);
+    expect(csv.body).toContain('722000001');
+    expect(csv.body).not.toContain('722000099');
+  });
 });

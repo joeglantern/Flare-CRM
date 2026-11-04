@@ -27,7 +27,7 @@ import {
 } from '../../lib/errors.js';
 import { newId } from '../../lib/ids.js';
 import { auditContext, requireUser } from '../../lib/request.js';
-import { SHAPES, scopeOf, scopeWhere } from '../../lib/scope.js';
+import { SHAPES, callReadWhere, scopeOf, scopeWhere } from '../../lib/scope.js';
 import { storeUpload } from '../../lib/uploads.js';
 import { QUEUES } from '../../jobs/queues.js';
 
@@ -470,14 +470,7 @@ const importExportRoutes: FastifyPluginAsyncZod = async (app) => {
           const list = await app.db.call.findMany({
             where: {
               AND: [
-                scope.kind === 'all'
-                  ? {}
-                  : {
-                      OR: [
-                        scopeWhere(scope, SHAPES.call) as Prisma.CallWhereInput,
-                        { contact: scopeWhere(scope, SHAPES.contact) },
-                      ],
-                    },
+                callReadWhere(scope) as Prisma.CallWhereInput,
                 ...(range ? [{ startedAt: range }] : []),
               ],
             },
