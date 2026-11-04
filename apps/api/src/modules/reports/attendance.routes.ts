@@ -56,10 +56,14 @@ const attendanceRoutes: FastifyPluginAsyncZod = async (app) => {
   const reportScope = async (request: FastifyRequest): Promise<VisibilityScope> => {
     const { actor } = await scopeOf(app, request);
     const teamReports = await app.entitlements.has('reports_team');
-    if (teamReports && roleHasPermission(actor.role, 'report:view_all')) return { kind: 'all' };
-    if (teamReports && roleHasPermission(actor.role, 'report:view_team') && actor.teamId)
-      return { kind: 'team', teamId: actor.teamId, includeUnassigned: true };
-    if (teamReports && roleHasPermission(actor.role, 'report:view_team')) return { kind: 'all' };
+    // Unlike the call and deal reports, a manager sees every agent here, whatever their own team:
+    // the business wants attendance read across the whole floor.
+    if (
+      teamReports &&
+      (roleHasPermission(actor.role, 'report:view_all') ||
+        roleHasPermission(actor.role, 'report:view_team'))
+    )
+      return { kind: 'all' };
     return { kind: 'own', userId: actor.id, includeUnassigned: false };
   };
 

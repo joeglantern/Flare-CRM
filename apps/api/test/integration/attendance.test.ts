@@ -280,6 +280,24 @@ describe('attendance', () => {
       expect(theirs.days).toHaveLength(0);
     });
 
+    it('shows a manager every agent, including those on other teams', async () => {
+      const [mine, other] = await Promise.all(
+        ['Floor A', 'Floor B'].map((name) =>
+          ctx.app.db.team.create({ data: { id: newId(), name } }),
+        ),
+      );
+      const manager = await ctx.createUser({ role: 'manager', teamId: mine?.id ?? null });
+      const elsewhere = await ctx.createUser({ role: 'agent', teamId: other?.id ?? null });
+      await seed(elsewhere.id, 'signed_in', '2026-10-02T05:00:00Z');
+      await seed(agent.id, 'signed_in', '2026-10-02T05:00:00Z');
+
+      const seen = new Set((await report(manager, range)).days.map((d) => d.userId));
+      expect(seen).toContain(elsewhere.id);
+      expect(seen).toContain(agent.id);
+      const picked = await report(manager, `${range}&userId=${elsewhere.id}`);
+      expect(new Set(picked.days.map((d) => d.userId))).toEqual(new Set([elsewhere.id]));
+    });
+
     it('gates the export on its own permission', async () => {
       const res = await ctx.as(agent, {
         method: 'GET',
