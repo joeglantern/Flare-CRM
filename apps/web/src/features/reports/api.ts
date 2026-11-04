@@ -31,6 +31,7 @@ export interface CallsSummary {
     outbound: number;
     internal: number;
     answered: number;
+    answeredInbound: number;
     missed: number;
     abandoned: number;
     busy: number;

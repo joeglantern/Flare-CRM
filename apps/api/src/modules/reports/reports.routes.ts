@@ -25,6 +25,7 @@ import { scopeOf } from '../../lib/scope.js';
 import { CallsService } from '../calls/calls.service.js';
 import attendanceRoutes from './attendance.routes.js';
 import { ReportsService, type ReportRange } from './reports.service.js';
+import { tallyCalls } from './tally.js';
 
 const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
   const service = new ReportsService(app);
@@ -116,6 +117,52 @@ const reportsRoutes: FastifyPluginAsyncZod = async (app) => {
           data.series.map((s) => [s.date, s.inbound, s.outbound, s.answered, s.missed]),
         );
       return reply.send({ data });
+    },
+  });
+
+  /*
+   * The CRM's calls set against the phone system's own records for the same range. Asks the PBX
+   * live, so it is limited to people who see the whole team and to a few checks a minute.
+   */
+  app.get('/reports/calls/tally', {
+    config: {
+      auth: { permission: 'report:view_team', feature: ['reports', 'telephony'] },
+      rateLimit: { max: 6, timeWindow: '1 minute' },
+    },
+    schema: {
+      tags: ['reports'],
+      querystring: callsReportQuery,
+      response: {
+        200: dataResponse(
+          z.object({
+            from: z.string(),
+            to: z.string(),
+            checkedAt: z.string(),
+            phoneSystemRows: z.number().int(),
+            phoneSystemCalls: z.number().int(),
+            crmCalls: z.number().int(),
+            phoneSystemTalkSec: z.number().int(),
+            crmTalkSec: z.number().int(),
+            lines: z.array(
+              z.object({
+                direction: z.enum(['inbound', 'outbound', 'internal']),
+                outcome: z.enum(['answered', 'not_answered']),
+                phoneSystem: z.number().int(),
+                crm: z.number().int(),
+              }),
+            ),
+            missingFromCrm: z.number().int(),
+            onlyInCrm: z.number().int(),
+            differing: z.number().int(),
+            complete: z.boolean(),
+            agrees: z.boolean(),
+          }),
+        ),
+      },
+    },
+    handler: async (request) => {
+      const range = await rangeOf(request, request.query);
+      return { data: await tallyCalls(app, { from: range.from, to: range.to }) };
     },
   });
 

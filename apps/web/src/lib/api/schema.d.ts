@@ -7992,6 +7992,7 @@ export interface paths {
                                 totals: {
                                     abandoned: number;
                                     answered: number;
+                                    answeredInbound: number;
                                     busy: number;
                                     calls: number;
                                     failed: number;
@@ -8002,6 +8003,72 @@ export interface paths {
                                     voicemail: number;
                                 };
                                 totalTalkSec: number;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/calls/tally": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    format?: "json" | "csv";
+                    from?: string;
+                    teamId?: string;
+                    to?: string;
+                    tz?: string;
+                    userId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                agrees: boolean;
+                                checkedAt: string;
+                                complete: boolean;
+                                crmCalls: number;
+                                crmTalkSec: number;
+                                differing: number;
+                                from: string;
+                                lines: {
+                                    crm: number;
+                                    /** @enum {string} */
+                                    direction: "inbound" | "outbound" | "internal";
+                                    /** @enum {string} */
+                                    outcome: "answered" | "not_answered";
+                                    phoneSystem: number;
+                                }[];
+                                missingFromCrm: number;
+                                onlyInCrm: number;
+                                phoneSystemCalls: number;
+                                phoneSystemRows: number;
+                                phoneSystemTalkSec: number;
+                                to: string;
                             };
                         };
                     };

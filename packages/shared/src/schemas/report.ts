@@ -38,6 +38,7 @@ export const callsSummaryDto = z.object({
     outbound: z.number().int(),
     internal: z.number().int(),
     answered: z.number().int(),
+    answeredInbound: z.number().int(),
     missed: z.number().int(),
     abandoned: z.number().int(),
     busy: z.number().int(),

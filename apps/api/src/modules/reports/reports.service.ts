@@ -66,6 +66,7 @@ export class ReportsService {
         outbound: bigint;
         internal: bigint;
         answered: bigint;
+        answered_inbound: bigint;
         missed: bigint;
         abandoned: bigint;
         busy: bigint;
@@ -81,6 +82,7 @@ export class ReportsService {
         count(*) FILTER (WHERE c.direction = 'outbound') AS outbound,
         count(*) FILTER (WHERE c.direction = 'internal') AS internal,
         count(*) FILTER (WHERE c.status = 'completed') AS answered,
+        count(*) FILTER (WHERE c.status = 'completed' AND c.direction = 'inbound') AS answered_inbound,
         count(*) FILTER (WHERE c.status = 'missed') AS missed,
         count(*) FILTER (WHERE c.status = 'abandoned') AS abandoned,
         count(*) FILTER (WHERE c.status = 'busy') AS busy,
@@ -143,6 +145,7 @@ export class ReportsService {
       outbound: 0n,
       internal: 0n,
       answered: 0n,
+      answered_inbound: 0n,
       missed: 0n,
       abandoned: 0n,
       busy: 0n,
@@ -153,8 +156,8 @@ export class ReportsService {
       total_talk: null,
     };
     const inbound = num(t.inbound);
-    const answeredInbound =
-      inbound - num(t.missed) - num(t.abandoned) - num(t.voicemail) - num(t.busy);
+    // Counted, not derived: subtracting every miss from inbound also took off internal misses.
+    const answeredInbound = num(t.answered_inbound);
     return {
       from: range.from.toISOString(),
       to: range.to.toISOString(),
@@ -164,13 +167,14 @@ export class ReportsService {
         outbound: num(t.outbound),
         internal: num(t.internal),
         answered: num(t.answered),
+        answeredInbound,
         missed: num(t.missed),
         abandoned: num(t.abandoned),
         busy: num(t.busy),
         voicemail: num(t.voicemail),
         failed: num(t.failed),
       },
-      answerRate: inbound > 0 ? round(Math.max(0, answeredInbound) / inbound, 3) : 0,
+      answerRate: inbound > 0 ? round(answeredInbound / inbound, 3) : 0,
       avgTalkSec: round(num(t.avg_talk)),
       avgRingSec: round(num(t.avg_ring)),
       totalTalkSec: num(t.total_talk),

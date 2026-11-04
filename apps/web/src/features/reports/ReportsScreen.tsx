@@ -42,6 +42,7 @@ import {
   type AgentPerformanceRow,
 } from './api';
 import { useSettings } from '@/providers/settings';
+import { TallyPanel } from './TallyPanel';
 import { AttendanceReport } from './AttendanceReport';
 
 const REPORTS = [
@@ -189,12 +190,13 @@ function CallVolumeReport({ filters }: { filters: { from: string; to: string } }
 
   return (
     <div className="flex flex-col gap-4">
+      <TallyPanel filters={filters} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Calls" value={totals.calls} icon={BarChart3} />
         <StatCard
           label="Answer rate"
           value={percent(answerRate)}
-          sub={`${String(totals.answered)} answered of ${String(totals.inbound)} inbound`}
+          sub={`${String(totals.answeredInbound)} answered of ${String(totals.inbound)} inbound`}
           tone={answerRate >= 0.8 ? 'success' : answerRate >= 0.6 ? 'warning' : 'danger'}
         />
         <StatCard label="Talk time" value={<Duration seconds={totalTalkSec} format="long" />} />

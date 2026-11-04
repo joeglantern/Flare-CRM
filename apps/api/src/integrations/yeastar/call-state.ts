@@ -1136,6 +1136,7 @@ export class CallStateMachine {
       registered: null,
       callState,
     });
+    void this.app.presence.phone(mapped.userId, extension, { callState });
     if (callState !== 'idle') await this.fetchCallsFor(extension, receivedAt);
   }
 
@@ -1175,6 +1176,7 @@ export class CallStateMachine {
     if (!mapped) return;
     const registered =
       /registered|online|ok/i.test(status) && !/unregistered|offline/i.test(status);
+    void this.app.presence.phone(mapped.userId, extension, { registered });
     this.app.realtime
       .to([rooms.role('manager'), rooms.role('admin'), rooms.user(mapped.userId)])
       .emit('agent:presence', {

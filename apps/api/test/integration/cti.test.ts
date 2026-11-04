@@ -15,6 +15,7 @@ import {
   inboundRinging,
   nextCallId,
   outboundRinging,
+  pbxNow,
   queueCall,
 } from '../setup/fake-pbx.js';
 import { TestContext, type TestUser } from '../setup/test-app.js';
@@ -1379,6 +1380,224 @@ describe('Yeastar CTI end to end (fake PBX)', () => {
         data: { id: string }[];
       }>().data;
       expect(list).toHaveLength(2);
+    });
+
+    /*
+     * The PBX lists an answered queue call twice under one uid: the queue, with the true start and
+     * total, and the agent. Whichever order they arrive in, the CRM holds one call that agrees with
+     * the PBX on all of it.
+     */
+    for (const order of ['queue first', 'agent first'] as const) {
+      it(`merges the two rows of an answered queue call, ${order}`, async () => {
+        const callId = nextCallId();
+        const uid = `merge-${callId}`;
+        const queueRow = cdr(callId, {
+          from: '0712000666',
+          to: '6410',
+          type: 'Inbound',
+          status: 'ANSWERED',
+          talk: 100,
+          total: 160,
+          uid,
+          timeStart: pbxNow(-200),
+        });
+        const agentRow = cdr(callId, {
+          from: '0712000666',
+          to: '1002',
+          type: 'Inbound',
+          status: 'ANSWERED',
+          talk: 100,
+          total: 110,
+          uid,
+          timeStart: pbxNow(-150),
+        });
+        for (const row of order === 'queue first' ? [queueRow, agentRow] : [agentRow, queueRow]) {
+          await ctx.app.cti.machine.applyCdr(row.msg, 'reconcile');
+        }
+        const rows = await ctx.app.db.call.findMany({ where: { pbxCallId: callId } });
+        expect(rows).toHaveLength(1);
+        expect(rows[0]).toMatchObject({
+          status: 'completed',
+          userId: third.id,
+          extension: '1002',
+          talkDurationSec: 100,
+          totalDurationSec: 160,
+          ringDurationSec: 60,
+          toNumber: '1002',
+        });
+        // Seen again by the next reconciliation: nothing changes.
+        const before = rows[0]?.updatedAt;
+        await ctx.app.cti.machine.applyCdr(queueRow.msg, 'reconcile');
+        const again = await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: callId } });
+        expect(again.updatedAt).toEqual(before);
+      });
+    }
+
+    it('records a phone going busy and idle for the presence report', async () => {
+      pbx.emit({ type: 30008, sn: 'FAKE0001', msg: { extension: '1002', status: 'Busy' } });
+      pbx.emit({ type: 30008, sn: 'FAKE0001', msg: { extension: '1002', status: 'Idle' } });
+      await until(
+        async () =>
+          (await ctx.app.db.agentPresenceEvent.count({
+            where: { userId: third.id, channel: 'phone' },
+          })) >= 2,
+      );
+    });
+
+    it('checks the reports against the phone system, and agrees once brought in line', async () => {
+      const queued = nextCallId();
+      const placed = nextCallId();
+      const uid = `tally-${queued}`;
+      const at = new Date(Date.now() - 60_000);
+      pbx.cdrs = [
+        cdrRow(queued, {
+          from: '0712000669',
+          to: '6410',
+          type: 'Inbound',
+          status: 'ANSWERED',
+          talk: 40,
+          total: 60,
+          uid,
+          at,
+        }),
+        cdrRow(queued, {
+          from: '0712000669',
+          to: '1002',
+          type: 'Inbound',
+          status: 'ANSWERED',
+          talk: 40,
+          total: 45,
+          uid,
+          at,
+        }),
+        cdrRow(placed, {
+          from: '1002',
+          to: '0712000670',
+          type: 'Outbound',
+          status: 'ANSWERED',
+          talk: 9,
+          at,
+        }),
+      ];
+      const from = new Date(Date.now() - 3_600_000).toISOString();
+      const to = new Date(Date.now() + 60_000).toISOString();
+      const url = `/api/v1/reports/calls/tally?from=${from}&to=${to}`;
+      const tally = async () =>
+        (await ctx.as(admin, { method: 'GET', url })).json<{
+          data: {
+            phoneSystemRows: number;
+            phoneSystemCalls: number;
+            crmCalls: number;
+            missingFromCrm: number;
+            differing: number;
+            agrees: boolean;
+            crmTalkSec: number;
+            phoneSystemTalkSec: number;
+          };
+        }>().data;
+
+      expect(await tally()).toMatchObject({
+        phoneSystemRows: 3,
+        phoneSystemCalls: 2,
+        crmCalls: 0,
+        missingFromCrm: 2,
+        agrees: false,
+      });
+      const repaired = await ctx.as(admin, {
+        method: 'POST',
+        url: '/api/v1/cti/reconcile',
+        payload: { since: from },
+      });
+      expect(repaired.statusCode, repaired.body).toBe(200);
+      expect(await tally()).toMatchObject({
+        phoneSystemCalls: 2,
+        crmCalls: 2,
+        missingFromCrm: 0,
+        differing: 0,
+        agrees: true,
+        crmTalkSec: 49,
+        phoneSystemTalkSec: 49,
+      });
+
+      // An answered call that went out is no part of the inbound answer rate.
+      const summary = (
+        await ctx.as(admin, {
+          method: 'GET',
+          url: `/api/v1/reports/calls/summary?from=${from}&to=${to}`,
+        })
+      ).json<{
+        data: { answerRate: number; totals: { answered: number; answeredInbound: number } };
+      }>().data;
+      expect(summary.totals).toMatchObject({ answered: 2, answeredInbound: 1 });
+      expect(summary.answerRate).toBe(1);
+
+      // It reads the phone system live, so it is not for everyone.
+      expect((await ctx.as(third, { method: 'GET', url })).statusCode).toBe(403);
+    });
+
+    it('files a call by the type the PBX gave it, not the live guess', async () => {
+      const callId = nextCallId();
+      // Live state knows only an extension leg, which reads as internal until a trunk leg shows.
+      pbx.emit({
+        type: 30011,
+        sn: 'FAKE0001',
+        msg: {
+          call_id: callId,
+          members: [
+            {
+              extension: {
+                number: '1002',
+                channel_id: `PJSIP/1002-${callId}`,
+                member_status: 'ANSWERED',
+              },
+            },
+          ],
+        },
+      });
+      await until(async () =>
+        Boolean(await ctx.app.db.call.findFirst({ where: { pbxCallId: callId } })),
+      );
+      pbx.emit(
+        cdr(callId, {
+          from: '1002',
+          to: '0712000667',
+          type: 'Outbound',
+          status: 'ANSWERED',
+          talk: 9,
+        }),
+      );
+      await until(async () =>
+        Boolean(
+          await ctx.app.db.call.findFirst({
+            where: { pbxCallId: callId, pbxCdrUid: { not: null } },
+          }),
+        ),
+      );
+      expect(
+        await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: callId } }),
+      ).toMatchObject({ direction: 'outbound', status: 'completed', userId: third.id });
+    });
+
+    it('holds nobody to a queue call nobody answered', async () => {
+      const callId = nextCallId();
+      const ringing = waitFor(await agentSocket(third), 'call:ringing');
+      pbx.emit(
+        queueCall(callId, '0712000668', '6410', [{ extension: '1002', status: 'RING' }], 'ALERT'),
+      );
+      await ringing;
+      pbx.emit(
+        cdr(callId, { from: '0712000668', to: '6410', type: 'Inbound', status: 'NO ANSWER' }),
+      );
+      await until(async () =>
+        Boolean(
+          await ctx.app.db.call.findFirst({
+            where: { pbxCallId: callId, pbxCdrUid: { not: null } },
+          }),
+        ),
+      );
+      expect(
+        await ctx.app.db.call.findFirstOrThrow({ where: { pbxCallId: callId } }),
+      ).toMatchObject({ status: 'missed', userId: null, extension: '6410' });
     });
 
     it('leaves a call that never went through a queue to the phones it rang', async () => {
